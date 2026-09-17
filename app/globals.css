@@ -1,0 +1,133 @@
+@import "tailwindcss";
+
+/* ---------------------------------------------------------------------------
+   Design tokens.
+
+   Chart and status colours come from the validated data-visualisation palette
+   (see docs/proposal/04). Categorical slots are assigned in fixed order and
+   never cycled; status colours are reserved for good / warning / serious /
+   critical and never reused as a series colour.
+
+   Dark values are declared under both scopes: the media query covers the OS
+   setting, the [data-theme] scope covers the in-app toggle and must win.
+--------------------------------------------------------------------------- */
+
+:root {
+  color-scheme: light;
+
+  /* Surfaces and ink */
+  --page:            #f9f9f7;
+  --surface-1:       #fcfcfb;
+  --text-primary:    #0b0b0b;
+  --text-secondary:  #52514e;
+  --text-muted:      #898781;
+  --gridline:        #e1e0d9;
+  --baseline:        #c3c2b7;
+  --hairline:        rgba(11, 11, 11, 0.10);
+  --wash:            rgba(11, 11, 11, 0.04);
+
+  /* Categorical series, fixed order */
+  --series-1:        #2a78d6;  /* blue   */
+  --series-2:        #eb6834;  /* orange */
+  --series-3:        #1baf7a;  /* aqua   */
+
+  /* Ordinal ramp (blue), light end clears the surface at 2:1 */
+  --ordinal-1:       #86b6ef;
+  --ordinal-2:       #5598e7;
+  --ordinal-3:       #2a78d6;
+  --ordinal-4:       #1c5cab;
+  --ordinal-5:       #104281;
+
+  /* Reserved status palette. Always shipped with an icon or label. */
+  --status-good:     #0ca30c;
+  --status-warning:  #fab219;
+  --status-serious:  #ec835a;
+  --status-critical: #d03b3b;
+
+  /* Tinted status washes for table rows and pills */
+  --wash-good:     rgba(12, 163, 12, 0.10);
+  --wash-warning:  rgba(250, 178, 25, 0.16);
+  --wash-serious:  rgba(236, 131, 90, 0.16);
+  --wash-critical: rgba(208, 59, 59, 0.12);
+  --wash-neutral:  rgba(11, 11, 11, 0.05);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+
+    --page:            #0d0d0d;
+    --surface-1:       #1a1a19;
+    --text-primary:    #ffffff;
+    --text-secondary:  #c3c2b7;
+    --text-muted:      #898781;
+    --gridline:        #2c2c2a;
+    --baseline:        #383835;
+    --hairline:        rgba(255, 255, 255, 0.10);
+    --wash:            rgba(255, 255, 255, 0.05);
+
+    --series-1:        #3987e5;
+    --series-2:        #d95926;
+    --series-3:        #199e70;
+
+    --ordinal-1:       #86b6ef;
+    --ordinal-2:       #5598e7;
+    --ordinal-3:       #3987e5;
+    --ordinal-4:       #256abf;
+    --ordinal-5:       #184f95;
+
+    --wash-good:     rgba(12, 163, 12, 0.18);
+    --wash-warning:  rgba(250, 178, 25, 0.18);
+    --wash-serious:  rgba(236, 131, 90, 0.18);
+    --wash-critical: rgba(208, 59, 59, 0.20);
+    --wash-neutral:  rgba(255, 255, 255, 0.06);
+  }
+}
+
+:root[data-theme="dark"] {
+  color-scheme: dark;
+
+  --page:            #0d0d0d;
+  --surface-1:       #1a1a19;
+  --text-primary:    #ffffff;
+  --text-secondary:  #c3c2b7;
+  --text-muted:      #898781;
+  --gridline:        #2c2c2a;
+  --baseline:        #383835;
+  --hairline:        rgba(255, 255, 255, 0.10);
+  --wash:            rgba(255, 255, 255, 0.05);
+
+  --series-1:        #3987e5;
+  --series-2:        #d95926;
+  --series-3:        #199e70;
+
+  --ordinal-1:       #86b6ef;
+  --ordinal-2:       #5598e7;
+  --ordinal-3:       #3987e5;
+  --ordinal-4:       #256abf;
+  --ordinal-5:       #184f95;
+
+  --wash-good:     rgba(12, 163, 12, 0.18);
+  --wash-warning:  rgba(250, 178, 25, 0.18);
+  --wash-serious:  rgba(236, 131, 90, 0.18);
+  --wash-critical: rgba(208, 59, 59, 0.20);
+  --wash-neutral:  rgba(255, 255, 255, 0.06);
+}
+
+html,
+body {
+  background: var(--page);
+  color: var(--text-primary);
+  font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+  -webkit-font-smoothing: antialiased;
+}
+
+* {
+  border-color: var(--hairline);
+}
+
+/* Numbers that must line up vertically get equal-width digits.
+   Large standalone figures deliberately keep proportional figures. */
+.tnum {
+  font-variant-numeric: tabular-nums;
+}
