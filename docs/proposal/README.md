@@ -14,16 +14,20 @@ Read in this order:
 | 04 | [Management dashboard and KPIs](04-management-dashboard-kpis.md) | What management sees on one screen |
 | 05 | [Automation and integrations](05-automation-and-integrations.md) | What the portal can do alone vs. what needs Casper / Indeed / email |
 | 06 | [Access and permissions](06-access-permissions.md) | Who can see and do what, and the separation-of-duty rules |
-| 07 | [Open questions](07-open-questions.md) | Things we must confirm before building |
+| 07 | [Open questions](07-open-questions.md) | Decision log, and what is still open |
+| 08 | [The portal as the officer system of record](08-officer-system-of-record.md) | What replacing INDEL involves, and how to stage it |
 
-## The one thing to read first
+## The two things to read first
 
-Document 01 contains a **sequencing problem** in the current process: officers appear to be
-hired in Casper and added to the live systems *before* any screening has been done. BS 7858
-requires a defined minimum set of checks to be complete **before** an offer of employment is
-made. This is the single most important item to agree, because it changes the order of the
-workflow the portal will enforce. Everything else in this proposal is comparatively
-straightforward.
+**Document 01 §3.1** raised a possible sequencing problem — officers appearing to be hired and made
+live before screening. That came back clean: the order is compliant in practice and, on the
+criminality element, stricter than the standard's minimum. The written process was misleading about
+its own order rather than wrong.
+
+**Document 08** is now the one that needs a decision. The portal has been confirmed as replacing
+INDEL rather than writing to it, which roughly doubles the scope — it adds everything that happens
+to an officer after they go live, including shift assignment. Phase 1 is unaffected; everything
+after it is.
 
 ## A note on the standard itself
 

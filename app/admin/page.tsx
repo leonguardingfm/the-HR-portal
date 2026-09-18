@@ -79,6 +79,7 @@ export default function AdminPage() {
               ["Pre-deployment policy", `Criminality (7.7j) and right to work must be complete before an officer reaches site — stricter than the standard`],
               ["Interview stages", `First (Recruitment, by phone), second (HR Manager, on site or video), and an additional stage only where a client asks for one. All required stages must be held before any offer (7.3.4)`],
               ["Role assignment", `Set per person in Admin, not fixed in the build — ${ROLE_OPTIONS.length} roles to choose from, and people may hold more than one`],
+              ["Contract condition", "Confirmation depends on screening completing within the permitted period, and conditional employment ends if it does not (7.5.2)"],
             ].map(([label, value]) => (
               <li key={label} className="flex items-start justify-between gap-3 py-2">
                 <div className="min-w-0 flex-1">

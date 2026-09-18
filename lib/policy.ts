@@ -89,6 +89,26 @@ export const PRE_DEPLOYMENT_CHECK_GROUPS = [
 export const POST_DEPLOYMENT_CHECK_GROUPS = ["history"] as const;
 
 /**
+ * The employment contract condition.
+ *
+ * Confirmed 19 September 2026: confirmed employment depends on satisfactory
+ * completion of screening within the permitted period, and conditional
+ * employment ends if it does not complete.
+ *
+ * This is what makes signing the contract before history verification finishes
+ * defensible [7.5.2], and it is the wording the portal's gates and clock
+ * assume. An earlier answer reported the current contract as not stating it
+ * expressly, so the amendment is tracked as C18 in docs/proposal/07 — the
+ * portal enforces the rule either way, but it cannot make a contract say
+ * something it does not say.
+ */
+export const CONTRACT_CONDITION = {
+  confirmationDependsOnScreening: true,
+  conditionalEmploymentEndsIfIncomplete: true,
+  clause: "7.5.2",
+} as const;
+
+/**
  * Interviews.
  *
  * Three stages, the third used only where a client asks for it:

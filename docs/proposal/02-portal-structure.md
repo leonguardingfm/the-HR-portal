@@ -57,14 +57,23 @@ headcount is tracked as *required / allocated / remaining*.
 creates work in HR's queue the moment it happens, with a timestamp — which is how we later measure
 how long HR took to react, and how long requirements sit unfilled.
 
-### 2.4 Officers — the existing pool
+### 2.4 Officers — the officer system of record
 Control's first action is to check whether existing officers can cover a requirement, so the
 portal needs the pool to be searchable and trustworthy: name as per SIA badge, PIN, licence number
 and expiry, sites worked, availability, current deployability status, and whether their BS 7858
 file is complete or conditional.
 
 This is also where licence-expiry monitoring lives. An officer whose SIA licence lapses is not
-deployable, and that should surface 90, 60 and 30 days ahead, not on the day.
+deployable, and that should surface 90, 60 and 30 days ahead, not on the day. The same applies to
+right to work: once the recorded expiry passes, no further shifts can be assigned until updated
+evidence is verified.
+
+**This module grows.** Following the decision that the portal replaces INDEL, the officer record
+becomes authoritative rather than a view of the pool: personnel and employment information,
+ongoing compliance, documents with their expiry dates, SIA status monitoring, and the daily visa
+and right-to-work report. The natural moment for that is deployment — an officer onboarded through
+the portal already has all of it, so the record simply does not stop when they go live. Staging in
+[document 08](08-officer-system-of-record.md).
 
 ### 2.5 Candidates — the recruitment pipeline
 The single record. Created at the point of shortlisting, and **never created twice** — see the
@@ -123,6 +132,13 @@ recorded, name added to the Recruitment Sheet exactly as per SIA badge, PIN assi
 profile created, added to Watch List, added to Maps, hired in Casper, New Recruit Onboarding Group
 notified. Nothing changes about *what* these are — the portal just makes them a tracked checklist
 instead of a memory exercise, and several can be pre-filled or automated (document 05).
+
+### 2.7a Shifts — not built, Stage D
+
+Shift assignment is the one part of INDEL that is a different application rather than an extension
+of this one: rosters, patterns, availability, clashes and last-minute cover, used by Control to the
+hour. It needs its own discovery with Control and should not begin until the officer record and the
+monitoring that hangs off it are stable. See [document 08 §4](08-officer-system-of-record.md).
 
 ### 2.8 Reports
 KPIs, stage-by-stage delay analysis, workload by owner, source effectiveness, and — importantly —

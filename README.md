@@ -19,9 +19,11 @@ career-history verification**, inside the 12 weeks the standard allows. Intervie
 three stages (first by Recruitment, second by the HR Manager, plus an additional stage where a
 client requires one), and Gate 1 enforces every stage that client needs.
 
-The systems around it: **Casper** holds the application, **INDEL** is the current system of record
-for officers, the **Watch List is the SIA website** checked twice daily, and **Maps is Google
-Maps** used by Control for deployment.
+The systems around it: **Casper** holds the application, the **Watch List is the SIA website**
+checked twice daily, and **Maps is Google Maps** used by Control for deployment. **INDEL** is the
+current system of record for officers, and the portal is confirmed as **replacing** it rather than
+integrating with it — which roughly doubles the scope and is set out in
+[document 08](docs/proposal/08-officer-system-of-record.md).
 
 ```bash
 npm install
@@ -55,7 +57,7 @@ rules are expressed as conditions on whoever is assigned, so they hold at any te
 | Sign-in with name and active role, and who is working on what | `components/layout/SessionContext.tsx`, `components/dashboard/ActiveNow.tsx` |
 | Retention periods, risk-acceptance threshold, gap limits | `lib/bs7858.ts` |
 | Service levels, chaser ladders, task severity | `lib/sla.ts` — ours and configurable, deliberately separate from the standard's rules |
-| Company policy that exceeds the standard | `lib/policy.ts` — the deployment gate, the pre/post-deployment split, the named vetting pair |
+| Company policy that exceeds the standard | `lib/policy.ts` — the deployment gate, the pre/post-deployment split, the contract condition |
 | Role-based navigation | `components/layout/nav.ts` |
 
 | Stub | Note |
@@ -128,7 +130,8 @@ colour is never the only channel. Light and dark are each validated against thei
 | [04 Dashboard and KPIs](docs/proposal/04-management-dashboard-kpis.md) | What management sees, and what we measure |
 | [05 Automation and integrations](docs/proposal/05-automation-and-integrations.md) | In-portal automation vs. Casper / Indeed / email integrations |
 | [06 Access and permissions](docs/proposal/06-access-permissions.md) | Role matrix and separation-of-duty rules |
-| [07 Open questions](docs/proposal/07-open-questions.md) | What needs confirming before we build further |
+| [07 Open questions](docs/proposal/07-open-questions.md) | Decision log, and what is still open |
+| [08 Officer system of record](docs/proposal/08-officer-system-of-record.md) | What replacing INDEL involves, and how to stage it |
 
 ## Note on the standard
 

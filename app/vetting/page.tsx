@@ -4,7 +4,11 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { ClauseRef, StatusPill, Tag } from "@/components/ui/StatusPill";
 import { VettingClockBoard } from "@/components/dashboard/VettingClockBoard";
 import { evaluateGate1, evaluateGate2 } from "@/lib/bs7858";
-import { evaluateDeploymentGate, reviewIndependence } from "@/lib/policy";
+import {
+  CONTRACT_CONDITION,
+  evaluateDeploymentGate,
+  reviewIndependence,
+} from "@/lib/policy";
 import { CHECK_STATUS_LABELS, RECRUITMENT_STAGE_ORDER } from "@/lib/labels";
 import {
   candidateById,
@@ -182,6 +186,15 @@ export default function VettingPage() {
             The five-year history verified with no unverified period over 31
             days, then reviewed by the controller. <ClauseRef clause="7.7" />
           </p>
+          {CONTRACT_CONDITION.conditionalEmploymentEndsIfIncomplete && (
+            <p className="mt-2 text-[11px]" style={{ color: "var(--text-muted)" }}>
+              The contract makes confirmation depend on screening completing
+              within the permitted period, and conditional employment ends if it
+              does not — which is what makes signing before verification
+              finishes defensible.{" "}
+              <ClauseRef clause={CONTRACT_CONDITION.clause} />
+            </p>
+          )}
         </Card>
       </div>
 

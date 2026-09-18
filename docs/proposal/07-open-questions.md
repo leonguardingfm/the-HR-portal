@@ -160,6 +160,50 @@ the primary source of officer data. Those are two very different builds:
 The second is a materially larger programme. **C15 below** — worth deciding
 explicitly rather than drifting into.
 
+## C10 and C15 answered — 19 September 2026
+
+| # | Question | Answer |
+|---|----------|--------|
+| C10 | Does the contract make confirmed employment depend on screening completing within the permitted period? | **Yes — confirmation depends on satisfactory completion within the permitted period, and conditional employment ends if it does not.** |
+| C15 | Does the portal replace INDEL, or write to it? | **Replace it.** Noted as not yet thought through, so the shape of that is set out in [document 08](08-officer-system-of-record.md). |
+
+### C10 — one thing to close out
+
+The position is now confirmed, and it is the right one: it is what makes signing
+the contract before history verification completes defensible [7.5.2].
+
+But the earlier, fuller answer to this question said the **current wording does
+not expressly state it** and that the contract therefore needs amending. Those
+two answers are only compatible if this one is read as *"yes, that is how it
+should work"* rather than *"yes, the contract already says so"*. We have taken
+it the first way, because taking it the second way and being wrong would leave a
+real hole.
+
+**So the remaining action is on the document, not the portal:** amend the
+contract so the condition is explicit, and confirm when that is signed off.
+Tracked as **C18**. The portal enforces the rule either way — it is what Gate 3
+and the clock already do — but the portal cannot make a contract say something
+it does not say.
+
+### C15 — the portal becomes the officer system of record
+
+This is the largest scope decision in the project so far, and it was answered
+without having been considered, so it deserves more than a line in a table.
+[Document 08](08-officer-system-of-record.md) sets out what INDEL does today,
+what replacing each part involves, what the risks are, and a staged route that
+avoids a big-bang cutover.
+
+The short version: **recruitment and vetting are roughly half the job.** The
+other half is what INDEL does after an officer is live — shift assignment,
+compliance monitoring, expiry alerting and the daily reports — and that is a
+second programme, not a phase.
+
+Our recommendation is to **build the portal as the system of record from the
+start, but take over INDEL's functions in stages**, running in parallel until
+each one is proven. The alternative — replacing everything at once — puts the
+daily visa and right-to-work monitoring at risk during cutover, and that is the
+one thing that must not lapse.
+
 ## A. Blocking — answered above, kept for the record
 
 | # | Question | Why it blocks |
@@ -192,14 +236,17 @@ table above leads with the corrections.
 | C7 | **Do any posts bring officers into contact with children or vulnerable adults?** A higher level of disclosure may be needed [7.7j, Note 6]. |
 | C8 | **Do our insurers impose requirements beyond BS 7858** — a longer screening period, or additional checks [Clause 1, Note 2]? |
 | C9 | **Are we NSI or SIA ACS approved?** This affects audit expectations and what evidence the portal should be able to produce on demand. |
-| C10 | **Does the employment contract currently state** that confirmed employment depends on satisfactory full screening within the period allowed, and that conditional employment ends if it does not complete [7.5.2]? If not, the contract needs amending, not just the portal. **Now more pressing:** A1 confirms the contract is signed before history verification completes, so this wording is what makes that sequence defensible. |
+| ~~C10~~ | ~~Does the employment contract currently state~~ that confirmed employment depends on satisfactory full screening within the period allowed, and that conditional employment ends if it does not complete [7.5.2]? If not, the contract needs amending, not just the portal. **Now more pressing:** A1 confirms the contract is signed before history verification completes, so this wording is what makes that sequence defensible. |
 | ~~C11~~ | ~~Who screens the controllers?~~ **Answered:** higher management administers their files, so the review falls to another controller. See [01 §4.1](01-process-and-compliance-review.md). |
 | ~~C12~~ | ~~Are the vetting staff recorded as competent in both roles?~~ **Answered:** yes, with training records maintained and reviewed annually [6.2]. |
 | C13 | **Is higher management's clause 6.2 training recorded, with an annual review date, and the confidentiality agreement on file?** Administering the vetting team's own files brings whoever does it inside 6.1 and 6.2. The portal will not grant the administrator role without them. |
 | C14 | **Retention practice — partially answered.** We know the data protection officer owns secure disposal. Still open: are unsuccessful applicants disposed of at 12 months, leavers at 7 years, and is the disposal itself recorded [11.1, 11.3]? |
-| C15 | **Does the portal replace INDEL as the officer system of record, or write to it?** B8 can be read either way, and the difference is a materially larger programme — shift assignment, compliance monitoring, expiry alerting and daily reports all sit in INDEL today. |
+| ~~C15~~ | ~~Does the portal replace INDEL, or write to it?~~ **Answered: replace it.** Scope and staging in [document 08](08-officer-system-of-record.md). |
 | C16 | **Which clients or posts involve contact with children or vulnerable adults, and what level of disclosure is obtained for them today?** C7 confirms some do [7.7j, Note 6]. |
-| C17 | **Does INDEL expose an API?** Casper's was confirmed; INDEL's was not. It is the system of record for the officer pool, so it is the next most valuable integration — and the answer also bears on C15. |
+| C18 | **Has the contract been amended so the condition is explicit, and when is it signed off?** The position is confirmed; the wording was previously reported as not stating it. See C10 above. |
+| C19 | **Who rosters, and where?** If the portal replaces INDEL it takes on shift assignment. Control does this in INDEL today — does that move wholesale, and does anything else depend on INDEL's rostering? See document 08. |
+| C20 | **What is in INDEL that we have not listed?** Document 08 works from the description in B3 and B8. Before any migration we need a full field-level inventory, including anything only one person knows is there. |
+| C17 | **Does INDEL expose an API?** Still relevant even though we are replacing it — a migration needs to get the data out, and parallel running needs to keep both in step. | Casper's was confirmed; INDEL's was not. It is the system of record for the officer pool, so it is the next most valuable integration — and the answer also bears on C15. |
 
 ## D. Preferences — answered
 
@@ -227,16 +274,19 @@ A1 to A8 are answered, and Phase 1 can proceed on them.
 Sections A, B, D and most of C are answered, and Phase 1 can proceed. Five items
 remain, in the order they hold things up:
 
-1. **C15 — does the portal replace INDEL, or write to it?** This is a scope
-   decision, not a detail, and it changes what Phase 1 contains. Worth a
-   deliberate answer.
-2. **C16 — which posts involve regulated activity**, and what disclosure is
+1. **Read [document 08](08-officer-system-of-record.md) and agree the staging.**
+   C15 roughly doubles the scope. It does not change Phase 1, which is the good
+   news, but it changes everything after it and it needs a deliberate decision
+   rather than a default.
+2. **C19, C20 — rostering, and a full inventory of what INDEL holds.** Both
+   needed before any migration is planned rather than guessed.
+3. **C16 — which posts involve regulated activity**, and what disclosure is
    obtained for them. C7 confirms some do, so this is real compliance work
    currently unspecified.
-3. **C10 — the contract wording.** A document to amend. The portal cannot cover
-   for it.
-4. **C13, C14 — training evidence for whoever administers the controllers'
+4. **C18 — the contract amendment.** A document to sign off. The portal cannot
+   cover for it.
+5. **C13, C14 — training evidence for whoever administers the controllers'
    files, and the retention practice.** Both block specific portal behaviour:
    role grants, and the disposal queue.
-5. **D5 — name the portal owner**, so decisions during the build have a single
-   route.
+6. **D5 — name the portal owner.** This one gets more pressing with C15: a
+   programme this size needs a single route for decisions.

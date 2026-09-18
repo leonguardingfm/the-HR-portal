@@ -27,7 +27,7 @@ export default function OfficersPage() {
     <div className="space-y-5">
       <PageHeader
         title="Officers"
-        description="The existing pool. Control's first action on any requirement is to check here, so it has to be searchable and trustworthy."
+        description="The officer system of record. Control's first action on any requirement is to check here, so it has to be searchable and trustworthy — and following the decision to replace INDEL, this record no longer stops when an officer goes live."
       />
 
       <Card
@@ -101,6 +101,7 @@ export default function OfficersPage() {
       </Card>
 
       <ModuleOutline
+        note="Everything here except shift assignment is a natural extension of the candidate and screening record already being built — the same person carries through rather than being re-created at deployment. Shift assignment is a different application, and belongs in its own discovery with Control. See docs/proposal/08."
         items={[
           {
             label: "Pool search for the requirement check",
@@ -123,11 +124,20 @@ export default function OfficersPage() {
             detail: "Warnings at 90, 60 and 30 days rather than the one month INDEL gives today, chased by email and message, with shift assignment blocked once the expiry passes until updated evidence is verified. Plus the daily visa and right-to-work status report.",
             phase: 1,
           },
-
           {
             label: "Client PRN mapping",
             detail: "Where a site keeps its own reference for an officer alongside our PIN, the two are recorded against each other so neither side has to match on a name.",
             phase: 1,
+          },
+          {
+            label: "Officer record becomes authoritative",
+            detail: "Personnel and employment information, ongoing compliance, and documents with their expiry dates — taking over from INDEL. Run in parallel, with both systems producing the same alerts and daily report until they agree, before INDEL's are turned off.",
+            phase: 3,
+          },
+          {
+            label: "Shift assignment",
+            detail: "Rosters, patterns, availability, clashes and last-minute cover, used by Control to the hour. Its own discovery and design, and not started until the officer record and the monitoring hanging off it are stable.",
+            phase: 4,
           },
         ]}
       />
