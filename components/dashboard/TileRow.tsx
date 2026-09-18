@@ -98,7 +98,7 @@ export function TileRow() {
         <StatTile
           label="In conditional employment with screening incomplete"
           value={onClock.length}
-          detail="Deployed on a 12 or 16 week clock. A persistently high number means screening is the constraint on growth."
+          detail="On site with five-year history verification still running, inside the 12-week window. A persistently high number means screening is the constraint on growth."
           href="/vetting"
         />
       </div>

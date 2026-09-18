@@ -20,15 +20,34 @@ need to see the convictions or the CCJs.
 
 ## 2. Roles
 
+Named assignments confirmed September 2026.
+
 | Role | Who | Purpose |
 |------|-----|---------|
 | **Control** | Control Alpha (3), Control Bravo (2) | Raise requirements, check the officer pool, allocate officers, roster |
-| **Recruitment** | HR recruiters | Source, shortlist, invite, chase, interview, issue packs, onboard |
-| **Recruitment Manager** | HR lead | All of Recruitment plus workload, reassignment, escalations |
-| **Vetting Administrator** | Screening administrator [3.10] | Carry out checks, request and record evidence, maintain the file |
-| **Vetting Controller** | Screening controller [3.11] | Review and sign off files; responsible for the process being carried out correctly |
-| **Top Management** | Directors / authorised persons [3.15] | Accept risk, approve extensions and statutory declarations, oversight |
+| **Recruitment** | **Ahmed**, **Usman** | Source, shortlist, invite, chase, interview, issue packs, onboard |
+| **Recruitment Manager** | Not yet assigned | All of Recruitment plus workload, reassignment, escalations |
+| **Vetting Administrator** | **Anas** or **Talha**, per file [3.10] | Carry out checks, request and record evidence, maintain the file |
+| **Vetting Controller** | **Talha** or **Anas** — whichever is not the administrator on that file [3.11] | Review and sign off files; responsible for the process being carried out correctly |
+| **Top Management** | **Farhan** [3.15] | Accept risk, approve extensions and statutory declarations, oversight |
 | **Auditor** | Internal audit, external certification body, insurer | Read-only across everything, including the audit log |
+
+### 2.1 The alternating vetting pair
+
+Anas and Talha both hold both vetting roles, assigned **per file**: whoever administers a file, the
+other reviews it. The portal enforces the pairing, so the same person can never be administrator
+and controller on one file [3.10, 3.11, 7.5.2b]. Both therefore need to be trained and recorded as
+competent in both roles [6.2].
+
+Recruitment and vetting sitting with different people (Ahmed and Usman versus Anas and Talha) is
+exactly the separation of functions clause 6.1 asks for — nobody interviews a candidate and then
+signs off their own screening file.
+
+**One gap remains.** Anas and Talha must each be screened themselves, and neither may screen
+themselves [6.1]. For Anas's own file, Talha can administer — but the controller then has to be
+someone who is neither the subject nor the administrator, which rules out both of them. That needs
+Farhan (trained to 6.2 and screened himself) or an accredited provider for those two files. See
+C11 in [document 07](07-open-questions.md).
 | **Candidate** | Applicant, self-service | Their own record only: complete the form, upload documents, see what is outstanding |
 | **System Administrator** | IT | Users, roles, templates, SLA configuration — **not** candidate or screening data |
 
@@ -90,10 +109,10 @@ These are the ones worth writing as constraints in the database rather than as p
 
 ## 5. Things to confirm
 
-- **Who is the named screening controller**, and who are the administrators? The permission model
-  needs real names, and those people need to be screened and trained themselves.
-- **Who counts as top management / authorised persons** for risk acceptance, extensions and
-  statutory declarations? This should be a short, named list.
+- **Who is the screening controller on Anas's and Talha's own files?** See §2.1 above and C11 in
+  document 07. This blocks granting either of them their role in the portal, because the system
+  checks their own screening status before it will.
+- **Who screens Farhan**, if he takes the controller role on those two files?
 - **Do Control staff need any candidate visibility at all** beyond "an officer is allocated and is
   deployable"? The matrix above assumes not, which is the safer default, but Control may have a
   practical need we should hear before locking it down.

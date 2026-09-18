@@ -11,7 +11,7 @@ interface RoleContextValue {
 }
 
 const RoleContext = createContext<RoleContextValue>({
-  role: "recruitment_manager",
+  role: "top_management",
   setRole: () => {},
 });
 
@@ -24,7 +24,7 @@ const RoleContext = createContext<RoleContextValue>({
  * separate logins.
  */
 export function RoleProvider({ children }: { children: React.ReactNode }) {
-  const [role, setRoleState] = useState<Role>("recruitment_manager");
+  const [role, setRoleState] = useState<Role>("top_management");
 
   useEffect(() => {
     try {

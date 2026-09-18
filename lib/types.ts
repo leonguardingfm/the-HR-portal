@@ -164,7 +164,7 @@ export interface ScreeningFile {
   candidateId: string;
   screeningPeriodYears: ScreeningPeriodYears;
   status: VettingStatus;
-  /** Set when Gate 1 clears. Starts the 12 or 16 week clock [7.6]. */
+  /** Set when Gate 1 clears. Starts the clock [7.6]. */
   conditionalEmploymentStart: string | null;
   /** Single extension of up to 4 weeks, top management approved [7.6]. */
   extensionWeeks: 0 | 4;

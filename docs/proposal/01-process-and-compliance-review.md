@@ -155,45 +155,71 @@ Below is the process as described, with the BS 7858 position against each step.
 
 ## 3. Gaps and inconsistencies to resolve
 
-These are raised for clarification rather than assumed. Items 3.1 and 3.2 are the material ones.
+Raised for clarification rather than assumed. **Five have now been answered (Sept 2026)** and are
+marked RESOLVED below; the rest still need a decision. The two items originally flagged as
+material — 3.1 and 3.2 — both came back clean: the process is compliant in practice, and the
+written description was misleading about its own order rather than wrong.
 
-### 3.1 Screening currently runs after hiring, not before it (material)
+### 3.1 Order of screening and deployment — RESOLVED
 
-In the process as written, the "online history checks" sit in step 6, alongside hiring in Casper,
-PIN assignment, and adding the officer to the Watch List and Maps. The Employment Contract has
-already been signed in step 5.
+This was raised as the material concern, because the written process put the "online history
+checks" in step 6 alongside the Casper hire, after the Employment Contract had been signed in
+step 5.
 
-BS 7858 expects the opposite order: information complete → preliminary checks → limited screening
-→ **controller review** → only then an offer of conditional employment → and only then a 12 or 16
-week clock to finish full screening.
+**Confirmed (Sept 2026):** officers are deployed to a client site **only after initial screening**.
+The one element that runs after deployment is **verification of the five-year career history**,
+which completes within the 12 weeks BS 7858 allows. Everything else is complete before anyone goes
+to site.
 
-**What we need to confirm:** are officers ever deployed to a client site before any screening has
-been done? If so, that is the gap to close, and it changes the workflow the portal enforces.
+That is compliant, and on one point it is **stricter than the standard's minimum**: the standard
+treats the criminality element [7.7j] as part of full screening, whereas we complete it before
+deployment. Worth keeping, and worth recording as a deliberate local policy rather than letting it
+drift.
 
-**Proposed target order** (detail in document 03):
+So the written process was misleading about its own order rather than wrong in practice. The
+portal will enforce the confirmed order:
 
 ```
-Application complete  ->  Interview  ->  Preliminary checks (7.4)  ->  Limited screening (7.5.2)
-      ->  Controller review + documented risk evaluation
-      ->  CONDITIONAL offer: Welcome Pack, contract signed, clock starts
-      ->  Onboarding admin: PIN, Casper hire, Watch List, Maps, Recruitment Sheet  ->  DEPLOYABLE
-      ->  Full screening completes within 12/16 weeks  ->  Controller review  ->  CONFIRMED
+Application complete  ->  Interview  ->  Preliminary checks (7.4)
+      ->  Limited screening: 3-year history (7.5.2)
+      ->  Identity, address, sanctions, public record, criminality, right to work
+      ->  Controller review + documented risk evaluation (7.5.1)
+      ->  CONDITIONAL offer: Welcome Pack, contract signed        [12-WEEK CLOCK STARTS]
+      ->  Onboarding admin: PIN, Casper hire, Watch List, Maps, Recruitment Sheet
+      ->  DEPLOYABLE
+      ->  Five-year career history verified within 12 weeks (7.7)
+      ->  Controller review  ->  CONFIRMED EMPLOYMENT
 ```
 
-The post-onboarding admin tasks stay exactly where they are. What moves earlier is the *checking*.
+The post-onboarding admin tasks stay exactly where they are. The only thing that moves is the
+*recording* of checks that already happen.
 
-### 3.2 The Declaration & Consent arrives too late (material)
+**Two consequences worth noting.** First, the 12-week clock now covers a single, well-defined
+piece of work — five-year history verification — which makes it far easier to forecast and to
+staff. Second, because the Employment Contract is signed before that work finishes, the contract
+must state that confirmed employment depends on satisfactory completion of full screening within
+the period allowed, and that conditional employment ends if it does not [7.5.2]. That wording is
+still to be checked — see C10 in [document 07](07-open-questions.md).
 
-Screening requires written authorisation before we approach employers, government departments or
-a credit reference agency [7.3.2f, 7.3.3]. In the current process that consent is inside the
-Welcome Pack, which is sent only after the application and documents are complete.
+### 3.2 Consent to screen — RESOLVED
 
-**Recommendation:** move the Declaration & Consent and the BS 7858 screening consent into the
-**application form itself** (the standard explicitly allows this — its example Form 3 "can be
-used as a separate form or as part of the application form" [7.3.2, Note 6]). The Welcome Pack
-then carries only what it should: handbook, contract, confidentiality, restrictive covenant.
+The concern was that written authorisation must exist before we approach employers, government
+departments or a credit reference agency [7.3.2f, 7.3.3], and that the Declaration & Consent
+appeared to arrive only with the Welcome Pack.
 
-This single change is what makes it possible to start checks days earlier without chasing anybody.
+**Confirmed (Sept 2026):** the Casper application form already collects everything clause 7.3.2
+requires, which includes the written authorisation [7.3.2f] and the signed declaration [7.3.2g].
+The Welcome Pack is additionally returned signed the same day or the next. Consent therefore
+exists before checks begin, and nothing needs to move.
+
+The standard explicitly permits this arrangement — its example Form 3 "can be used as a separate
+form or as part of the application form" [7.3.2, Note 6].
+
+One detail the portal should still capture per employer rather than once per candidate: the
+**permission-to-contact flag**. A current employer must not be approached without the individual's
+prior written permission [7.7b], and where that permission is withheld until an offer is made, the
+individual has to be told the offer can be withdrawn if screening is not concluded satisfactorily
+[7.3.3a]. A single blanket consent on the form does not carry that distinction.
 
 ### 3.3 The interview is not in the written process
 
@@ -221,17 +247,21 @@ the criminality element [7.7j].
 **To confirm:** which of these do we do today, and by what means? The portal should track each as
 its own check with its own evidence, status and owner.
 
-### 3.5 5-year or 10-year?
+### 3.5 Screening period — RESOLVED
 
-The whole clock — 12 weeks versus 16 weeks — depends on this, and it can vary by client contract
-or insurer. Some insurers require BS 7858 as a policy condition **and impose additional
-requirements such as a longer screening period** [Clause 1, Note 2].
+**Confirmed (Sept 2026): we screen to five years.** The clock is therefore **12 weeks** for every
+file [7.6], and there is one number to explain rather than two.
 
-**To confirm:** our default, and any clients or insurers who require 10 years or an extended
-period. The portal should set the screening period per candidate at file creation, driven by the
-client contract, and derive the deadline from it automatically.
+The portal keeps the 10-year path available but unused, for two reasons the standard raises
+directly: the screening period has to be extended for contractual or legislative reasons or
+specific industry standards [7.3.2b], and some insurers require BS 7858 as a policy condition
+**and impose additional requirements such as a longer screening period** [Clause 1, Note 2]. So it
+stays a per-client setting with a five-year default, rather than being hard-coded.
 
-### 3.6 Does the Casper application form collect everything 7.3.2 needs?
+Still worth confirming: whether our insurers impose anything beyond the standard — C8 in
+[document 07](07-open-questions.md).
+
+### 3.6 Casper application form — RESOLVED
 
 If it does not, no amount of portal chasing will fix it — we will just be chasing a fixed form
 forever. The form needs to capture at minimum:
@@ -250,16 +280,30 @@ forever. The form needs to capture at minimum:
 - The misrepresentation acknowledgement, the written authorisation, and the signed declaration
   [7.3.2e, f, g]
 
-**To confirm:** which of these Casper already captures, and whether we can change the form.
+**Confirmed (Sept 2026):** the Casper form contains everything clause 7.3.2 requires, **and it can
+be changed** if we find a gap. That removes the worst-case scenario, which was chasing candidates
+forever against a form we could not fix.
 
-### 3.7 In-house or outsourced vetting?
+Two things to verify against the live form rather than assume, because they are the items most
+often missing in practice: the **permission-to-contact flag held per employer** rather than as one
+blanket consent, and **all SIA licences held including expired ones** `[SV]`. Both are cheap to add
+and both save a re-request later.
 
-The acceptable-documents guide provided is from Staffvetting.com, an NSI Gold accredited BS 7858
-provider. If we outsource to them, then per 6.3 we still retain ultimate responsibility and
-**must review the completed screening file ourselves** — which means the portal needs a "provider
-file received and reviewed by our controller" step, not just "sent to provider".
+### 3.7 In-house or outsourced vetting — RESOLVED
 
-**To confirm:** in-house, outsourced, or a split — and if outsourced, who on our side reviews.
+**Confirmed (Sept 2026): vetting is done in-house.** The outsourcing provisions of clause 6.3 do
+not apply, so there is no "provider file received and reviewed" step to build.
+
+The provider guide supplied (Staffvetting.com) is therefore useful as a **document-acceptance
+standard** rather than as a description of who does the work. Its rules are stricter than the
+standard's wording and they are the reason documents get rejected, so the portal encodes them as
+upload-time validation — see §3.9 below.
+
+Doing it in-house makes clauses 6.1 and 6.2 our responsibility directly: the screening controller
+and administrators must themselves be screened to BS 7858, must not screen themselves, must sign
+confidentiality agreements covering employment and post-employment, and must have training records
+maintained and reviewed at least annually. With a two-person vetting team this needs a specific
+arrangement — see §4 below.
 
 ### 3.8 The spreadsheets overlap
 
@@ -308,3 +352,52 @@ available to us — it stops the request-reject-rerequest loop before it starts.
   adults? That may need a higher level of disclosure [7.7j, Note 6].
 
 A consolidated list of everything needing an answer is in [document 07](07-open-questions.md).
+
+## 4. Who does what — confirmed, with one gap
+
+**Confirmed (Sept 2026):**
+
+| People | Responsibility |
+|--------|----------------|
+| **Ahmed**, **Usman** | Recruitment |
+| **Anas**, **Talha** | Vetting |
+| **Farhan** | Risk acceptance, deadline extensions, statutory declaration approval — the "top management or authorised person" the standard refers to [3.15, 7.4f, 7.6, 7.7i] |
+
+That already gives the separation of functions clause 6.1 asks for: recruiting and screening sit
+with different people, so nobody is both interviewing a candidate and signing off their screening
+file.
+
+### 4.1 Controller and administrator with a two-person team
+
+BS 7858 needs two distinct roles on every file: the **screening administrator** does the work, the
+**screening controller** is responsible for it being done correctly and reviews the file [3.10,
+3.11, 7.5.2b]. The reviewing controller cannot be the person who built the file.
+
+With Anas and Talha this works cleanly by **alternating per file**: Anas administers, Talha
+reviews; Talha administers, Anas reviews. Both need to be trained and recorded as competent in
+both roles, and the portal enforces the pairing so the same person can never appear twice on one
+file. This is what the demonstration data shows.
+
+### 4.2 The gap: screening the screeners
+
+Both Anas and Talha must themselves be screened to BS 7858, and neither may screen themselves
+[6.1]. For Anas's own file, Talha can be the administrator — but then the controller has to be
+someone who is neither the subject nor the administrator, which rules out both of them.
+
+**This needs a decision.** Two workable options:
+
+1. **Farhan reviews those two files** as controller. He is already the authorised person for risk
+   acceptance, so he is a natural fit — but he would need to be trained to clause 6.2 and screened
+   himself, and he cannot be the controller on his own file either.
+2. **Buy those specific files in** from an accredited provider, and review the returned file
+   ourselves as clause 6.3 requires. Two files is a small, one-off cost.
+
+Whichever we choose, it also has to answer who screens **Farhan**, and who holds the training and
+NDA records for all three.
+
+### 4.3 What the portal holds for this
+
+A small **vetting team competence register** in Admin: who is a controller, who is an
+administrator, each person's own screening status and file reference, NDA on file, training dates
+and next annual review date [6.1, 6.2]. The rule the system enforces is that a role grant lapses
+when the annual training review does, rather than quietly continuing.

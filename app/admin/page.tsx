@@ -3,7 +3,13 @@ import { ModuleOutline } from "@/components/ui/ModuleOutline";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ClauseRef, Tag } from "@/components/ui/StatusPill";
 import { CHASERS, EXPIRY_WARNING_DAYS } from "@/lib/sla";
-import { CLOCK_THRESHOLDS, MAX_EXTENSION_WEEKS, RETENTION } from "@/lib/bs7858";
+import {
+  CLOCK_THRESHOLDS,
+  DEFAULT_SCREENING_PERIOD_YEARS,
+  MAX_EXTENSION_WEEKS,
+  RETENTION,
+} from "@/lib/bs7858";
+import { AUTHORISED_PERSON, VETTING_PAIR } from "@/lib/policy";
 
 /**
  * Admin.
@@ -27,8 +33,8 @@ export default function AdminPage() {
         >
           <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
             {[
-              ["Full screening deadline", "12 weeks (5-year period) / 16 weeks (10-year)", "7.6"],
-              ["Maximum extension", `${MAX_EXTENSION_WEEKS} weeks, once, with director approval and evidence of written requests`, "7.6"],
+              ["Full screening deadline", "12 weeks — we screen to 5 years (16 weeks would apply to a 10-year period)", "7.6"],
+              ["Maximum extension", `${MAX_EXTENSION_WEEKS} weeks, once, approved by ${AUTHORISED_PERSON}, with evidence of written requests`, "7.6"],
               ["Minimum screening period", "5 years, or back to age 16", "3.13"],
               ["Limited screening history", "At least the 3 years before application", "7.5.2a"],
               ["Maximum unverified gap", "31 days", "7.7"],
@@ -66,6 +72,9 @@ export default function AdminPage() {
               ["Reference ladder", `2nd request day ${CHASERS.reference.secondRequestDay}, documentary route day ${CHASERS.reference.documentaryRouteDay}, escalate day ${CHASERS.reference.escalateDay}`],
               ["Task escalation", "Amber at 80% of the service level, red once past it, manager at twice it"],
               ["Expiry warnings", `${EXPIRY_WARNING_DAYS.join(", ")} days ahead`],
+              ["Default screening period", `${DEFAULT_SCREENING_PERIOD_YEARS} years — per client, so a contract or insurer needing longer is a setting rather than a code change`],
+              ["Pre-deployment policy", `Criminality (7.7j) and right to work must be complete before an officer reaches site — stricter than the standard`],
+              ["Vetting pair", `${VETTING_PAIR.join(" and ")}, alternating administrator and controller per file`],
             ].map(([label, value]) => (
               <li key={label} className="flex flex-wrap items-start justify-between gap-3 py-2">
                 <div className="min-w-0">
@@ -98,7 +107,7 @@ export default function AdminPage() {
           },
           {
             label: "Clients, sites and screening periods",
-            detail: "Screening period set per client contract, which is what drives the 12 or 16 week deadline on every candidate for that client.",
+            detail: "Screening period set per client contract, which is what drives the deadline on every candidate for that client. Five years by default, so 12 weeks.",
             clause: "7.6",
             phase: 1,
           },

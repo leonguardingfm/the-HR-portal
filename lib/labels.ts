@@ -89,6 +89,14 @@ export const ROLE_LABELS: Record<Role, string> = {
   auditor: "Auditor",
 };
 
+/** Who currently holds each role, confirmed September 2026. */
+export const ROLE_HOLDERS: Partial<Record<Role, string>> = {
+  recruitment: "Ahmed, Usman",
+  vetting_admin: "Anas or Talha, per file",
+  vetting_controller: "Talha or Anas — whoever did not build the file",
+  top_management: "Farhan",
+};
+
 /**
  * Status colours are reserved and always ship with a label or icon, never
  * colour alone. The glyph is the secondary channel.

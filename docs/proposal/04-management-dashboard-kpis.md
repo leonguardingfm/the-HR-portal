@@ -23,7 +23,7 @@ Reports, not on the dashboard.
 | Unfilled beyond target | Requirements past their client start date | ≥1 / ≥3 |
 | Candidates in pipeline | Active candidates by stage | — |
 | In conditional employment | Officers deployed with screening incomplete | — |
-| **At risk of breach** | Files past 75% of their 12/16 week clock | ≥1 amber, ≥1 past 90% red |
+| **At risk of breach** | Files past 75% of their 12-week clock | ≥1 amber, ≥1 past 90% red |
 | Overdue tasks | Across all owners | > 10 / > 25 |
 
 The "At risk of breach" tile is the one that should be impossible to ignore. It is the only number
@@ -82,7 +82,7 @@ Same page, different emphasis:
 
 | KPI | Definition | Target |
 |-----|------------|--------|
-| **Screening completed within the period allowed** | Files completing full screening within 12/16 weeks ÷ files due | 100% — anything less is a compliance failure, not a performance dip |
+| **Screening completed within the period allowed** | Files completing five-year history verification within 12 weeks ÷ files due | 100% — anything less is a compliance failure, not a performance dip |
 | Files in conditional employment | Live count and as % of officers | Tracked; a persistently high number means screening is the constraint on growth |
 | Extensions used | Count, and % of files [7.6] | Low; the standard notes extensions are not meant to cover a shortage of screening staff |
 | Statutory declarations used | Count, and % of files [7.7i] | Low; each needs top management approval |

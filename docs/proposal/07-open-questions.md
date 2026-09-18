@@ -3,7 +3,42 @@
 Grouped by how much they block the build. Nothing here is an assumption — each item is something
 the process description and the two supporting documents do not settle.
 
-## A. Blocking — these change the design
+## Answered — 18 September 2026
+
+All eight blocking questions came back. Recorded here as the decision log; the design documents
+have been updated to match.
+
+| # | Question | Answer |
+|---|----------|--------|
+| A1 | Are officers deployed before screening? | **No.** Deployment happens only after initial screening. The single element that runs afterwards is **five-year career-history verification**, completed within the 12 weeks the standard allows. Everything else is done before anyone goes to site — which on the criminality element is stricter than the standard's minimum. |
+| A2 | 5-year or 10-year? | **Five years**, so a **12-week** clock on every file. The 10-year path stays available but unused, since the period must be extended for contractual or insurer reasons [7.3.2b, Clause 1 Note 2]. |
+| A3 | In-house or outsourced? | **In-house.** Clause 6.3 does not apply. Clauses 6.1 and 6.2 — screening the screeners, NDAs, annual training review — are ours directly. |
+| A4 | Who is responsible? | **Ahmed** and **Usman** — recruitment. **Anas** and **Talha** — vetting. |
+| A5 | Who is top management for approvals? | **Farhan** — risk acceptance, deadline extensions, statutory declarations. |
+| A6 | Does Casper capture everything 7.3.2 needs? | **Yes, and the form can be changed.** Worst case avoided. |
+| A7 | Move consent into the application form? | **Not needed.** Consent is already in the Casper form (A6), and the Welcome Pack comes back signed the same day or the next. |
+| A8 | Does Casper have an API? | **Yes.** The most valuable integration is available. |
+
+### What those answers changed
+
+- **The 12-week clock now covers one well-defined piece of work** — five-year history verification
+  — rather than an open-ended set of checks. That makes it forecastable and staffable, and it is
+  what the clock board in the portal now measures.
+- **Two gates became three states:** everything-but-history before deployment, then history within
+  12 weeks, then confirmed employment. The portal models the deployment gate separately from the
+  standard's own conditional-employment gate, because ours is stricter and that distinction should
+  not blur.
+- **Casper integration moves from "biggest unknown" to a Phase 2 item**, and with it most of the
+  duplicate typing disappears earlier than planned.
+
+### What they raised
+
+Two new items, both in section C below: **C11**, who acts as screening controller on Anas's and
+Talha's own files, since neither may screen themselves and the controller cannot be the
+administrator either; and **C10**, already open, is now more pressing because the Employment
+Contract is signed before history verification completes.
+
+## A. Blocking — answered above, kept for the record
 
 | # | Question | Why it blocks |
 |---|----------|---------------|
@@ -45,7 +80,9 @@ the process description and the two supporting documents do not settle.
 | C7 | **Do any posts bring officers into contact with children or vulnerable adults?** A higher level of disclosure may be needed [7.7j, Note 6]. |
 | C8 | **Do our insurers impose requirements beyond BS 7858** — a longer screening period, or additional checks [Clause 1, Note 2]? |
 | C9 | **Are we NSI or SIA ACS approved?** This affects audit expectations and what evidence the portal should be able to produce on demand. |
-| C10 | **Does the employment contract currently state** that confirmed employment depends on satisfactory full screening within the period allowed, and that conditional employment ends if it does not complete [7.5.2]? If not, the contract needs amending, not just the portal. |
+| C10 | **Does the employment contract currently state** that confirmed employment depends on satisfactory full screening within the period allowed, and that conditional employment ends if it does not complete [7.5.2]? If not, the contract needs amending, not just the portal. **Now more pressing:** A1 confirms the contract is signed before history verification completes, so this wording is what makes that sequence defensible. |
+| C11 | **Who is the screening controller on Anas's and Talha's own files?** Both must be screened themselves and neither may screen themselves [6.1], and the reviewing controller cannot be the administrator who built the file [7.5.2b] — which rules out both of them for each other's review. Options in [01 §4.2](01-process-and-compliance-review.md): Farhan reviews those files (trained to 6.2 and screened himself), or buy those two files in from an accredited provider and review the returned file ourselves. Also: who screens Farhan? |
+| C12 | **Are Anas and Talha recorded as competent in both roles?** The alternating controller/administrator arrangement only works if both are trained for both, with training records maintained and reviewed annually [6.2]. |
 
 ## D. Preferences we can proceed without, but would rather know
 
@@ -61,6 +98,19 @@ the process description and the two supporting documents do not settle.
 
 ## Suggested way to work through these
 
-A1 to A8 are worth a single one-hour session, because they are connected and they determine the
-shape of the build. B and C can be answered in writing as the relevant modules come up. D can wait
-until the phase 1 spine is working and you have something to react to.
+A1 to A8 are answered, and Phase 1 can proceed on them.
+
+**Next, in order of how much they hold things up:**
+
+1. **B1 to B4** — Watch List, Maps, the PIN format, and the New Recruit Onboarding Group. These
+   four are the only thing standing between us and a fully automated onboarding checklist, and
+   three of them may turn out to be spreadsheets the portal should simply replace.
+2. **C11 and C12** — the controller arrangement for Anas's and Talha's own files. Needed before
+   either can be granted their role in the portal, because the system checks it.
+3. **C10** — the contract wording. A document review rather than a build decision, but it is what
+   makes the confirmed sequence defensible.
+4. **B5, B6** — whether the interview is recorded, and what the "online history checks" consist of
+   in practice, mapped to the four distinct requirements they cover.
+
+C1 to C9 can be answered in writing as the relevant modules come up. D can wait until the Phase 1
+spine is working and you have something to react to.

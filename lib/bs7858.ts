@@ -39,6 +39,15 @@ export const MAX_EXTENSION_WEEKS = 4 as const;
 /** Minimum screening period: five years, or back to age 16 [3.13]. */
 export const MIN_SCREENING_PERIOD_YEARS = 5 as const;
 
+/**
+ * Our default, confirmed September 2026: we screen to five years, so every
+ * file runs a 12-week clock. The 10-year path stays supported but unused,
+ * because the period has to be extended for contractual or legislative
+ * reasons or specific industry standards [7.3.2b], and some insurers impose a
+ * longer period as a policy condition [Clause 1, Note 2].
+ */
+export const DEFAULT_SCREENING_PERIOD_YEARS = 5 as const;
+
 /** Limited screening confirms at least the last three years [7.5.2a]. */
 export const LIMITED_SCREENING_YEARS = 3 as const;
 
@@ -137,8 +146,10 @@ export interface GateResult {
  * screening is only complete once the controller has reviewed the file
  * [7.5.2b].
  *
- * Blocks the conditional offer, the Welcome Pack, the employment contract and
- * any deployment to a client site.
+ * This is the standard's own minimum and nothing more. Deployment to a client
+ * site is gated more tightly than this by our own policy — see
+ * `evaluateDeploymentGate` in lib/policy.ts, kept separate so a local rule is
+ * never mistaken for a requirement of the standard.
  */
 export function evaluateGate1(
   file: ScreeningFile,
@@ -169,9 +180,14 @@ export function evaluateGate1(
 /**
  * Gate 2 — no offer of confirmed employment unless full screening has been
  * completed satisfactorily [7.7]: the whole screening period verified with no
- * unverified period over 31 days, the criminality requirement met [7.7j], and
- * the completed file reviewed by the controller. Where screening was
- * outsourced, our own controller still reviews the provider's file [6.3].
+ * unverified period over 31 days, and the completed file reviewed by the
+ * controller.
+ *
+ * In our process this gate measures one well-defined piece of work, because
+ * everything else is already done before deployment: verification of the
+ * five-year career history. The criminality element [7.7j] sits inside full
+ * screening in the standard, but we complete it earlier, so it is checked at
+ * the deployment gate instead — see lib/policy.ts.
  */
 export function evaluateGate2(file: ScreeningFile): GateResult {
   const blockedBy: string[] = [];
@@ -183,9 +199,6 @@ export function evaluateGate2(file: ScreeningFile): GateResult {
     blockedBy.push(
       `${file.gapsOver31Days} gap${file.gapsOver31Days === 1 ? "" : "s"} over ${MAX_UNVERIFIED_GAP_DAYS} days without evidence (7.7)`,
     );
-  }
-  if (!isGroupSatisfied(file, "criminality")) {
-    blockedBy.push("SIA licence, NPCC Appendix C or disclosure not yet held (7.7j)");
   }
   if (!file.controllerReview2At) {
     blockedBy.push("Awaiting controller review of the completed file (7.7)");
@@ -201,7 +214,10 @@ export function evaluateGate2(file: ScreeningFile): GateResult {
   };
 }
 
-function isGroupSatisfied(file: ScreeningFile, group: Check["group"]): boolean {
+export function isGroupSatisfied(
+  file: ScreeningFile,
+  group: Check["group"],
+): boolean {
   const checks = file.checks.filter((c) => c.group === group);
   if (checks.length === 0) return false;
   return checks.every(

@@ -47,8 +47,9 @@ export function Sidebar({ role }: { role: Role }) {
         className="mt-auto rounded border p-2.5 text-[11px] leading-snug"
         style={{ borderColor: "var(--hairline)", color: "var(--text-muted)" }}
       >
-        Screening follows BS&nbsp;7858:2019. Conditional employment runs on a 12
-        or 16 week clock (clause 7.6).
+        Screening follows BS&nbsp;7858:2019. We screen to five years, so
+        five-year history verification is due within 12&nbsp;weeks of deployment
+        (clause 7.6). Everything else is complete before site.
       </div>
     </nav>
   );

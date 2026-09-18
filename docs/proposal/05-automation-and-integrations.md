@@ -116,7 +116,7 @@ Realistic view of each, including where the answer is "there is no API and there
 
 | System | What we would automate | Feasibility |
 |--------|------------------------|-------------|
-| **Casper** | Pull submitted application data into the candidate record, so nothing is retyped; push the hire at onboarding; sync officer records | **Depends entirely on whether Casper exposes an API or export.** This is the most valuable integration and the biggest unknown — see document 07. Fallback: scheduled CSV import/export, or a tracked manual step with a link |
+| **Casper** | Pull submitted application data into the candidate record, so nothing is retyped; push the hire at onboarding; sync officer records | **Confirmed available (Sept 2026): Casper has an API.** This is the most valuable integration and it is no longer a risk — it moves to Phase 2. Next step is its documentation and credentials, and confirming whether the hire can be created as well as read |
 | **Indeed** | Pull new applications into the sourcing queue; post adverts; create officer profiles | Indeed offers partner APIs but access is limited and depends on the account type. Likely partial. Fallback: a structured import from the Indeed dashboard export |
 | **Email (Microsoft 365 / Google Workspace)** | Send every templated message and chaser from a real HR mailbox; capture replies and attachments against the candidate automatically | **Straightforward and high value.** Graph API or Gmail API. Inbound capture is the part that pays off — a candidate replying with documents shouldn't need anyone to file them |
 | **E-signature** (DocuSign, Adobe Sign, or similar) | Issue the Welcome Pack for signature; track which documents are signed per person; store the signed copies automatically | Straightforward. The standard permits electronic authorisation and references the Electronic Communications Act 2000 [7.3.2, Note 5]. Removes the entire "check which signatures came back" task |
@@ -133,19 +133,20 @@ Realistic view of each, including where the answer is "there is no API and there
 
 ## 4. Sequencing
 
-Deliberately ordered so that the portal is useful before any integration exists. If Casper and
-Indeed access turn out to be slow to arrange, phases 1 and 2 still deliver most of the benefit.
+Deliberately ordered so that the portal is useful before any integration exists. With Casper's API
+confirmed, the Casper work moves forward into Phase 2 — but Phase 1 still stands alone if
+credentials take time to arrange.
 
 **Phase 1 — the spine.** Requirements, candidate record, duplicate checks, recruitment pipeline,
 vetting file with all checks, gates, the clock, My Tasks, dashboard. Manual data entry, but single
 entry. *This is where the compliance risk gets fixed.*
 
 **Phase 2 — the effort.** Email integration both ways, templates, the full reminder engine,
-personalised document checklists with upload-time validation, automatic gap calculation. *This is
-where the typing and chasing go away.*
+personalised document checklists with upload-time validation, automatic gap calculation, **and the
+Casper integration** now that its API is confirmed. *This is where the typing and chasing go
+away.*
 
-**Phase 3 — the connections.** Casper, Indeed, e-signature, sanctions list sync, credit reference
-agency or provider API.
+**Phase 3 — the remaining connections.** Indeed, e-signature, credit reference agency API.
 
 **Phase 4 — the polish.** Candidate self-service portal, WhatsApp Business, SMS, forecasting,
 automated audit packs.

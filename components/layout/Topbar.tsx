@@ -1,7 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ROLE_LABELS } from "@/lib/labels";
+import { ROLE_HOLDERS, ROLE_LABELS } from "@/lib/labels";
 import type { Role } from "@/lib/types";
 import { navItemByHref } from "./nav";
 import { useRole } from "./RoleContext";
@@ -32,12 +32,14 @@ export function Topbar() {
       </p>
 
       <div className="flex items-center gap-2">
-        <label className="flex items-center gap-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
+        <label className="flex min-w-0 items-center gap-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
           <span className="hidden sm:inline">Viewing as</span>
+          {/* A select is as wide as its widest option, so the role holder is
+              rendered beside it rather than inside it. */}
           <select
             value={role}
             onChange={(e) => setRole(e.target.value as Role)}
-            className="rounded border px-1.5 py-1 text-[12px]"
+            className="max-w-[11rem] rounded border px-1.5 py-1 text-[12px]"
             style={{
               background: "var(--surface-1)",
               borderColor: "var(--hairline)",
@@ -50,6 +52,11 @@ export function Topbar() {
               </option>
             ))}
           </select>
+          {ROLE_HOLDERS[role] && (
+            <span className="hidden truncate md:inline" title={ROLE_HOLDERS[role]}>
+              {ROLE_HOLDERS[role]}
+            </span>
+          )}
         </label>
         <ThemeToggle />
       </div>

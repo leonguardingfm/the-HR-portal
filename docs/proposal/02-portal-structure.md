@@ -114,7 +114,7 @@ paper one: `WR` work reference, `ER` education reference, `TR` trade reference, 
 reference, `DR` documentation request, `FI` further information request, `SDR` statutory
 declaration request, `CL` chaser letter, `RA` executive risk of acceptance.
 
-**The file also displays, prominently:** conditional employment start date, the 12 or 16 week
+**The file also displays, prominently:** conditional employment start date, the 12-week
 deadline, days remaining, and the date employment must cease if screening does not complete [7.2].
 
 ### 2.7 Onboarding

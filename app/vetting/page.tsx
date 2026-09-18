@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { ClauseRef, StatusPill, Tag } from "@/components/ui/StatusPill";
 import { VettingClockBoard } from "@/components/dashboard/VettingClockBoard";
 import { evaluateGate1, evaluateGate2 } from "@/lib/bs7858";
-import { CHECK_STATUS_LABELS } from "@/lib/labels";
+import { evaluateDeploymentGate } from "@/lib/policy";
+import { CHECK_STATUS_LABELS, RECRUITMENT_STAGE_ORDER } from "@/lib/labels";
 import { candidateById, screeningFiles } from "@/lib/mock/data";
 import type { CheckGroup, CheckStatus, Severity } from "@/lib/types";
 
@@ -16,6 +17,21 @@ const GROUP_LABELS: Record<CheckGroup, string> = {
   legal: "Legal (outside BS 7858 scope)",
   signoff: "Sign-off",
   exception: "Exceptions",
+};
+
+/**
+ * When each group has to be complete. Everything except the career history is
+ * done before the officer reaches a client site; the history verification is
+ * the one piece of work the 12-week clock measures.
+ */
+const GROUP_TIMING: Record<CheckGroup, string> = {
+  consent: "With the application",
+  preliminary: "Before deployment",
+  history: "Within 12 weeks of deployment",
+  criminality: "Before deployment (our policy)",
+  legal: "Before deployment",
+  signoff: "Before deployment, then again at completion",
+  exception: "As they arise",
 };
 
 function checkSeverity(status: CheckStatus): Severity {
@@ -47,7 +63,19 @@ export default function VettingPage() {
   // The most urgent open file stands in for the detail view until Phase 1.
   const file = screeningFiles[0];
   const candidate = candidateById(file.candidateId);
+
+  // Signed Welcome Pack documents are a recruitment-track fact, so it is read
+  // off the candidate's stage rather than duplicated onto the screening file.
+  const signedDocumentsComplete =
+    candidate !== undefined &&
+    RECRUITMENT_STAGE_ORDER.indexOf(candidate.stage) >=
+      RECRUITMENT_STAGE_ORDER.indexOf("signed_docs_complete");
+
   const gate1 = evaluateGate1(file, true);
+  const deployment = evaluateDeploymentGate(file, {
+    riskEvaluationDocumented: true,
+    signedDocumentsComplete,
+  });
   const gate2 = evaluateGate2(file);
 
   const groups = Object.keys(GROUP_LABELS) as CheckGroup[];
@@ -56,15 +84,15 @@ export default function VettingPage() {
     <div className="space-y-5">
       <PageHeader
         title="Vetting"
-        description="BS 7858:2019 screening files. One file per individual, with conditionally employed files flagged separately from other employee files (clause 7.2)."
+        description="BS 7858:2019 screening files. One file per individual, with conditionally employed files flagged separately from other employee files (clause 7.2). Anas and Talha alternate administrator and controller per file, so the same person never signs off their own work."
       />
 
       <VettingClockBoard />
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid gap-5 xl:grid-cols-3">
         <Card
           title="Gate 1 — conditional offer"
-          subtitle="Blocks the conditional offer, the Welcome Pack, the employment contract and any deployment to a client site."
+          subtitle="The BS 7858 minimum. Blocks the conditional offer, the Welcome Pack and the employment contract."
         >
           <StatusPill severity={gate1.open ? "good" : "critical"} label={gate1.open ? "Open" : "Blocked"} />
           <p className="mt-3 text-[13px]">{gate1.reason}</p>
@@ -85,7 +113,32 @@ export default function VettingPage() {
         </Card>
 
         <Card
-          title="Gate 2 — confirmed employment"
+          title="Gate 2 — deployment to site"
+          subtitle="Our own policy, stricter than the standard. This is the gate that decides whether an officer can be rostered."
+        >
+          <StatusPill
+            severity={deployment.open ? "good" : "critical"}
+            label={deployment.open ? "Open" : "Blocked"}
+          />
+          <p className="mt-3 text-[13px]">{deployment.reason}</p>
+          {deployment.blockedBy.length > 0 && (
+            <ul className="mt-2 space-y-1">
+              {deployment.blockedBy.map((r) => (
+                <li key={r} className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
+                  · {r}
+                </li>
+              ))}
+            </ul>
+          )}
+          <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
+            Adds the criminality element and right to work to Gate 1. The
+            standard places <ClauseRef clause="7.7j" /> inside full screening,
+            so it would permit deployment without it — we do not.
+          </p>
+        </Card>
+
+        <Card
+          title="Gate 3 — confirmed employment"
           subtitle="No offer of confirmed employment unless full screening has completed satisfactorily."
         >
           <StatusPill severity={gate2.open ? "good" : "serious"} label={gate2.open ? "Open" : "Blocked"} />
@@ -100,8 +153,8 @@ export default function VettingPage() {
             </ul>
           )}
           <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
-            The whole screening period verified with no unverified period over 31
-            days. <ClauseRef clause="7.7" />
+            The five-year history verified with no unverified period over 31
+            days, then reviewed by the controller. <ClauseRef clause="7.7" />
           </p>
         </Card>
       </div>
@@ -122,7 +175,12 @@ export default function VettingPage() {
           if (checks.length === 0) return null;
           return (
             <div key={group} className="mb-4 last:mb-0">
-              <h3 className="mb-1.5 text-[12px] font-semibold">{GROUP_LABELS[group]}</h3>
+              <h3 className="mb-1.5 flex flex-wrap items-baseline gap-x-2 text-[12px] font-semibold">
+                {GROUP_LABELS[group]}
+                <span className="font-normal" style={{ color: "var(--text-muted)" }}>
+                  {GROUP_TIMING[group]}
+                </span>
+              </h3>
               <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
                 {checks.map((check) => (
                   <li key={check.id} className="flex flex-wrap items-start justify-between gap-3 py-2">

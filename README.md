@@ -6,10 +6,16 @@ rather than bolted on afterwards.
 
 ## Status
 
-The **proposal is written** and the **application scaffold is now in place**: folder structure,
-role-aware navigation, and the landing dashboard. The compliance rules that drive the whole system
-— the screening clock, the two gates, separation of duties, retention — are implemented as real
-logic in `lib/bs7858.ts`. Data is still demonstration data; the database lands in Phase 1.
+The **proposal is written**, the **eight blocking questions are answered** (September 2026, logged
+in [document 07](docs/proposal/07-open-questions.md)), and the **application scaffold is in
+place**: folder structure, role-aware navigation, and the landing dashboard. The compliance rules
+that drive the whole system — the screening clock, the three gates, separation of duties,
+retention — are implemented as real logic. Data is still demonstration data; the database lands in
+Phase 1.
+
+Confirmed process: **we screen to five years**, vetting is **in-house**, and officers reach a
+client site only after initial screening — the one element that runs afterwards is **five-year
+career-history verification**, inside the 12 weeks the standard allows.
 
 ```bash
 npm install
@@ -26,11 +32,13 @@ exists so the seven role views can be reviewed without seven logins.
 
 | Real logic | Where |
 |-----------|-------|
-| 12 / 16 week screening clock, extension cap, severity thresholds | `lib/bs7858.ts` — `clockState`, `weeksAllowed` |
-| Gate 1 (conditional offer) and Gate 2 (confirmed employment), with plain-English blocking reasons | `lib/bs7858.ts` — `evaluateGate1`, `evaluateGate2` |
+| 12-week screening clock (16 if a 10-year period is ever required), extension cap, severity thresholds | `lib/bs7858.ts` — `clockState`, `weeksAllowed` |
+| Gate 1 (conditional offer) and Gate 3 (confirmed employment), with plain-English blocking reasons | `lib/bs7858.ts` — `evaluateGate1`, `evaluateGate2` |
+| Gate 2 (deployment to site) — our own policy, stricter than the standard | `lib/policy.ts` — `evaluateDeploymentGate` |
 | Separation of duties: no self-screening, controller ≠ administrator | `lib/bs7858.ts` — `canSignOff` |
 | Retention periods, risk-acceptance threshold, gap limits | `lib/bs7858.ts` |
 | Service levels, chaser ladders, task severity | `lib/sla.ts` — ours and configurable, deliberately separate from the standard's rules |
+| Company policy that exceeds the standard | `lib/policy.ts` — the deployment gate, the pre/post-deployment split, the named vetting pair |
 | Role-based navigation | `components/layout/nav.ts` |
 
 | Stub | Note |
@@ -58,6 +66,7 @@ components/
   dashboard/             The dashboard sections
 lib/
   bs7858.ts              The compliance core: clock, gates, separation of duties, retention
+  policy.ts              Company policy stricter than the standard (the deployment gate)
   sla.ts                 Our own service levels and chaser rhythms
   types.ts               Domain model
   labels.ts              Human labels and the reserved status-palette mapping
@@ -69,12 +78,18 @@ docs/proposal/           The agreed design — read this first
 
 **Two status tracks, never merged.** Recruitment progress and vetting completion are separate
 columns everywhere, because they answer different questions and are owned by different people.
-They are linked only by the two gates.
+They are linked only by the gates.
+
+**Three gates, one of them ours.** Gate 1 is BS 7858's conditional-employment minimum. Gate 2 is
+our own, stricter, rule: nobody reaches a client site until the criminality element and right to
+work are also done. Gate 3 is confirmed employment, once the five-year history is verified. Gate 2
+lives in `lib/policy.ts` rather than `lib/bs7858.ts` precisely so nobody can drop it later on the
+grounds that the standard does not require it.
 
 **Rules from the standard are separated from our own preferences.** `lib/bs7858.ts` holds what
-BS 7858 fixes, each with its clause reference; `lib/sla.ts` holds what we chose and can change.
-The Admin screen shows the same split, so a local preference is never mistaken for a regulatory
-requirement.
+BS 7858 fixes, each with its clause reference; `lib/sla.ts` and `lib/policy.ts` hold what we chose
+and can change. The Admin screen shows the same split, so a local preference is never mistaken for
+a regulatory requirement — and vice versa.
 
 **Charts** are built inline rather than with a charting library: thin marks capped at 14px, 4px
 rounded data-ends, hairline gridlines, a 2px surface gap between stacked segments, a legend

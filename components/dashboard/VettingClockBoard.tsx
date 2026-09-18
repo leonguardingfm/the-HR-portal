@@ -28,7 +28,7 @@ export function VettingClockBoard() {
   return (
     <Card
       title="Screening clock — conditional employment"
-      subtitle="Sorted by days remaining. Full screening must complete within the period allowed (clause 7.6)."
+      subtitle="Sorted by days remaining. The clock measures one thing: five-year career-history verification, due within 12 weeks of deployment (clause 7.6)."
       action={
         <Link href="/vetting" className="text-[12px] underline" style={{ color: "var(--text-secondary)" }}>
           All files
@@ -40,7 +40,7 @@ export function VettingClockBoard() {
           <thead>
             <tr className="text-[11px]" style={{ color: "var(--text-muted)" }}>
               <th className="pb-2 pr-3 font-medium">Officer</th>
-              <th className="pb-2 pr-3 font-medium">Period</th>
+              <th className="pb-2 pr-3 font-medium">Allowed</th>
               <th className="pb-2 pr-3 font-medium">Conditional start</th>
               <th className="pb-2 pr-3 font-medium">Must complete by</th>
               <th className="pb-2 pr-3 font-medium">Time used</th>
@@ -67,7 +67,8 @@ export function VettingClockBoard() {
                   )}
                 </td>
                 <td className="tnum py-2.5 pr-3 text-[12px] tabular-nums" style={{ color: "var(--text-secondary)" }}>
-                  {file.screeningPeriodYears} yr / {weeksAllowed(file.screeningPeriodYears)} wk
+                  {weeksAllowed(file.screeningPeriodYears)} wk
+                  {file.extensionWeeks > 0 && ` + ${file.extensionWeeks}`}
                 </td>
                 <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
                   {formatDate(file.conditionalEmploymentStart)}
@@ -109,10 +110,12 @@ export function VettingClockBoard() {
         </table>
       </div>
       <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
-        Where screening has not completed successfully by the date shown, the
-        officer should not continue in relevant employment (clause 7.6). A single
-        extension of up to four weeks needs director approval and evidence that
-        written requests were made.
+        Everything else — identity, address, sanctions, public record,
+        criminality and right to work — was complete before deployment. Where
+        the history has not been verified by the date shown, the officer should
+        not continue in relevant employment (clause 7.6). A single extension of
+        up to four weeks needs Farhan&rsquo;s approval and evidence that written
+        requests were made.
       </p>
     </Card>
   );
