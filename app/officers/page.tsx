@@ -35,13 +35,14 @@ export default function OfficersPage() {
         subtitle="Sorted by licence expiry — an officer whose SIA licence lapses is not deployable."
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[46rem] border-collapse text-left">
+          <table className="w-full min-w-[54rem] border-collapse text-left">
             <thead>
               <tr className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                 <th className="pb-2 pr-3 font-medium">Name as per SIA badge</th>
                 <th className="pb-2 pr-3 font-medium">PIN</th>
                 <th className="pb-2 pr-3 font-medium">Control</th>
                 <th className="pb-2 pr-3 font-medium">Licence expiry</th>
+                <th className="pb-2 pr-3 font-medium">Right to work</th>
                 <th className="pb-2 pr-3 font-medium">Employment</th>
                 <th className="pb-2 font-medium">Availability</th>
               </tr>
@@ -59,6 +60,18 @@ export default function OfficersPage() {
                       severity={expirySeverity(o.siaLicenceExpiry)}
                       label={formatDate(o.siaLicenceExpiry)}
                     />
+                  </td>
+                  <td className="py-2.5 pr-3">
+                    {o.rightToWorkExpiry ? (
+                      <StatusPill
+                        severity={expirySeverity(o.rightToWorkExpiry)}
+                        label={formatDate(o.rightToWorkExpiry)}
+                      />
+                    ) : (
+                      <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>
+                        Not time-limited
+                      </span>
+                    )}
                   </td>
                   <td className="py-2.5 pr-3">
                     <Tag>
@@ -81,7 +94,9 @@ export default function OfficersPage() {
           Deployability is derived from the screening file and is never set by
           hand. An officer whose clock expires without screening completing is
           flagged here, and Control is notified — because Control is who would
-          otherwise roster them.
+          otherwise roster them. The same applies to right to work: once the
+          recorded expiry passes, no further shifts can be assigned until
+          updated evidence has been provided and verified.
         </p>
       </Card>
 
@@ -98,21 +113,21 @@ export default function OfficersPage() {
             phase: 2,
           },
           {
-            label: "Right-to-work follow-up dates",
-            detail: "Outside BS 7858's scope but a separate legal obligation, so it is tracked as its own check with its own expiry.",
-            phase: 1,
+            label: "SIA status monitoring",
+            detail: "Checked twice daily by hand on the SIA site today. The portal holds every licence number, so it can run the check itself and raise an officer who has gone inactive as a task rather than relying on someone looking.",
+            clause: "7.4c1",
+            phase: 2,
           },
           {
-            label: "Retrospective screening backlog",
-            detail: "Where BS 7858 screening cannot be demonstrated for an officer already in relevant employment, the file is carried here as tracked work rather than assumed complete.",
-            clause: "7.1, 10",
+            label: "Right-to-work follow-up and shift block",
+            detail: "Warnings at 90, 60 and 30 days rather than the one month INDEL gives today, chased by email and message, with shift assignment blocked once the expiry passes until updated evidence is verified. Plus the daily visa and right-to-work status report.",
             phase: 1,
           },
+
           {
-            label: "Subcontractor and agency assurance",
-            detail: "Certification evidence plus a written statement that the specific individuals supplied were screened, with expiry dates monitored.",
-            clause: "8",
-            phase: 3,
+            label: "Client PRN mapping",
+            detail: "Where a site keeps its own reference for an officer alongside our PIN, the two are recorded against each other so neither side has to match on a name.",
+            phase: 1,
           },
         ]}
       />

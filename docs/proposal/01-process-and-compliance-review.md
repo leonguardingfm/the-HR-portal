@@ -151,7 +151,7 @@ Below is the process as described, with the BS 7858 position against each step.
 | 3 | Duplicate and history checks (previously worked here? already on Interview Sheet? already emailed?); record in Interview Sheet; email Casper application link | Recruitment | Outside the standard, but the *quality* of what the application form collects determines whether gate 7.3.2 can ever be met. |
 | 4 | Check application and supporting documents for completeness; chase what's missing | Recruitment | **This is gate 7.3.2.** Completeness must be judged against the full 7.3.2 list, not just "form filled in". |
 | 5 | Send Welcome Pack (Declaration & Consent, Confidentiality & Disclosure, Employee Handbook, Employment Contract, Restrictive Covenant); collect signatures | Recruitment | **Sequencing issue — see 3.1.** The Declaration & Consent is the 7.3.2f/g authorisation that *permits checks to start*, so it currently arrives after we would want to have started. The Employment Contract is an offer of employment, which 7.5.1 gates behind limited screening. |
-| 6 | Online history checks; add name as per SIA badge to the 2025 Recruitment Sheet; assign PIN; create Indeed profile; add to Watch List; add to Maps; hire in Casper; notify the New Recruit Onboarding Group | Recruitment | **Sequencing issue — see 3.1.** Checks happen here, i.e. *after* the contract is signed and at the same time as the officer is hired and made live in operational systems. |
+| 6 | Online history checks; add name as per SIA badge to the 2025 Recruitment Sheet; assign PIN; create **INDEL** profile; add to the **SIA Watch List**; add to **Google Maps**; hire in Casper; notify the New Recruit Onboarding Group | Recruitment | **Sequencing issue — see 3.1.** Checks happen here, i.e. *after* the contract is signed and at the same time as the officer is hired and made live in operational systems. |
 
 ## 3. Gaps and inconsistencies to resolve
 
@@ -229,42 +229,54 @@ employment is made** [7.3.4] — and against the existence of an "Interview Shee
 
 **Confirmed (Sept 2026):** interviews are held in two stages.
 
-| Stage | Who | Required? |
-|-------|-----|-----------|
-| Initial interview | The recruitment team — Ahmed or Usman | Optional; held for some candidates |
-| **Final interview** | **Farhan** | **Always, before any offer** |
+| Stage | Who | Method | Required? |
+|-------|-----|--------|-----------|
+| First interview | Recruitment | Telephone or voice call | Yes |
+| Second interview | HR Manager | On site or by video, depending on availability and the site | Yes |
+| Additional interview | As the client specifies | As the client specifies | **Only where that site or client requires one** |
 
-So 7.3.4 is satisfied, and by the person with the authority to offer employment, which is exactly
-what the standard's introduction has in mind.
+So 7.3.4 is satisfied, and the second stage is held by someone with the authority to offer
+employment, which is what the standard's introduction has in mind. Outcomes are currently recorded
+in Google Sheets.
 
-**What the portal does with it.** The final interview is a **gate, not a note**: Gate 1 will not
-open without it, and the blocking reason reads "Final interview not yet held (7.3.4)". Each
-interview records interviewer, date, outcome and notes, so there is something to show an auditor
-rather than a name on a spreadsheet. The optional initial interview is recorded the same way but
-never substitutes for the final one.
+An earlier draft of this document described the arrangement as "an optional initial interview, then
+a mandatory final one". That was wrong in both directions: the first stage is not optional, and
+there is a third stage for some clients.
 
-**A useful side effect for internal control.** Because Farhan interviews and Anas or Talha control
-the screening files, no controller ever signs off a candidate they themselves interviewed — which
-is the division of functions clause 6.1 asks for, achieved by how the work already falls rather
-than by adding a rule. The portal checks it anyway and records an exception if it ever stops being
-true, rather than blocking: in a small team an audited exception is more honest than a workaround.
+**What the portal does with it.** Interviews are a **gate, not a note**: Gate 1 will not open until
+every stage that client requires has been held, and the blocking reason says so. Which stages are
+required comes from the client record, so a site that adds its own stage is configuration rather
+than a code change. Each interview records interviewer, date, method, outcome and notes, so there
+is something to show an auditor rather than a name on a spreadsheet.
 
-### 3.4 "Online history checks" needs decomposing
+**A useful side effect for internal control.** Because interviewing sits with Recruitment and the HR
+Manager while screening files are controlled by the vetting team, no controller ordinarily signs
+off a candidate they themselves interviewed — which is the division of functions clause 6.1 asks
+for, achieved by how the work already falls rather than by adding a rule. The portal checks it on
+every file by user id rather than by name, so it keeps holding when someone changes team, and
+records an exception if it ever stops being true rather than blocking: the standard asks for
+attention to the division, not a prohibition.
 
-This is one line in the current process but four distinct BS 7858 requirements:
+### 3.4 "Online history checks" — RESOLVED
 
-1. Identity verification against original documents, with an SIA public register check where a
-   licence is held [7.4c]
-2. Current address confirmation [7.4d]
-3. Global watchlist / sanctions screening, including the HM Treasury consolidated list [7.4e]
-4. Public record search via a credit reference agency — electoral roll, linked addresses,
-   CCJs/IVAs, bankruptcy, aliases, DOB [7.4f]
+One line in the written process; in practice it is a sequence, and we now know what is in it.
 
-Plus, separately, employment and education verification across the screening period [7.7], and
-the criminality element [7.7j].
+| When | Check | What it satisfies |
+|------|-------|-------------------|
+| Early, before progressing | **SIA licence and status** verified on the SIA site | Identity and eligibility [7.4c1] |
+| Where immigration status applies | **Right-to-work share code**, checked independently by HR | Legal obligation, outside BS 7858's scope |
+| After the Welcome Pack is signed | **Creditsafe** | Public record search via a credit reference agency [7.4f] |
+| After the Welcome Pack is signed | **UK sanctions screening** | Global watchlist [7.4e] |
+| After the Welcome Pack is signed | **OFAC sanctions screening** | Global watchlist [7.4e], beyond the standard's minimum |
 
-**To confirm:** which of these do we do today, and by what means? The portal should track each as
-its own check with its own evidence, status and owner.
+All before operational deployment, which is consistent with §3.1.
+
+Two observations. **OFAC screening is more than the standard asks for** — 7.4e names the HM
+Treasury consolidated list; running OFAC as well is a sensible addition worth keeping deliberately.
+And **current address confirmation [7.4d] does not appear** in the list as described. Creditsafe's
+public record search will normally cover electoral roll and linked addresses, but the standard
+treats address confirmation as its own preliminary check, so the portal tracks it separately. Worth
+confirming how it is evidenced today.
 
 ### 3.5 Screening period — RESOLVED
 
@@ -372,67 +384,56 @@ available to us — it stops the request-reject-rerequest loop before it starts.
 
 A consolidated list of everything needing an answer is in [document 07](07-open-questions.md).
 
-## 4. Who does what — confirmed
+## 4. Who does what
 
-**Confirmed (Sept 2026):**
+**Roles, not headcount.** The portal deliberately does **not** fix who is on which team, or how
+many people each team has. Those are set up in Admin and change as people join, leave and move
+between teams; nothing about them is compiled into the build. What is fixed is the **set of roles**
+a person can work as, because those come from BS 7858's own vocabulary plus our operational split:
 
-| People | Responsibility |
-|--------|----------------|
-| **Ahmed**, **Usman** | Recruitment, including the optional **initial interview** |
-| **Anas**, **Talha** | Vetting |
-| **Farhan** | The **final interview** before any offer [7.3.4]; risk acceptance, deadline extensions, statutory declaration approval — the "top management or authorised person" the standard refers to [3.15, 7.4f, 7.6, 7.7i]; and **administrator on the vetting team's own screening files** (see §4.2) |
+| Role | What it covers | Clause |
+|------|----------------|--------|
+| Control | Requirements, the pool check, allocation and rostering | — |
+| Recruitment | Sourcing through to onboarding, including the first interview | — |
+| HR Manager | Recruitment, plus the second interview and escalations | — |
+| Screening Administrator | Carrying out checks and maintaining the file | 3.10 |
+| Screening Controller | Reviewing and signing off files | 3.11 |
+| Higher Management | Risk acceptance, extensions, statutory declarations, and screening the controllers | 3.15 |
+| Auditor | Read-only, including the audit log | — |
 
-That already gives the separation of functions clause 6.1 asks for: recruiting and screening sit
-with different people, so nobody is both interviewing a candidate and signing off their screening
-file.
+People hold more than one, and several do. That is exactly why **the portal asks for an active role
+at sign-in**: a job title cannot answer "who is doing the vetting today" when the same person is a
+recruiter on Monday and an administrator on Tuesday, but a role chosen at sign-in can. It is also
+what makes the work visible in real time on the dashboard.
 
-### 4.1 Controller and administrator with a two-person team
+### 4.1 The rules that replace fixed assignments
 
-BS 7858 needs two distinct roles on every file: the **screening administrator** does the work, the
-**screening controller** is responsible for it being done correctly and reviews the file [3.10,
-3.11, 7.5.2b]. The reviewing controller cannot be the person who built the file.
+Because no names are fixed, the separation-of-duty requirements are expressed as conditions on
+whoever happens to be assigned. They hold at any team size:
 
-With Anas and Talha this works cleanly by **alternating per file**: Anas administers, Talha
-reviews; Talha administers, Anas reviews. Both need to be trained and recorded as competent in
-both roles, and the portal enforces the pairing so the same person can never appear twice on one
-file. This is what the demonstration data shows.
+1. **Nobody screens themselves.** Neither the administrator nor the controller on a file may be its
+   subject [6.1]. Hard block.
+2. **Four eyes on sign-off.** The controller who reviews a file is not the administrator who built
+   it [7.5.2b]. Hard block.
+3. **Controllers are screened by higher management.** Where the subject of a file is themselves a
+   screening controller, the file is administered by higher management. This is confirmed policy,
+   and it is also the only arrangement that satisfies rules 1 and 2 without going outside the
+   company — whoever administers is excluded as controller, and the subject is excluded from both,
+   so the review falls to another controller.
+4. **Division of functions.** Whoever signs off a file should not be someone who interviewed the
+   candidate [6.1]. Warned and recorded rather than blocked, and compared by user id rather than by
+   name so it keeps working across a transfer.
 
-### 4.2 Screening the screeners — RESOLVED
+Rule 3 is what makes the arrangement scale. With two controllers or ten, a controller's own file
+goes to higher management and is reviewed by a different controller, and no named person is baked
+in anywhere.
 
-Both Anas and Talha must themselves be screened, and neither may screen themselves [6.1]. That
-looked awkward, because if one of them administers the other's file, the controller then has to be
-someone who is neither the subject nor the administrator — which ruled out both of them.
+### 4.2 What a role grant requires
 
-**Confirmed (Sept 2026): Farhan is the administrator on Anas's and Talha's own files.** That closes
-it cleanly, because the controller then falls to whichever of the pair is not the subject:
+Anyone engaged in screening must be screened themselves, have signed a confidentiality agreement
+covering employment and post-employment, and hold training that is in date and **reviewed at least
+annually** [6.1, 6.2]. The portal **blocks the role grant** until that evidence is on file, and the
+grant lapses when the annual review does, rather than trusting it to be remembered.
 
-| Whose file | Administrator | Controller | Check |
-|------------|---------------|------------|-------|
-| Anas | Farhan | Talha | No self-screening [6.1] ✓ · controller ≠ administrator [7.5.2b] ✓ |
-| Talha | Farhan | Anas | ✓ ✓ |
-| Farhan | Talha | Anas | ✓ ✓ |
-
-Every row satisfies both rules, and no external provider is needed. The portal shows this as a
-register on the Admin screen with the rule check computed rather than asserted, so if anyone is
-ever reassigned the conflict surfaces immediately.
-
-**Two consequences to action.** Administering files makes Farhan *a person engaged in screening*,
-so clause 6.2 applies to him directly: trained on the standard, on data protection law and on the
-relevant regulatory requirements, with the training recorded and **reviewed at least annually**
-[6.2]. He also needs a confidentiality agreement covering employment and post-employment [6.1],
-and he must be screened himself — which the third row above provides for.
-
-Worth noting the concentration of roles: Farhan holds the final interview, accepts risk, approves
-extensions and statutory declarations, and administers the vetting team's own files. The standard
-does not forbid this — top management is explicitly the party that accepts risk [7.4f] and has the
-authority to offer employment — but it does ask for "particular attention to the division of
-functions and authority" for internal control [6.1]. The mitigation is already in place: Anas and
-Talha control the files Farhan administers, and he cannot control his own. That is the right shape
-for a team this size, and it is worth revisiting if the team grows.
-
-### 4.3 What the portal holds for this
-
-A small **vetting team competence register** in Admin: who is a controller, who is an
-administrator, each person's own screening status and file reference, NDA on file, training dates
-and next annual review date [6.1, 6.2]. The rule the system enforces is that a role grant lapses
-when the annual training review does, rather than quietly continuing.
+That obligation follows the work, not the job title: someone from higher management who administers
+the controllers' files is engaged in screening, and is inside 6.1 and 6.2 for as long as they do it.

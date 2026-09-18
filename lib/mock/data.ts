@@ -9,7 +9,9 @@
  * anything but the exported selectors at the bottom of this file.
  */
 
+import { requiredInterviewStages } from "../policy";
 import type {
+  ActiveSession,
   Candidate,
   Check,
   Client,
@@ -18,6 +20,7 @@ import type {
   Requirement,
   ScreeningFile,
   Site,
+  SiteReference,
   Task,
   User,
 } from "../types";
@@ -26,6 +29,8 @@ const MS_PER_DAY = 86_400_000;
 const iso = (offsetDays: number) =>
   new Date(Date.now() + offsetDays * MS_PER_DAY).toISOString();
 const daysAgo = (n: number) => iso(-n);
+const hoursAgo = (n: number) => iso(-n / 24);
+const minutesAgo = (n: number) => iso(-n / 1440);
 const daysAhead = (n: number) => iso(n);
 
 // ---------------------------------------------------------------------------
@@ -39,13 +44,31 @@ const daysAhead = (n: number) => iso(n);
  * administrator and controller on one file.
  */
 export const users: User[] = [
-  { id: "u1", name: "Ahmed", role: "recruitment" },
-  { id: "u2", name: "Usman", role: "recruitment" },
-  { id: "u3", name: "Anas", role: "vetting_controller" },
-  { id: "u4", name: "Talha", role: "vetting_admin" },
-  { id: "u5", name: "Farhan", role: "top_management" },
-  { id: "u6", name: "Control Alpha desk", role: "control" },
-  { id: "u7", name: "Control Bravo desk", role: "control" },
+  { id: "u1", personId: "hr1", name: "Ahmed", roles: ["recruitment"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(120) },
+  { id: "u2", personId: "hr2", name: "Usman", roles: ["recruitment"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(150) },
+  { id: "u3", personId: "hr3", name: "Anas", roles: ["vetting_admin", "vetting_controller"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(90) },
+  { id: "u4", personId: "hr4", name: "Talha", roles: ["vetting_admin", "vetting_controller"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(200) },
+  { id: "u5", personId: "hr5", name: "Farhan", roles: ["top_management", "recruitment_manager", "vetting_admin"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(60) },
+  { id: "u6", personId: "ct1", name: "Control Alpha desk", roles: ["control"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(300) },
+  { id: "u7", personId: "ct2", name: "Control Bravo desk", roles: ["control"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(300) },
+];
+
+export const userById = (id: string) => users.find((u) => u.id === id);
+export const userByName = (name: string) =>
+  users.find((u) => u.name.toLowerCase() === name.trim().toLowerCase());
+
+/**
+ * Who is signed in and working as what, right now.
+ *
+ * Demonstration data. Real presence needs the Phase 1 backend — a browser
+ * cannot see other people's sessions — but the shape is what the API will
+ * return.
+ */
+export const activeSessions: ActiveSession[] = [
+  { userId: "u1", name: "Ahmed", activeRole: "recruitment", signedInAt: hoursAgo(3), lastSeenAt: minutesAgo(2) },
+  { userId: "u3", name: "Anas", activeRole: "vetting_admin", signedInAt: hoursAgo(5), lastSeenAt: minutesAgo(1) },
+  { userId: "u4", name: "Talha", activeRole: "vetting_controller", signedInAt: hoursAgo(1), lastSeenAt: minutesAgo(9) },
+  { userId: "u6", name: "Control Alpha desk", activeRole: "control", signedInAt: hoursAgo(7), lastSeenAt: minutesAgo(4) },
 ];
 
 // ---------------------------------------------------------------------------
@@ -53,11 +76,11 @@ export const users: User[] = [
 // ---------------------------------------------------------------------------
 
 export const clients: Client[] = [
-  { id: "c1", name: "Meridian Logistics", control: "alpha", screeningPeriodYears: 5 },
-  { id: "c2", name: "Northgate Retail Park", control: "alpha", screeningPeriodYears: 5 },
-  { id: "c3", name: "Halton Data Centre", control: "bravo", screeningPeriodYears: 5 },
-  { id: "c4", name: "Riverside Estates", control: "bravo", screeningPeriodYears: 5 },
-  { id: "c5", name: "Clearwater Pharma", control: "alpha", screeningPeriodYears: 5 },
+  { id: "c1", name: "Meridian Logistics", screeningPeriodYears: 5, requiresAdditionalInterview: false, regulatedActivity: false },
+  { id: "c2", name: "Northgate Retail Park", screeningPeriodYears: 5, requiresAdditionalInterview: false, regulatedActivity: false },
+  { id: "c3", name: "Halton Data Centre", screeningPeriodYears: 5, requiresAdditionalInterview: true, regulatedActivity: false },
+  { id: "c4", name: "Riverside Estates", screeningPeriodYears: 5, requiresAdditionalInterview: false, regulatedActivity: false },
+  { id: "c5", name: "Clearwater Pharma", screeningPeriodYears: 5, requiresAdditionalInterview: true, regulatedActivity: true },
 ];
 
 export const sites: Site[] = [
@@ -157,15 +180,17 @@ function checkSet(
     mk("k4", "preliminary", "Identity confirmed from original documents", "7.4c", preliminaryDone ? "verified" : "received"),
     mk("k5", "preliminary", "SIA licence verified against the public register", "7.4c1", preliminaryDone ? "verified" : "requested"),
     mk("k6", "preliminary", "Current address confirmed", "7.4d", preliminaryDone ? "verified" : "requested"),
-    mk("k7", "preliminary", "Global watchlist and sanctions check", "7.4e", preliminaryDone ? "verified" : "not_started"),
-    mk("k8", "preliminary", "Public record search via credit reference agency", "7.4f", preliminaryDone ? "verified" : "not_started"),
+    mk("k7", "preliminary", "UK sanctions screening (HM Treasury consolidated list)", "7.4e", preliminaryDone ? "verified" : "not_started"),
+    mk("k7b", "preliminary", "OFAC sanctions screening", "7.4e", preliminaryDone ? "verified" : "not_started"),
+    mk("k8", "preliminary", "Creditsafe public record search", "7.4f", preliminaryDone ? "verified" : "not_started"),
     mk("k9", "history", "Career and history — 3 years before application", "7.5.2a", level === "preliminary" ? "requested" : "verified"),
     mk("k10", "history", "Career and history — whole screening period", "7.7", fullDone ? "verified" : "chased"),
     mk("k11", "history", "Date of leaving full-time education", "7.7a", fullDone ? "verified" : "requested"),
     // Criminality and right to work gate DEPLOYMENT under our own policy, so on
     // any file whose officer is on site these are already verified.
     mk("k12", "criminality", "SIA licence, NPCC Appendix C or disclosure held", "7.7j", preliminaryDone ? "verified" : "requested"),
-    mk("k13", "legal", "Right to work in the UK", "outside scope", preliminaryDone ? "verified" : "received"),
+    mk("k12b", "criminality", "Enhanced disclosure — post involves contact with children or vulnerable adults", "7.7j Note 6", preliminaryDone ? "verified" : "not_applicable"),
+    mk("k13", "legal", "Right to work — share code checked independently", "outside scope", preliminaryDone ? "verified" : "received"),
     mk("k14", "signoff", "Controller review — limited screening", "7.5.2b", level === "preliminary" ? "not_started" : "verified"),
     mk("k15", "signoff", "Controller review — completed file", "7.7", fullDone ? "verified" : "not_started"),
   ];
@@ -274,7 +299,7 @@ export const candidates: Candidate[] = [
   { id: "cand5", personId: "p5", fullName: "Rashid Karim", siaBadgeName: "Rashid Karim", siaLicenceNumber: "1010 6677 8899 0011", siaLicenceExpiry: daysAhead(310), email: "r.karim@example.com", phone: "07700 900555", requirementId: "r2", stage: "deployed", stageSince: daysAgo(93), owner: "Usman", source: "existing_indeed", screeningFileId: "f5", pin: "4425" },
   { id: "cand6", personId: "p6", fullName: "Elena Petrova", siaBadgeName: "Elena Petrova", siaLicenceNumber: "1010 7788 9900 1122", siaLicenceExpiry: daysAhead(505), email: "e.petrova@example.com", phone: "07700 900666", requirementId: "r4", stage: "deployed", stageSince: daysAgo(16), owner: "Ahmed", source: "new_indeed_ad", screeningFileId: "f6", pin: "4427" },
   { id: "cand7", personId: "p7", fullName: "Callum Reid", siaBadgeName: "Callum J Reid", siaLicenceNumber: "1010 8899 0011 2233", siaLicenceExpiry: daysAhead(140), email: "c.reid@example.com", phone: "07700 900777", requirementId: "r3", stage: "deployed", stageSince: daysAgo(63), owner: "Ahmed", source: "referral", screeningFileId: "f7", pin: "4428" },
-  { id: "cand8", personId: "p8", fullName: "Ify Nwachukwu", siaBadgeName: null, siaLicenceNumber: "1010 9900 1122 3344", siaLicenceExpiry: daysAhead(95), email: "i.nwachukwu@example.com", phone: "07700 900888", requirementId: "r2", stage: "final_interview", stageSince: daysAgo(6), owner: "Usman", source: "existing_indeed", screeningFileId: "f8", pin: null },
+  { id: "cand8", personId: "p8", fullName: "Ify Nwachukwu", siaBadgeName: null, siaLicenceNumber: "1010 9900 1122 3344", siaLicenceExpiry: daysAhead(95), email: "i.nwachukwu@example.com", phone: "07700 900888", requirementId: "r2", stage: "second_interview", stageSince: daysAgo(6), owner: "Usman", source: "existing_indeed", screeningFileId: "f8", pin: null },
   { id: "cand9", personId: "p9", fullName: "Gareth Llewellyn", siaBadgeName: null, siaLicenceNumber: null, siaLicenceExpiry: null, email: "g.llewellyn@example.com", phone: "07700 900999", requirementId: "r5", stage: "application_complete", stageSince: daysAgo(3), owner: "Ahmed", source: "new_indeed_ad", screeningFileId: null, pin: null },
   { id: "cand10", personId: "p10", fullName: "Amara Sesay", siaBadgeName: null, siaLicenceNumber: null, siaLicenceExpiry: null, email: "a.sesay@example.com", phone: "07700 901000", requirementId: "r5", stage: "application_received", stageSince: daysAgo(8), owner: "Ahmed", source: "previous_enquiry", screeningFileId: null, pin: null },
   { id: "cand11", personId: "p11", fullName: "Viktor Horvat", siaBadgeName: null, siaLicenceNumber: null, siaLicenceExpiry: null, email: "v.horvat@example.com", phone: "07700 901111", requirementId: "r7", stage: "invited", stageSince: daysAgo(11), owner: "Usman", source: "new_indeed_ad", screeningFileId: null, pin: null },
@@ -293,17 +318,22 @@ export const candidates: Candidate[] = [
  * [7.3.4] and is what Gate 1 checks.
  */
 export const interviews: Interview[] = [
-  { id: "i1", candidateId: "cand1", stage: "initial", interviewer: "Ahmed", heldAt: daysAgo(112), outcome: "progress", notes: "Strong site experience, available for nights." },
-  { id: "i2", candidateId: "cand1", stage: "final", interviewer: "Farhan", heldAt: daysAgo(108), outcome: "progress", notes: "Approved for conditional offer." },
-  { id: "i3", candidateId: "cand2", stage: "final", interviewer: "Farhan", heldAt: daysAgo(76), outcome: "progress", notes: "No initial interview held — direct to final." },
-  { id: "i4", candidateId: "cand3", stage: "initial", interviewer: "Usman", heldAt: daysAgo(66), outcome: "progress", notes: "Retail background, weekends suit." },
-  { id: "i5", candidateId: "cand3", stage: "final", interviewer: "Farhan", heldAt: daysAgo(62), outcome: "progress", notes: "Approved; financial history to be reviewed at screening." },
-  { id: "i6", candidateId: "cand4", stage: "final", interviewer: "Farhan", heldAt: daysAgo(45), outcome: "progress", notes: "Approved for conditional offer." },
-  { id: "i7", candidateId: "cand5", stage: "final", interviewer: "Farhan", heldAt: daysAgo(100), outcome: "progress", notes: "Approved; overseas history flagged for screening." },
-  { id: "i8", candidateId: "cand6", stage: "initial", interviewer: "Ahmed", heldAt: daysAgo(26), outcome: "progress", notes: "Available immediately." },
-  { id: "i9", candidateId: "cand6", stage: "final", interviewer: "Farhan", heldAt: daysAgo(23), outcome: "progress", notes: "Approved for conditional offer." },
-  { id: "i10", candidateId: "cand7", stage: "final", interviewer: "Farhan", heldAt: daysAgo(70), outcome: "progress", notes: "Approved for conditional offer." },
-  { id: "i11", candidateId: "cand8", stage: "initial", interviewer: "Usman", heldAt: daysAgo(6), outcome: "progress", notes: "Data centre experience. Final interview to book." },
+  { id: "i1", candidateId: "cand1", stage: "first", interviewer: "Ahmed", heldAt: daysAgo(112), outcome: "progress", notes: "Telephone. Strong site experience, available for nights." },
+  { id: "i2", candidateId: "cand1", stage: "second", interviewer: "Farhan", heldAt: daysAgo(108), outcome: "progress", notes: "On site. Approved for conditional offer." },
+  { id: "i3", candidateId: "cand2", stage: "first", interviewer: "Usman", heldAt: daysAgo(80), outcome: "progress", notes: "Telephone." },
+  { id: "i4", candidateId: "cand2", stage: "second", interviewer: "Farhan", heldAt: daysAgo(76), outcome: "progress", notes: "Video. Approved for conditional offer." },
+  { id: "i5", candidateId: "cand3", stage: "first", interviewer: "Usman", heldAt: daysAgo(66), outcome: "progress", notes: "Telephone. Retail background, weekends suit." },
+  { id: "i6", candidateId: "cand3", stage: "second", interviewer: "Farhan", heldAt: daysAgo(62), outcome: "progress", notes: "On site. Financial history to be reviewed at screening." },
+  { id: "i7", candidateId: "cand4", stage: "first", interviewer: "Ahmed", heldAt: daysAgo(49), outcome: "progress", notes: "Telephone." },
+  { id: "i8", candidateId: "cand4", stage: "second", interviewer: "Farhan", heldAt: daysAgo(45), outcome: "progress", notes: "Video. Approved for conditional offer." },
+  { id: "i9", candidateId: "cand5", stage: "first", interviewer: "Usman", heldAt: daysAgo(106), outcome: "progress", notes: "Telephone." },
+  { id: "i10", candidateId: "cand5", stage: "second", interviewer: "Farhan", heldAt: daysAgo(102), outcome: "progress", notes: "On site. Overseas history flagged for screening." },
+  { id: "i11", candidateId: "cand5", stage: "additional", interviewer: "Halton Data Centre", heldAt: daysAgo(100), outcome: "progress", notes: "Client-required stage." },
+  { id: "i12", candidateId: "cand6", stage: "first", interviewer: "Ahmed", heldAt: daysAgo(26), outcome: "progress", notes: "Telephone. Available immediately." },
+  { id: "i13", candidateId: "cand6", stage: "second", interviewer: "Farhan", heldAt: daysAgo(23), outcome: "progress", notes: "Video. Approved for conditional offer." },
+  { id: "i14", candidateId: "cand7", stage: "first", interviewer: "Ahmed", heldAt: daysAgo(74), outcome: "progress", notes: "Telephone." },
+  { id: "i15", candidateId: "cand7", stage: "second", interviewer: "Farhan", heldAt: daysAgo(70), outcome: "progress", notes: "On site. Approved for conditional offer." },
+  { id: "i16", candidateId: "cand8", stage: "first", interviewer: "Usman", heldAt: daysAgo(6), outcome: "progress", notes: "Telephone. Data centre experience." },
 ];
 
 /** Every interview held for a candidate, oldest first. */
@@ -312,20 +342,43 @@ export const interviewsFor = (candidateId: string) =>
     .filter((i) => i.candidateId === candidateId)
     .sort((a, b) => new Date(a.heldAt).getTime() - new Date(b.heldAt).getTime());
 
-/** Gate 1 checks this: the final interview is mandatory before any offer. */
-export const finalInterviewHeld = (candidateId: string) =>
-  interviews.some((i) => i.candidateId === candidateId && i.stage === "final");
+/**
+ * Gate 1 checks this: every interview stage the client requires must have been
+ * held before any offer [7.3.4]. Which stages those are comes from the client
+ * record, so a site that adds its own stage is configuration, not a code change.
+ */
+export const requiredInterviewsHeld = (candidateId: string): boolean => {
+  const candidate = candidateById(candidateId);
+  const requirement = candidate?.requirementId
+    ? requirements.find((r) => r.id === candidate.requirementId)
+    : undefined;
+  const client = requirement ? clientById(requirement.clientId) : undefined;
+  if (!client) return false;
+
+  const held = new Set(interviewsFor(candidateId).map((i) => i.stage));
+  return requiredInterviewStages(client).every((stage) => held.has(stage));
+};
 
 // ---------------------------------------------------------------------------
 // Officers
 // ---------------------------------------------------------------------------
 
 export const officers: Officer[] = [
-  { id: "o1", personId: "p20", siaBadgeName: "Wesley Anand", pin: "3312", siaLicenceNumber: "1010 1111 2222 3333", siaLicenceExpiry: daysAhead(24), control: "alpha", available: true, employmentState: "confirmed" },
-  { id: "o2", personId: "p21", siaBadgeName: "Grace Mbeki", pin: "3318", siaLicenceNumber: "1010 2222 3333 4444", siaLicenceExpiry: daysAhead(51), control: "bravo", available: false, employmentState: "confirmed" },
-  { id: "o3", personId: "p22", siaBadgeName: "Liam Corrigan", pin: "3325", siaLicenceNumber: "1010 3333 4444 5555", siaLicenceExpiry: daysAhead(78), control: "alpha", available: true, employmentState: "confirmed" },
-  { id: "o4", personId: "p1", siaBadgeName: "Adebayo O Fashola", pin: "4417", siaLicenceNumber: "1010 2233 4455 6677", siaLicenceExpiry: daysAhead(412), control: "alpha", available: false, employmentState: "conditional" },
-  { id: "o5", personId: "p2", siaBadgeName: "Marta Kowalczyk", pin: "4418", siaLicenceNumber: "1010 3344 5566 7788", siaLicenceExpiry: daysAhead(58), control: "alpha", available: false, employmentState: "conditional" },
+  { id: "o1", personId: "p20", siaBadgeName: "Wesley Anand", pin: "3312", siaLicenceNumber: "1010 1111 2222 3333", siaLicenceExpiry: daysAhead(24), control: "alpha", available: true, employmentState: "confirmed", rightToWorkExpiry: null },
+  { id: "o2", personId: "p21", siaBadgeName: "Grace Mbeki", pin: "3318", siaLicenceNumber: "1010 2222 3333 4444", siaLicenceExpiry: daysAhead(51), control: "bravo", available: false, employmentState: "confirmed", rightToWorkExpiry: daysAhead(38) },
+  { id: "o3", personId: "p22", siaBadgeName: "Liam Corrigan", pin: "3325", siaLicenceNumber: "1010 3333 4444 5555", siaLicenceExpiry: daysAhead(78), control: "alpha", available: true, employmentState: "confirmed", rightToWorkExpiry: null },
+  { id: "o4", personId: "p1", siaBadgeName: "Adebayo O Fashola", pin: "4417", siaLicenceNumber: "1010 2233 4455 6677", siaLicenceExpiry: daysAhead(412), control: "alpha", available: false, employmentState: "conditional", rightToWorkExpiry: null },
+  { id: "o5", personId: "p2", siaBadgeName: "Marta Kowalczyk", pin: "4418", siaLicenceNumber: "1010 3344 5566 7788", siaLicenceExpiry: daysAhead(58), control: "alpha", available: false, employmentState: "conditional", rightToWorkExpiry: null },
+];
+
+/**
+ * Client-side references. We issue the PIN; some sites issue their own PRN and
+ * the two are recorded against each other, so neither side has to match on name.
+ */
+export const siteReferences: SiteReference[] = [
+  { officerId: "o1", siteId: "s1", prn: "MER-0442" },
+  { officerId: "o2", siteId: "s4", prn: "HAL-1180" },
+  { officerId: "o4", siteId: "s6", prn: "CW-2207" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -357,8 +410,8 @@ export const funnel = [
   { stage: "Candidates shortlisted", count: 96 },
   { stage: "Applications invited", count: 78 },
   { stage: "Applications complete", count: 41 },
-  { stage: "Initial interview (team)", count: 38 },
-  { stage: "Final interview (Farhan)", count: 33 },
+  { stage: "First interview", count: 38 },
+  { stage: "Second interview", count: 33 },
   { stage: "Conditional offers", count: 27 },
   { stage: "Deployable", count: 24 },
   { stage: "Confirmed employment", count: 16 },

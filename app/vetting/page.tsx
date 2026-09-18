@@ -8,7 +8,7 @@ import { evaluateDeploymentGate, reviewIndependence } from "@/lib/policy";
 import { CHECK_STATUS_LABELS, RECRUITMENT_STAGE_ORDER } from "@/lib/labels";
 import {
   candidateById,
-  finalInterviewHeld,
+  requiredInterviewsHeld,
   interviewsFor,
   screeningFiles,
 } from "@/lib/mock/data";
@@ -76,8 +76,8 @@ export default function VettingPage() {
     RECRUITMENT_STAGE_ORDER.indexOf(candidate.stage) >=
       RECRUITMENT_STAGE_ORDER.indexOf("signed_docs_complete");
 
-  const interviewHeld = finalInterviewHeld(file.candidateId);
-  const finalInterview = interviewsFor(file.candidateId).find((i) => i.stage === "final");
+  const interviewHeld = requiredInterviewsHeld(file.candidateId);
+  const heldInterviews = interviewsFor(file.candidateId);
 
   const gate1 = evaluateGate1(file, {
     riskEvaluationDocumented: true,
@@ -94,8 +94,8 @@ export default function VettingPage() {
   // interviewing, screening and the decision to employ. Our arrangement
   // satisfies it: Farhan interviews, Anas and Talha control the files.
   const independence = reviewIndependence({
-    controller: file.controller ?? "",
-    finalInterviewer: finalInterview?.interviewer ?? null,
+    controllerUserId: file.controller ?? null,
+    interviewerUserIds: heldInterviews.map((i) => i.interviewer),
   });
 
   const groups = Object.keys(GROUP_LABELS) as CheckGroup[];
@@ -126,10 +126,10 @@ export default function VettingPage() {
             </ul>
           )}
           <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
-            Requires the final interview held <ClauseRef clause="7.3.4" />, a
-            documented risk evaluation, satisfactory preliminary checks, and
-            limited screening confirmed by the controller.{" "}
-            <ClauseRef clause="7.5.1" />
+            Requires every interview stage the client asks for{" "}
+            <ClauseRef clause="7.3.4" />, a documented risk evaluation,
+            satisfactory preliminary checks, and limited screening confirmed by
+            the controller. <ClauseRef clause="7.5.1" />
           </p>
           {!independence.independent && independence.warning && (
             <p className="mt-2 text-[11px]" style={{ color: "var(--status-serious)" }}>

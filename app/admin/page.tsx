@@ -9,12 +9,10 @@ import {
   MAX_EXTENSION_WEEKS,
   RETENTION,
 } from "@/lib/bs7858";
-import {
-  AUTHORISED_PERSON,
-  FINAL_INTERVIEWER,
-  INTERNAL_FILE_ASSIGNMENTS,
-  VETTING_PAIR,
-} from "@/lib/policy";
+import { canGrantRole, isScreeningRole, ROLE_OPTIONS } from "@/lib/roles";
+import { ROLE_LABELS } from "@/lib/labels";
+import { formatDate } from "@/lib/format";
+import { users } from "@/lib/mock/data";
 
 /**
  * Admin.
@@ -28,7 +26,7 @@ export default function AdminPage() {
     <div className="space-y-5">
       <PageHeader
         title="Admin"
-        description="Users and roles, clients and sites, templates, service levels, retention, the vetting team competence register, and the audit log."
+        description="People and roles, clients and sites, templates, service levels, retention, and the audit log. Role assignment is set up here rather than fixed in the build, so new starters and internal transfers are an edit."
       />
 
       <div className="grid gap-5 xl:grid-cols-2">
@@ -39,7 +37,7 @@ export default function AdminPage() {
           <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
             {[
               ["Full screening deadline", "12 weeks — we screen to 5 years (16 weeks would apply to a 10-year period)", "7.6"],
-              ["Maximum extension", `${MAX_EXTENSION_WEEKS} weeks, once, approved by ${AUTHORISED_PERSON}, with evidence of written requests`, "7.6"],
+              ["Maximum extension", `${MAX_EXTENSION_WEEKS} weeks, once, approved by higher management, with evidence of written requests`, "7.6"],
               ["Minimum screening period", "5 years, or back to age 16", "3.13"],
               ["Limited screening history", "At least the 3 years before application", "7.5.2a"],
               ["Maximum unverified gap", "31 days", "7.7"],
@@ -79,8 +77,8 @@ export default function AdminPage() {
               ["Expiry warnings", `${EXPIRY_WARNING_DAYS.join(", ")} days ahead`],
               ["Default screening period", `${DEFAULT_SCREENING_PERIOD_YEARS} years — per client, so a contract or insurer needing longer is a setting rather than a code change`],
               ["Pre-deployment policy", `Criminality (7.7j) and right to work must be complete before an officer reaches site — stricter than the standard`],
-              ["Vetting pair", `${VETTING_PAIR.join(" and ")}, alternating administrator and controller per file`],
-              ["Final interview", `Held by ${FINAL_INTERVIEWER}, mandatory before any offer (7.3.4). An initial team interview is optional and does not substitute for it`],
+              ["Interview stages", `First (Recruitment, by phone), second (HR Manager, on site or video), and an additional stage only where a client asks for one. All required stages must be held before any offer (7.3.4)`],
+              ["Role assignment", `Set per person in Admin, not fixed in the build — ${ROLE_OPTIONS.length} roles to choose from, and people may hold more than one`],
             ].map(([label, value]) => (
               <li key={label} className="flex items-start justify-between gap-3 py-2">
                 <div className="min-w-0 flex-1">
@@ -97,42 +95,72 @@ export default function AdminPage() {
       </div>
 
       <Card
-        title="Vetting team competence register"
-        subtitle="Who screens the screeners. Screening staff must themselves be screened, may not screen themselves, and the controller reviewing a file may not be the administrator who built it."
+        title="People and roles"
+        subtitle="Who holds which role, and whether they may. Set up here — nothing about team size or composition is fixed in the build, so a new starter or an internal transfer is an edit rather than a release."
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[34rem] border-collapse text-left">
+          <table className="w-full min-w-[46rem] border-collapse text-left">
             <thead>
               <tr className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                <th className="pb-2 pr-3 font-medium">Whose file</th>
-                <th className="pb-2 pr-3 font-medium">Administrator</th>
-                <th className="pb-2 pr-3 font-medium">Controller</th>
-                <th className="pb-2 font-medium">Rule check</th>
+                <th className="pb-2 pr-3 font-medium">Name</th>
+                <th className="pb-2 pr-3 font-medium">Roles held</th>
+                <th className="pb-2 pr-3 font-medium">Own screening</th>
+                <th className="pb-2 pr-3 font-medium">NDA</th>
+                <th className="pb-2 pr-3 font-medium">Training reviewed</th>
+                <th className="pb-2 font-medium">Grant check</th>
               </tr>
             </thead>
             <tbody>
-              {INTERNAL_FILE_ASSIGNMENTS.map((row) => {
-                const noSelfScreening =
-                  row.administrator !== row.subject && row.controller !== row.subject;
-                const fourEyes = row.administrator !== row.controller;
+              {users.map((user) => {
+                // Screening roles carry the 6.1 and 6.2 obligations; the check
+                // is computed from the evidence on file, not asserted.
+                const screeningRoles = user.roles.filter(isScreeningRole);
+                const failures = screeningRoles
+                  .map((role) => ({
+                    role,
+                    result: canGrantRole({
+                      role,
+                      ownScreeningComplete: user.ownScreeningComplete,
+                      confidentialityAgreementOnFile: user.confidentialityAgreementOnFile,
+                      trainingReviewedAt: user.trainingReviewedAt,
+                    }),
+                  }))
+                  .filter((r) => !r.result.permitted);
+
                 return (
-                  <tr key={row.subject} className="border-t" style={{ borderColor: "var(--hairline)" }}>
-                    <td className="py-2.5 pr-3 text-[13px] font-medium">{row.subject}</td>
-                    <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                      {row.administrator}
+                  <tr key={user.id} className="border-t align-top" style={{ borderColor: "var(--hairline)" }}>
+                    <td className="py-2.5 pr-3 text-[13px] font-medium">{user.name}</td>
+                    <td className="py-2.5 pr-3">
+                      <div className="flex flex-wrap gap-1">
+                        {user.roles.map((r) => (
+                          <Tag key={r}>{ROLE_LABELS[r]}</Tag>
+                        ))}
+                      </div>
                     </td>
                     <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                      {row.controller}
+                      {user.ownScreeningComplete ? "Complete" : "Outstanding"}
+                    </td>
+                    <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+                      {user.confidentialityAgreementOnFile ? "On file" : "Missing"}
+                    </td>
+                    <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+                      {formatDate(user.trainingReviewedAt)}
                     </td>
                     <td className="py-2.5">
-                      <StatusPill
-                        severity={noSelfScreening && fourEyes ? "good" : "critical"}
-                        label={
-                          noSelfScreening && fourEyes
-                            ? "6.1 and 7.5.2b satisfied"
-                            : "Conflict — reassign"
-                        }
-                      />
+                      {screeningRoles.length === 0 ? (
+                        <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>
+                          Not a screening role
+                        </span>
+                      ) : (
+                        <StatusPill
+                          severity={failures.length === 0 ? "good" : "critical"}
+                          label={
+                            failures.length === 0
+                              ? "6.1 and 6.2 satisfied"
+                              : failures[0].result.reason ?? "Blocked"
+                          }
+                        />
+                      )}
                     </td>
                   </tr>
                 );
@@ -141,14 +169,35 @@ export default function AdminPage() {
           </table>
         </div>
         <p className="mt-4 text-[12px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-          {AUTHORISED_PERSON} administering the vetting team&rsquo;s own files is what makes this
-          work: the controller then has to be someone who is neither the subject nor the
-          administrator, which leaves the other half of the pair. Because it makes him a person
-          engaged in screening, clause 6.2 training and a confidentiality agreement apply to him
-          too — and his own file is administered by {VETTING_PAIR[1]} and controlled by{" "}
-          {VETTING_PAIR[0]}. {FINAL_INTERVIEWER} also holds the final interview, so no controller
-          ever signs off a candidate they interviewed.
+          A screening role cannot be granted until the person is screened
+          themselves, has a confidentiality agreement on file and holds training
+          that is in date <ClauseRef clause="6.1" /> <ClauseRef clause="6.2" />.
+          The portal blocks the grant rather than trusting it to be remembered,
+          and the grant lapses when the annual review does.
         </p>
+      </Card>
+
+      <Card
+        title="Assignment rules"
+        subtitle="Applied to whoever holds the roles, so they hold at any team size."
+      >
+        <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
+          {[
+            ["Nobody screens themselves", "Neither the administrator nor the controller on a file may be its subject.", "6.1"],
+            ["Four eyes on sign-off", "The controller who reviews a file may not be the administrator who built it.", "7.5.2b"],
+            ["Controllers are screened by higher management", "Where the subject of a file is themselves a screening controller, the file is administered by higher management — which is also the only way to satisfy the two rules above without going outside the company.", "6.1"],
+            ["Division of functions", "Whoever signs off a file should not be someone who interviewed the candidate. Warned and recorded rather than blocked, because the standard asks for attention to it rather than forbidding it.", "6.1"],
+          ].map(([label, detail, clause]) => (
+            <li key={label} className="py-2.5">
+              <p className="text-[13px] font-medium">
+                {label} <ClauseRef clause={clause} />
+              </p>
+              <p className="mt-0.5 max-w-3xl text-[12px] leading-snug" style={{ color: "var(--text-secondary)" }}>
+                {detail}
+              </p>
+            </li>
+          ))}
+        </ul>
       </Card>
 
       <ModuleOutline

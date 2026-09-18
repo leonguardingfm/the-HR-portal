@@ -20,38 +20,45 @@ need to see the convictions or the CCJs.
 
 ## 2. Roles
 
-Named assignments confirmed September 2026.
+**No person is named here, deliberately.** Who holds which role is set up in Admin and changes as
+people join, leave and move between teams. What is fixed is the set of roles, and the rules that
+apply to whoever holds them.
 
-| Role | Who | Purpose |
-|------|-----|---------|
-| **Control** | Control Alpha (3), Control Bravo (2) | Raise requirements, check the officer pool, allocate officers, roster |
-| **Recruitment** | **Ahmed**, **Usman** | Source, shortlist, invite, chase, hold the optional **initial interview**, issue packs, onboard |
-| **Recruitment Manager** | Not yet assigned | All of Recruitment plus workload, reassignment, escalations |
-| **Vetting Administrator** | **Anas** or **Talha**, per file [3.10] | Carry out checks, request and record evidence, maintain the file |
-| **Vetting Controller** | **Talha** or **Anas** — whichever is not the administrator on that file [3.11] | Review and sign off files; responsible for the process being carried out correctly |
-| **Top Management** | **Farhan** [3.15] | Hold the **final interview** before any offer [7.3.4]; accept risk, approve extensions and statutory declarations, oversight. Also **administrator on the vetting team's own files** (§2.1), which brings him inside clauses 6.1 and 6.2 |
+| Role | Purpose |
+|------|---------|
+| **Control** | Raise requirements, check the officer pool, allocate officers, roster. Two teams — Alpha (3) and Bravo (2) — split by workload and communication, not by client or geography, so officers can be rebalanced between them |
+| **Recruitment** | Source, shortlist, invite, chase, hold the **first interview**, issue packs, onboard |
+| **HR Manager** | All of Recruitment, plus the **second interview** and workload, reassignment and escalations |
+| **Screening Administrator** [3.10] | Carry out checks, request and record evidence, maintain the file |
+| **Screening Controller** [3.11] | Review and sign off files; responsible for the process being carried out correctly |
+| **Higher Management** [3.15] | Accept risk, approve extensions and statutory declarations, oversight; and **administer the controllers' own screening files**, which brings whoever does it inside clauses 6.1 and 6.2 |
 | **Auditor** | Internal audit, external certification body, insurer | Read-only across everything, including the audit log |
 
-### 2.1 The alternating vetting pair
+### 2.1 People hold more than one role, and choose one at sign-in
 
-Anas and Talha both hold both vetting roles, assigned **per file**: whoever administers a file, the
-other reviews it. The portal enforces the pairing, so the same person can never be administrator
-and controller on one file [3.10, 3.11, 7.5.2b]. Both therefore need to be trained and recorded as
-competent in both roles [6.2].
+Several people hold two or three of these. That is why sign-in asks for a **name and an active
+role** rather than reading a role off a job title: it is what lets the portal say who is doing the
+vetting today when the same person is a recruiter on Monday and an administrator on Tuesday, and it
+is what makes the work visible in real time on the dashboard. The active role can be changed
+without signing out, because people move between tasks during a shift and the record should follow.
 
-Recruitment and vetting sitting with different people (Ahmed and Usman versus Anas and Talha) is
-exactly the separation of functions clause 6.1 asks for — nobody interviews a candidate and then
-signs off their own screening file.
+Assignment on a file is **per file**, not per person: whoever administers a file, someone else
+reviews it. The portal enforces that, so the same person can never be administrator and controller
+on one file [3.10, 3.11, 7.5.2b]. Anyone who may hold both roles needs to be trained and recorded
+as competent in both [6.2].
 
-**Their own files are covered too.** Farhan administers Anas's and Talha's own screening files, so
-the controller falls to whichever of the pair is not the subject; Farhan's own file is administered
-by Talha and controlled by Anas. Every combination satisfies both rules — nobody screens
-themselves [6.1], and no controller reviews a file they built [7.5.2b]. The Admin screen shows
-this as a register with the rule check computed rather than asserted, so a reassignment that broke
-it would surface immediately.
+Recruitment and vetting sitting with different people is the separation of functions clause 6.1
+asks for — nobody interviews a candidate and then signs off their own screening file.
 
-Because administering files makes Farhan a person engaged in screening, clause 6.2 training and a
-confidentiality agreement apply to him as well.
+**The controllers' own files are covered too.** All controllers are screened and vetted directly by
+**higher management**, which is confirmed policy and also the only arrangement that satisfies the
+rules without going outside the company: whoever administers is excluded from reviewing, and the
+subject is excluded from both, so the review falls to another controller. The Admin screen computes
+that check rather than asserting it, so a reassignment that broke it surfaces immediately.
+
+Because administering files makes someone a person engaged in screening, clause 6.2 training and a
+confidentiality agreement apply to whoever does it — higher management included, for as long as
+they do it.
 | **Candidate** | Applicant, self-service | Their own record only: complete the form, upload documents, see what is outstanding |
 | **System Administrator** | IT | Users, roles, templates, SLA configuration — **not** candidate or screening data |
 
@@ -95,8 +102,9 @@ These are the ones worth writing as constraints in the database rather than as p
 3. **Separation of decision from screening.** The person who conducts the interview and the person
    who signs off the screening file should be different people wherever headcount allows [6.1]. Warn
    and log if not, rather than block — because in a small team it may sometimes be unavoidable, and
-   an audited exception is more honest than a workaround. As things stand this never fires: Farhan
-   interviews, Anas and Talha control.
+   an audited exception is more honest than a workaround. As the work currently falls this never
+   fires, because interviewing and file control sit with different teams. It is compared by user
+   id rather than by name, so it keeps holding across a transfer.
 4. **Risk acceptance is top management only.** CCJs over £10,000, bankruptcy, and directorships
    cannot be cleared by a controller or administrator [7.4f, Form 5]. Hard block.
 5. **Representation before decision.** A file cannot move to an adverse outcome on a public-record
@@ -114,9 +122,9 @@ These are the ones worth writing as constraints in the database rather than as p
 
 ## 5. Things to confirm
 
-- **Is Farhan's clause 6.2 training recorded**, with an annual review date, and is his
-  confidentiality agreement on file? Administering the vetting team's files brings him inside those
-  requirements, and the portal will not grant the administrator role without them.
+- **Is the clause 6.2 training recorded for whoever administers the controllers' files**, with an
+  annual review date, and is the confidentiality agreement on file? Doing that work brings them
+  inside those requirements, and the portal will not grant the administrator role without them.
 - **Do Control staff need any candidate visibility at all** beyond "an officer is allocated and is
   deployable"? The matrix above assumes not, which is the safer default, but Control may have a
   practical need we should hear before locking it down.

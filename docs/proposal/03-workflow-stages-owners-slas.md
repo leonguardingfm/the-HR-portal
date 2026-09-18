@@ -14,13 +14,14 @@ Admin without a code change.
  Received ─> Pool check ─> [covered internally: CLOSED]
                         └─> Released to sourcing ─> Allocated ─> Filled
 
- TRACK B — RECRUITMENT  (Ahmed, Usman; final interview by Farhan)
+ TRACK B — RECRUITMENT  (Recruitment; second interview by the HR Manager)
  Sourcing ─> Shortlisted ─> Invited ─> Application received ─> Application complete
-   ─> [Initial interview: team, optional] ─> Final interview: Farhan  (7.3.4, mandatory)
+   ─> First interview (phone) ─> Second interview (HR Manager)
+   ─> [Additional interview: only where the client requires one]      (7.3.4)
    ─> ((GATE 1)) ─> Conditional offer ─> Welcome pack ─> Signed docs complete
    ─> Onboarding complete ─> ((GATE 2)) ─> DEPLOYED ─> ((GATE 3)) ─> Confirmed employment
 
- TRACK C — VETTING  (Anas, Talha — alternating administrator / controller)
+ TRACK C — VETTING  (Screening Administrator + Screening Controller, never the same person)
  Not started ─> Consent captured ─> Information complete ─> Preliminary checks done
    ─> Limited screening: 3-year history ─> CONTROLLER REVIEW #1 ══> unlocks GATE 1
    ─> Criminality + right to work                            ══> unlocks GATE 2
@@ -43,8 +44,8 @@ them is ours rather than the standard's.
 ### GATE 1 — conditional offer (BS 7858 minimum)
 This is the standard's own gate. A conditional offer is **blocked** until all four are true:
 
-1. **The final interview has been held** by Farhan [7.3.4]. An initial team interview may precede
-   it but never substitutes for it
+1. **Every interview stage this client requires has been held** [7.3.4] — first and second always,
+   plus the additional stage where that client specifies one
 2. Risk in the intended role evaluated, deemed acceptable, and **documented** [7.5.1a]
 3. Preliminary checks complete — identity from originals, current address, sanctions and
    watchlist, public record search via a credit reference agency [7.4]
@@ -73,11 +74,12 @@ policy module rather than the BS 7858 module, precisely so the distinction stays
 The portal shows every block as a plain sentence — "Deployment blocked: SIA licence not yet
 verified against the public register" — never a greyed-out button with no explanation.
 
-**One thing this arrangement gets for free.** Farhan holds the final interview and Anas or Talha
-control the screening file, so no controller ever signs off a candidate they interviewed — the
-division of functions clause 6.1 asks for, arising from how the work already falls rather than
-from an added rule. The portal checks it on every file and records an exception if it ever stops
-being true, rather than blocking.
+**One thing this arrangement gets for free.** Interviewing sits with Recruitment and the HR
+Manager while screening files are controlled by the vetting team, so no controller ordinarily
+signs off a candidate they interviewed — the division of functions clause 6.1 asks for, arising
+from how the work already falls rather than from an added rule. The portal checks it on every file
+by user id rather than by name, so it survives a transfer, and records an exception if it ever
+stops being true rather than blocking.
 
 ### GATE 3 — confirmed employment
 Confirmed employment is blocked until the **whole five-year screening period** is verified with no
@@ -110,7 +112,7 @@ deadline engine work later — it must come from the client contract, not be gue
 stage. Second, "Released to sourcing" is a timestamped handover, which is what lets us report
 honestly on whether a delay sat with Control or with HR.
 
-## 4. Track B — Recruitment (owners: Ahmed, Usman)
+## 4. Track B — Recruitment (owner: whoever holds the Recruitment role)
 
 | Stage | Owner | Checklist | Target |
 |-------|-------|-----------|--------|
@@ -119,8 +121,9 @@ honestly on whether a delay sat with Control or with HR.
 | B3 Invited | Recruitment | Casper application link sent with instructions. The authorisation [7.3.2f] and declaration [7.3.2g] are already part of that form, so consent to screen arrives with the application | Same day as B2 |
 | B4 Application received | Recruitment | Application returned | Chase at **+3 days**, again at **+7**, escalate at **+14** |
 | B5 Application complete | Recruitment | Completeness judged against the **full 7.3.2 list**, not just "form submitted"; document rules validated at upload `[SV]`; missing items chased | Chase within **48h** of a gap being identified, then every 3 working days, **max 3 attempts** then escalate |
-| B6a Initial interview | Ahmed / Usman | **Optional.** Held for some candidates; interviewer, date, outcome and notes recorded | Within 3 working days of B5, where held |
-| B6b Final interview | **Farhan** | **Mandatory before any offer** [7.3.4]; interviewer, date, outcome and notes recorded. Gate 1 will not open without it | Within 5 working days of B5 |
+| B6a First interview | Recruitment | Telephone or voice call. Candidate assessed against the recruitment and site requirements; interviewer, date, outcome and notes recorded | Within 3 working days of B5 |
+| B6b Second interview | HR Manager | On site or by video, depending on availability and the site | Within 5 working days of B6a |
+| B6c Additional interview | As the client specifies | **Only where that site or client requires one.** Which clients do is held on the client record, so it is configuration | As the client specifies |
 | — | — | **GATE 1** — conditional offer permitted | — |
 | B7 Conditional offer | Recruitment (+ Vetting controller sign-off) | Documented risk evaluation; conditional offer issued; **contract states that confirmed employment depends on full screening completing within the period allowed, and that conditional employment ends if it does not** [7.5.2] | 1 working day of Gate 1 clearing |
 | B8 Welcome pack | Recruitment | Confidentiality & Disclosure, Employee Handbook, Employment Contract, Restrictive Covenant issued | Same day as B7 |
@@ -131,7 +134,7 @@ honestly on whether a delay sat with Control or with HR.
 | — | — | **GATE 3** — confirmed employment permitted | — |
 | B12 Confirmed employment | Vetting controller → Recruitment | Five-year history verified and the completed file reviewed; status updated; officer record finalised | On Gate 3 clearing, within the 12-week clock |
 
-## 5. Track C — Vetting (owners: Anas and Talha, alternating administrator and controller)
+## 5. Track C — Vetting (Screening Administrator, then Screening Controller — never the same person on one file)
 
 | Stage | Owner | Checklist | Target |
 |-------|-------|-----------|--------|
@@ -142,7 +145,7 @@ honestly on whether a delay sat with Control or with HR.
 | C5 Controller review #1 | Vetting **controller** | File reviewed and confirmed; controller named on file [7.5.2b]; may not be the administrator on this file; may not be their own file [6.1] | **2 working days** of C4 |
 | C6 Criminality and right to work | Vetting admin | SIA licence, NPCC Appendix C or a disclosure from the appropriate body held or obtained [7.7j]; right to work confirmed with a follow-up date where leave is time-limited. **Before deployment** — stricter than the standard, which places 7.7j inside full screening | **3 working days** of C5 — this is on the critical path to deployment |
 | C7 Five-year history verification | Vetting admin | Whole screening period verified; **no unverified period over 31 days** [7.7]; education leaving date [7.7a]; employment periods and type [7.7b]; registered unemployment via DWP [7.7c]; self-employment [7.7d]; career breaks [7.7e]; residence abroad [7.7f]; travel abroad over 31 days [7.7g]; incomplete-record evidence [7.7h] | **HARD: 12 weeks** from conditional employment start [7.6] |
-| C8 Controller review #2 | Vetting **controller** (not the administrator on this file) | Completed file reviewed and signed off; the alternating pairing means whoever built the file cannot be the one who reviews it [6.1, 7.5.2b] | Within the clock |
+| C8 Controller review #2 | Vetting **controller** (not the administrator on this file) | Completed file reviewed and signed off; whoever built the file cannot be the one who reviews it [6.1, 7.5.2b] | Within the clock |
 
 **Reference chasing rhythm inside C7** (proposed):
 

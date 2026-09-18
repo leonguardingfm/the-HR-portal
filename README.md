@@ -15,9 +15,13 @@ Phase 1.
 
 Confirmed process: **we screen to five years**, vetting is **in-house**, and officers reach a
 client site only after initial screening — the one element that runs afterwards is **five-year
-career-history verification**, inside the 12 weeks the standard allows. Interviews are two-stage:
-an optional initial interview by the recruitment team, then the **final interview held by Farhan**,
-which is mandatory before any offer (7.3.4) and which Gate 1 enforces.
+career-history verification**, inside the 12 weeks the standard allows. Interviews run in up to
+three stages (first by Recruitment, second by the HR Manager, plus an additional stage where a
+client requires one), and Gate 1 enforces every stage that client needs.
+
+The systems around it: **Casper** holds the application, **INDEL** is the current system of record
+for officers, the **Watch List is the SIA website** checked twice daily, and **Maps is Google
+Maps** used by Control for deployment.
 
 ```bash
 npm install
@@ -26,9 +30,16 @@ npm run build      # production build
 npm run typecheck  # tsc --noEmit
 ```
 
-Use the **Viewing as** control in the top bar to switch role and see how the navigation and
-dashboard change. In production the role comes from SSO and is enforced server-side; the switcher
-exists so the seven role views can be reviewed without seven logins.
+**Sign in with your name and the role you are working as.** People hold more than one role and
+move between teams, so a job title cannot answer "who is doing the vetting today" — a role chosen
+at sign-in can, and the dashboard shows it in real time. The active role can be changed without
+signing out. This records intent; it does not verify identity. Real authentication comes with the
+Phase 1 backend, where identity is from company sign-on and the active role is recorded against
+every action in the audit log.
+
+**No names or team sizes are compiled into the build.** Who holds which role is set up in Admin, so
+a new starter or an internal transfer is an edit rather than a release. The separation-of-duty
+rules are expressed as conditions on whoever is assigned, so they hold at any team size.
 
 ## What is real and what is a stub
 
@@ -37,9 +48,11 @@ exists so the seven role views can be reviewed without seven logins.
 | 12-week screening clock (16 if a 10-year period is ever required), extension cap, severity thresholds | `lib/bs7858.ts` — `clockState`, `weeksAllowed` |
 | Gate 1 (conditional offer) and Gate 3 (confirmed employment), with plain-English blocking reasons | `lib/bs7858.ts` — `evaluateGate1`, `evaluateGate2` |
 | Gate 2 (deployment to site) — our own policy, stricter than the standard | `lib/policy.ts` — `evaluateDeploymentGate` |
-| Separation of duties: no self-screening, controller ≠ administrator | `lib/bs7858.ts` — `canSignOff` |
-| Interview before any offer (7.3.4), enforced at Gate 1 | `lib/bs7858.ts` — `evaluateGate1` |
+| Separation of duties: no self-screening, controller ≠ administrator, controllers screened by higher management | `lib/roles.ts` — `validateFileAssignment` |
+| A screening role cannot be granted without own screening, NDA and in-date training (6.1, 6.2) | `lib/roles.ts` — `canGrantRole` |
+| Interview before any offer (7.3.4), for every stage the client requires | `lib/bs7858.ts` — `evaluateGate1` |
 | Division of functions: warns if a controller signs off a candidate they interviewed | `lib/policy.ts` — `reviewIndependence` |
+| Sign-in with name and active role, and who is working on what | `components/layout/SessionContext.tsx`, `components/dashboard/ActiveNow.tsx` |
 | Retention periods, risk-acceptance threshold, gap limits | `lib/bs7858.ts` |
 | Service levels, chaser ladders, task severity | `lib/sla.ts` — ours and configurable, deliberately separate from the standard's rules |
 | Company policy that exceeds the standard | `lib/policy.ts` — the deployment gate, the pre/post-deployment split, the named vetting pair |
@@ -70,6 +83,7 @@ components/
   dashboard/             The dashboard sections
 lib/
   bs7858.ts              The compliance core: clock, gates, separation of duties, retention
+  roles.ts               Role options and the assignment rules — no names, works at any team size
   policy.ts              Company policy stricter than the standard (the deployment gate)
   sla.ts                 Our own service levels and chaser rhythms
   types.ts               Domain model

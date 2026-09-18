@@ -4,8 +4,9 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import type { Role } from "@/lib/types";
 import { navForRole } from "./nav";
-import { RoleProvider, useRole } from "./RoleContext";
+import { SessionProvider, useSession } from "./SessionContext";
 import { Sidebar } from "./Sidebar";
+import { SignIn } from "./SignIn";
 import { Topbar } from "./Topbar";
 
 function MobileNav({ role }: { role: Role }) {
@@ -36,7 +37,14 @@ function MobileNav({ role }: { role: Role }) {
 }
 
 function Shell({ children }: { children: React.ReactNode }) {
-  const { role } = useRole();
+  const { session, loading } = useSession();
+
+  // Nothing is rendered until the stored session has been read, so the sign-in
+  // form does not flash for someone who is already signed in.
+  if (loading) return null;
+  if (!session) return <SignIn />;
+
+  const role = session.activeRole;
 
   return (
     <div className="flex min-h-screen">
@@ -65,8 +73,8 @@ function Shell({ children }: { children: React.ReactNode }) {
 
 export function AppShell({ children }: { children: React.ReactNode }) {
   return (
-    <RoleProvider>
+    <SessionProvider>
       <Shell>{children}</Shell>
-    </RoleProvider>
+    </SessionProvider>
   );
 }

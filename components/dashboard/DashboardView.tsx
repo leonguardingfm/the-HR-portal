@@ -5,9 +5,10 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { FunnelChart } from "@/components/charts/FunnelChart";
 import { StageSlaChart } from "@/components/charts/StageSlaChart";
 import { WorkloadChart } from "@/components/charts/WorkloadChart";
-import { useRole } from "@/components/layout/RoleContext";
+import { useSession } from "@/components/layout/SessionContext";
 import { ROLE_LABELS } from "@/lib/labels";
 import { funnel, stageCycleTimes, workload } from "@/lib/mock/data";
+import { ActiveNow } from "./ActiveNow";
 import { ExceptionsQueue } from "./ExceptionsQueue";
 import { RequirementBoard } from "./RequirementBoard";
 import { TaskDigest } from "./TaskDigest";
@@ -23,7 +24,9 @@ import { VettingClockBoard } from "./VettingClockBoard";
  * dashboard questions in docs/proposal/04 belongs in Reports instead.
  */
 export function DashboardView() {
-  const { role } = useRole();
+  const { session } = useSession();
+  const role = session?.activeRole ?? "recruitment";
+  const name = session?.name ?? "";
 
   const seesClock = role !== "control" && role !== "recruitment";
   const seesRequirements = true;
@@ -34,7 +37,7 @@ export function DashboardView() {
     <div className="space-y-5">
       <PageHeader
         title="Dashboard"
-        description={`Outstanding cover, screening deadlines, delays and workload. Showing the ${ROLE_LABELS[role]} view.`}
+        description={`Outstanding cover, screening deadlines, delays and workload. ${name ? `${name}, working as ` : "Showing the "}${ROLE_LABELS[role]}${name ? "." : " view."}`}
       />
 
       <TileRow />
@@ -47,6 +50,8 @@ export function DashboardView() {
         <TaskDigest limit={7} />
         <ExceptionsQueue />
       </div>
+
+      <ActiveNow />
 
       {seesFlow && (
         <div className="grid gap-5 xl:grid-cols-2">

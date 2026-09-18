@@ -6,12 +6,18 @@ import { StatusPill, Tag } from "@/components/ui/StatusPill";
 import { clockState } from "@/lib/bs7858";
 import { daysSince, formatDate, formatDays } from "@/lib/format";
 import {
+  INTERVIEW_STAGE_LABELS,
   RECRUITMENT_STAGE_LABELS,
   RECRUITMENT_STAGE_ORDER,
   SOURCE_LABELS,
   VETTING_STATUS_LABELS,
 } from "@/lib/labels";
-import { candidates, interviewsFor, screeningFileById } from "@/lib/mock/data";
+import {
+  candidates,
+  interviewsFor,
+  requiredInterviewsHeld,
+  screeningFileById,
+} from "@/lib/mock/data";
 import { isRestingStage, STAGE_SLA_DAYS } from "@/lib/sla";
 import type { Severity } from "@/lib/types";
 
@@ -90,15 +96,16 @@ export default function CandidatesPage() {
                     <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
                       {(() => {
                         const held = interviewsFor(c.id);
-                        const final = held.find((i) => i.stage === "final");
                         if (held.length === 0) return "None yet";
+                        const last = held[held.length - 1];
+                        const complete = requiredInterviewsHeld(c.id);
                         return (
                           <>
-                            {held.map((i) => i.stage === "final" ? "Final" : "Initial").join(" → ")}
+                            {held.map((i) => INTERVIEW_STAGE_LABELS[i.stage]).join(" → ")}
                             <span className="block text-[10px]" style={{ color: "var(--text-muted)" }}>
-                              {final
-                                ? `${final.interviewer}, ${formatDate(final.heldAt)}`
-                                : "final interview outstanding — blocks any offer (7.3.4)"}
+                              {complete
+                                ? `${last.interviewer}, ${formatDate(last.heldAt)}`
+                                : "stages outstanding — blocks any offer (7.3.4)"}
                             </span>
                           </>
                         );

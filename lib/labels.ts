@@ -1,6 +1,7 @@
 import type {
   CheckStatus,
   ControlId,
+  InterviewStage,
   RecruitmentStage,
   RequirementStatus,
   Role,
@@ -8,6 +9,11 @@ import type {
   VettingStatus,
 } from "./types";
 
+/**
+ * The two Control teams. The split is for workload and communication — each
+ * runs its own WhatsApp group — not by client, geography or contract type, so
+ * officers and tasks can be rebalanced between them freely.
+ */
 export const CONTROL_LABELS: Record<ControlId, { name: string; alias: string }> = {
   alpha: { name: "Control Alpha", alias: "Control 3" },
   bravo: { name: "Control Bravo", alias: "Control 2" },
@@ -29,8 +35,9 @@ export const RECRUITMENT_STAGE_ORDER: RecruitmentStage[] = [
   "invited",
   "application_received",
   "application_complete",
-  "initial_interview",
-  "final_interview",
+  "first_interview",
+  "second_interview",
+  "additional_interview",
   "conditional_offer",
   "welcome_pack",
   "signed_docs_complete",
@@ -45,8 +52,9 @@ export const RECRUITMENT_STAGE_LABELS: Record<RecruitmentStage, string> = {
   invited: "Application invited",
   application_received: "Application received",
   application_complete: "Application complete",
-  initial_interview: "Initial interview (team)",
-  final_interview: "Final interview (Farhan)",
+  first_interview: "First interview (Recruitment)",
+  second_interview: "Second interview (HR Manager)",
+  additional_interview: "Additional interview (client)",
   conditional_offer: "Conditional offer",
   welcome_pack: "Welcome pack issued",
   signed_docs_complete: "Signed documents complete",
@@ -86,19 +94,17 @@ export const CHECK_STATUS_LABELS: Record<CheckStatus, string> = {
 export const ROLE_LABELS: Record<Role, string> = {
   control: "Control",
   recruitment: "Recruitment",
-  recruitment_manager: "Recruitment Manager",
-  vetting_admin: "Vetting Administrator",
-  vetting_controller: "Vetting Controller",
-  top_management: "Top Management",
+  recruitment_manager: "HR Manager",
+  vetting_admin: "Screening Administrator",
+  vetting_controller: "Screening Controller",
+  top_management: "Higher Management",
   auditor: "Auditor",
 };
 
-/** Who currently holds each role, confirmed September 2026. */
-export const ROLE_HOLDERS: Partial<Record<Role, string>> = {
-  recruitment: "Ahmed, Usman",
-  vetting_admin: "Anas or Talha, per file",
-  vetting_controller: "Talha or Anas — whoever did not build the file",
-  top_management: "Farhan",
+export const INTERVIEW_STAGE_LABELS: Record<InterviewStage, string> = {
+  first: "First",
+  second: "Second",
+  additional: "Additional",
 };
 
 /**

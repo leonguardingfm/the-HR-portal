@@ -32,8 +32,15 @@ export type ScreeningPeriodYears = 5 | 10;
 export interface Client {
   id: string;
   name: string;
-  control: ControlId;
   screeningPeriodYears: ScreeningPeriodYears;
+  /** Some clients add an interview stage of their own beyond the usual two. */
+  requiresAdditionalInterview: boolean;
+  /**
+   * Whether posts at this client are likely to bring officers into contact
+   * with children or vulnerable adults, which may call for a higher level of
+   * disclosure [7.7j, Note 6].
+   */
+  regulatedActivity: boolean;
 }
 
 export interface Site {
@@ -83,8 +90,9 @@ export type RecruitmentStage =
   | "invited"
   | "application_received"
   | "application_complete"
-  | "initial_interview"
-  | "final_interview"
+  | "first_interview"
+  | "second_interview"
+  | "additional_interview"
   | "conditional_offer"
   | "welcome_pack"
   | "signed_docs_complete"
@@ -94,11 +102,12 @@ export type RecruitmentStage =
   | "withdrawn";
 
 /**
- * Interviews are two-stage: an optional initial interview held by the
- * recruitment team, then the final interview held by Farhan. The final one is
- * mandatory before any offer of employment is made [7.3.4].
+ * Interviews run in up to three stages: a first interview by the recruitment
+ * team over the phone, a second with the HR Manager on site or by video, and
+ * an additional stage only where a particular site or client requires one.
+ * An interview is required before any offer of employment is made [7.3.4].
  */
-export type InterviewStage = "initial" | "final";
+export type InterviewStage = "first" | "second" | "additional";
 
 export interface Interview {
   id: string;
@@ -231,13 +240,32 @@ export interface Officer {
   id: string;
   personId: string;
   siaBadgeName: string;
+  /** Unique across all officers, allocated by the portal, never reused. */
   pin: string;
   siaLicenceNumber: string;
   siaLicenceExpiry: string;
+  /**
+   * Which Control team follows this officer up. The split is for workload and
+   * communication, not by client, geography or contract type, so it is set per
+   * officer and can be rebalanced freely.
+   */
   control: ControlId;
   available: boolean;
   /** Deployability is driven by the screening file, never set by hand. */
   employmentState: "conditional" | "confirmed" | "suspended";
+  /** Right to work expiry where leave is time-limited. Blocks shifts once passed. */
+  rightToWorkExpiry: string | null;
+}
+
+/**
+ * Where a client keeps its own reference for an officer. We issue the PIN;
+ * some sites issue a PRN of their own and the two are recorded against each
+ * other so neither side has to look the officer up by name.
+ */
+export interface SiteReference {
+  officerId: string;
+  siteId: string;
+  prn: string;
 }
 
 // ---------------------------------------------------------------------------
@@ -279,10 +307,37 @@ export type Role =
   | "top_management"
   | "auditor";
 
+/**
+ * A person who uses the portal.
+ *
+ * `roles` is a list, because people hold more than one and move between teams.
+ * Nothing about team size or composition is fixed in code — this is data, set
+ * up in Admin, so a new hire or an internal transfer is an edit rather than a
+ * release.
+ */
 export interface User {
   id: string;
+  personId: string;
   name: string;
-  role: Role;
+  roles: Role[];
+  /** Clause 6.1 and 6.2 evidence, required before a screening role is granted. */
+  ownScreeningComplete: boolean;
+  confidentialityAgreementOnFile: boolean;
+  trainingReviewedAt: string | null;
+}
+
+/**
+ * Who is signed in and what they are working as right now.
+ *
+ * People choose their active role at sign-in, so the portal can show which
+ * work is being done by whom in real time rather than inferring it.
+ */
+export interface ActiveSession {
+  userId: string;
+  name: string;
+  activeRole: Role;
+  signedInAt: string;
+  lastSeenAt: string;
 }
 
 /** Severity shared by the clock, tasks and tiles. Maps to the status palette. */

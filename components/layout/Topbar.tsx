@@ -1,25 +1,16 @@
 "use client";
 
 import { usePathname } from "next/navigation";
-import { ROLE_HOLDERS, ROLE_LABELS } from "@/lib/labels";
+import { ROLE_LABELS } from "@/lib/labels";
+import { ROLE_OPTIONS } from "@/lib/roles";
 import type { Role } from "@/lib/types";
 import { navItemByHref } from "./nav";
-import { useRole } from "./RoleContext";
+import { useSession } from "./SessionContext";
 import { ThemeToggle } from "./ThemeToggle";
-
-const ROLES: Role[] = [
-  "control",
-  "recruitment",
-  "recruitment_manager",
-  "vetting_admin",
-  "vetting_controller",
-  "top_management",
-  "auditor",
-];
 
 export function Topbar() {
   const pathname = usePathname();
-  const { role, setRole } = useRole();
+  const { session, setActiveRole, signOut } = useSession();
   const item = navItemByHref(pathname === "" ? "/" : pathname);
 
   return (
@@ -31,33 +22,48 @@ export function Topbar() {
         {item?.label ?? "HR Portal"}
       </p>
 
-      <div className="flex items-center gap-2">
-        <label className="flex min-w-0 items-center gap-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
-          <span className="hidden sm:inline">Viewing as</span>
-          {/* A select is as wide as its widest option, so the role holder is
-              rendered beside it rather than inside it. */}
-          <select
-            value={role}
-            onChange={(e) => setRole(e.target.value as Role)}
-            className="max-w-[11rem] rounded border px-1.5 py-1 text-[12px]"
-            style={{
-              background: "var(--surface-1)",
-              borderColor: "var(--hairline)",
-              color: "var(--text-primary)",
-            }}
-          >
-            {ROLES.map((r) => (
-              <option key={r} value={r}>
-                {ROLE_LABELS[r]}
-              </option>
-            ))}
-          </select>
-          {ROLE_HOLDERS[role] && (
-            <span className="hidden truncate md:inline" title={ROLE_HOLDERS[role]}>
-              {ROLE_HOLDERS[role]}
+      <div className="flex min-w-0 items-center gap-2">
+        {session && (
+          <>
+            <span className="hidden truncate text-[12px] font-medium sm:inline">
+              {session.name}
             </span>
-          )}
-        </label>
+            {/* Active role is changeable without signing out, because people
+                move between tasks during a shift and the record should follow. */}
+            <label className="flex min-w-0 items-center gap-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
+              <span className="hidden md:inline">working as</span>
+              <select
+                value={session.activeRole}
+                onChange={(e) => setActiveRole(e.target.value as Role)}
+                aria-label="Role you are working as"
+                className="max-w-[11rem] rounded border px-1.5 py-1 text-[12px]"
+                style={{
+                  background: "var(--surface-1)",
+                  borderColor: "var(--hairline)",
+                  color: "var(--text-primary)",
+                }}
+              >
+                {ROLE_OPTIONS.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {ROLE_LABELS[r.id]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <button
+              type="button"
+              onClick={signOut}
+              className="rounded border px-2 py-1 text-[11px]"
+              style={{
+                background: "var(--surface-1)",
+                borderColor: "var(--hairline)",
+                color: "var(--text-secondary)",
+              }}
+            >
+              Sign out
+            </button>
+          </>
+        )}
         <ThemeToggle />
       </div>
     </header>

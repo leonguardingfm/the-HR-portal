@@ -6,9 +6,10 @@ import { StatusPill } from "@/components/ui/StatusPill";
 /** The eight post-offer tasks, unchanged in substance — now tracked. */
 const CHECKLIST = [
   {
-    task: "Online history checks recorded",
-    owner: "Vetting administrator",
-    automation: "Already captured at the preliminary-checks stage — this becomes a confirmation, not a task",
+    task: "Online checks recorded",
+    owner: "Screening administrator",
+    automation:
+      "SIA status, right to work, Creditsafe, UK sanctions and OFAC are all recorded on the screening file before this point — this becomes a confirmation, not a task",
     done: true,
   },
   {
@@ -20,38 +21,43 @@ const CHECKLIST = [
   {
     task: "PIN assigned",
     owner: "Recruitment",
-    automation: "Portal allocates the next free PIN — no clashes, no manual lookup",
+    automation:
+      "Portal allocates the next free PIN and guarantees it is unique. Where a site issues its own PRN, the two are recorded against each other",
     done: true,
   },
   {
-    task: "Indeed profile created",
+    task: "INDEL profile created",
     owner: "Recruitment",
-    automation: "Partly automatable, depending on Indeed API access",
+    automation:
+      "INDEL is the current system of record for personnel, compliance and shift data. Automatable if it exposes an API — not yet confirmed",
     done: true,
   },
   {
-    task: "Added to the Watch List",
+    task: "Added to the SIA Watch List",
     owner: "Recruitment",
-    automation: "Depends what the Watch List is — if it is a spreadsheet, the portal should replace it rather than integrate",
-    done: false,
+    automation:
+      "The SIA website, checked twice daily for officers who have gone inactive. The portal can hold the licence numbers and run that monitoring itself",
+    done: true,
   },
   {
-    task: "Added to Maps",
+    task: "Added to Google Maps",
     owner: "Recruitment",
-    automation: "Same question as the Watch List",
-    done: false,
+    automation:
+      "Control uses it to see officer areas for shift deployment. Automatable via the Maps API once we agree what is plotted and who can see it",
+    done: true,
   },
   {
     task: "Hired in Casper from the submitted application",
     owner: "Recruitment",
-    automation: "Automatable if Casper exposes an API; otherwise a tracked manual step with a deep link",
-    done: false,
+    automation: "Casper holds the application and has an API, so the hire can be pushed rather than retyped",
+    done: true,
   },
   {
-    task: "New Recruit Onboarding Group notified",
+    task: "Control Team notified",
     owner: "Portal",
-    automation: "Automatic once the checklist completes",
-    done: false,
+    automation:
+      "Replaces the manual WhatsApp message to the New Recruit Onboarding Group. Fires automatically to the right Control team on completion",
+    done: true,
   },
 ];
 
@@ -83,41 +89,52 @@ export default function OnboardingPage() {
               </div>
               <StatusPill
                 severity={item.done ? "good" : "warning"}
-                label={item.done ? "Automatable now" : "Needs a decision first"}
+                label={item.done ? "Automatable" : "Needs a decision first"}
               />
             </li>
           ))}
         </ul>
         <p className="mt-4 text-[12px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-          Note the first item. In the current process the online checks happen
-          here, after the contract is signed. In the proposed order they have
-          already happened before the conditional offer — which is what removes
-          the single biggest compliance risk in the workflow. See
-          docs/proposal/01 §3.1.
+          Note the first item. The online checks — SIA status, right to work,
+          Creditsafe, UK sanctions and OFAC — are recorded on the screening file
+          before deployment, so this step confirms rather than performs them.
+          Every task here is now automatable: the three that were open questions
+          turned out to be real systems with interfaces, not spreadsheets.
         </p>
       </Card>
 
       <ModuleOutline
         items={[
           {
-            label: "Automatic PIN allocation",
-            detail: "Next free number from the configured format, assigned by the portal.",
+            label: "Automatic PIN allocation, with client PRN mapping",
+            detail: "Next free PIN, unique by construction and never reused. Where a site keeps its own PRN, the two are recorded against each other so neither side has to match on a name.",
             phase: 1,
           },
           {
             label: "SIA-badge name propagation",
-            detail: "One verified spelling flows to the officer record, the Recruitment Sheet view and every export — instead of being retyped into each.",
+            detail: "One verified spelling flows to the officer record, the Recruitment Sheet view and every export, instead of being retyped into each.",
             phase: 1,
           },
           {
-            label: "Casper hire push",
-            detail: "Create the hire from the submitted application rather than re-entering it. Blocked on confirming whether Casper has an API or a structured import.",
-            phase: 3,
+            label: "SIA status monitoring",
+            detail: "The Watch List is checked twice daily by hand today. The portal holds every licence number already, so it can run that check and raise an officer who has gone inactive as a task.",
+            clause: "7.4c1",
+            phase: 2,
           },
           {
-            label: "Onboarding group notification",
-            detail: "Fired automatically on completion, to whatever the New Recruit Onboarding Group turns out to be.",
+            label: "Control Team notification",
+            detail: "Fires automatically to the right Control team on completion, replacing the manual WhatsApp message to the New Recruit Onboarding Group.",
             phase: 2,
+          },
+          {
+            label: "INDEL and Casper integration",
+            detail: "Push the hire to Casper from the record already captured — its API is confirmed. The same for INDEL, subject to confirming it has one.",
+            phase: 2,
+          },
+          {
+            label: "Google Maps placement",
+            detail: "Add the officer's area to the map Control uses for deployment, once we agree what is plotted and who can see it.",
+            phase: 3,
           },
         ]}
       />

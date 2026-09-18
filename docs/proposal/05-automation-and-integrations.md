@@ -117,17 +117,20 @@ Realistic view of each, including where the answer is "there is no API and there
 | System | What we would automate | Feasibility |
 |--------|------------------------|-------------|
 | **Casper** | Pull submitted application data into the candidate record, so nothing is retyped; push the hire at onboarding; sync officer records | **Confirmed available (Sept 2026): Casper has an API.** This is the most valuable integration and it is no longer a risk — it moves to Phase 2. Next step is its documentation and credentials, and confirming whether the hire can be created as well as read |
-| **Indeed** | Pull new applications into the sourcing queue; post adverts; create officer profiles | Indeed offers partner APIs but access is limited and depends on the account type. Likely partial. Fallback: a structured import from the Indeed dashboard export |
+| **INDEL** | Create the officer profile at onboarding; keep personnel, compliance and shift data in step | **Whether INDEL has an API is not yet confirmed** — only Casper's was. It is the current system of record for the officer pool, so this is the second most valuable integration after Casper and the next thing worth checking. Whether the portal writes to it or eventually replaces it is an open scope question — C15 in document 07 |
+| **Indeed** | Pull new applications into the sourcing queue; post adverts | Indeed offers partner APIs but access is limited and depends on the account type. Likely partial. Fallback: a structured import from the Indeed dashboard export. Note this is sourcing only — the "Indeed profile" in the original process description was **INDEL** |
 | **Email (Microsoft 365 / Google Workspace)** | Send every templated message and chaser from a real HR mailbox; capture replies and attachments against the candidate automatically | **Straightforward and high value.** Graph API or Gmail API. Inbound capture is the part that pays off — a candidate replying with documents shouldn't need anyone to file them |
 | **E-signature** (DocuSign, Adobe Sign, or similar) | Issue the Welcome Pack for signature; track which documents are signed per person; store the signed copies automatically | Straightforward. The standard permits electronic authorisation and references the Electronic Communications Act 2000 [7.3.2, Note 5]. Removes the entire "check which signatures came back" task |
-| **WhatsApp Business API** | Capture candidate enquiries into the sourcing pool; send chasers by the channel candidates actually read | Feasible via the official Business API. **Do not** automate against personal WhatsApp accounts — it breaches their terms and leaves no defensible record. Needs a data protection position agreed first |
-| **Credit reference agency / screening provider** | Submit the public record search and receive results into the file [7.4f] | Experian, TransUnion and the main screening providers have APIs. If we outsource to a provider, use their API and keep our controller review step [6.3] |
-| **HM Treasury sanctions list** | Automated watchlist screening [7.4e] | **Easy.** The consolidated list is published as a downloadable file. Sync daily and re-screen automatically, which also catches someone appearing on the list *after* they were cleared |
-| **SIA public register** | Verify licence number, status and expiry, and retain the search result [7.4c1] | **No public API.** Expect a manual lookup with a screenshot or PDF uploaded as evidence. The portal can still prompt, diary the expiry, and store the result. Worth asking the SIA whether bulk verification is available to ACS-approved contractors |
+| **WhatsApp Business API** | Send chasers by the channel candidates actually read, and replace the manual New Recruit Onboarding Group message | Feasible via the official Business API. **Do not** automate against personal WhatsApp accounts — it breaches their terms and leaves no defensible record. Lower risk than we first thought: WhatsApp is a first-contact channel only and the Casper application is the formal record, so there is no archive to migrate |
+| **Creditsafe** | Submit the public record search and receive results into the file [7.4f] | **Confirmed: Leon has its own Creditsafe account**, and the check is run manually today with the officer's consent taken first. Creditsafe offers an API, so this is automatable — with consent recorded before the call and the outcome retained on the file |
+| **HM Treasury sanctions list** | UK sanctions screening [7.4e] | **Easy.** The consolidated list is published as a downloadable file. Sync daily and re-screen automatically, which also catches someone appearing on the list *after* they were cleared |
+| **OFAC sanctions list** | OFAC screening, which we run in addition to the UK list | Also published as a downloadable file, so the same daily sync covers it. Worth noting this goes **beyond** what clause 7.4e asks for — a deliberate addition, recorded as such so it does not get dropped as "not required" |
+| **SIA public register** | Verify licence number, status and expiry, retain the search result [7.4c1], and run the **twice-daily Watch List check** for officers who have gone inactive | **No public API**, so expect a prompted lookup with the result uploaded as evidence. But the twice-daily monitoring is currently done by hand across the whole workforce, and the portal already holds every licence number — so even a semi-automated sweep that produces a worklist is a real saving. Worth asking the SIA what bulk verification is available to **SIA ACS approved** contractors, which we are |
+| **Google Maps** | Plot officer areas for Control's shift deployment | Straightforward via the Maps API once we agree what is plotted and who can see it. Note this is location *area*, not tracking — worth being explicit about that in the privacy notice |
 | **DBS / Disclosure Scotland / Access NI** | Track disclosure applications [7.7j] | No API for individual employers. Portal tracks the application, reference number, dates and **outcome only** — the certificate is not retained, consistent with the standard's example declaration |
 | **DWP** | Confirm registered unemployment periods [7.7c] | No API. Manual written request; the portal tracks request and response dates, and treats a "records unavailable" reply as an unverified period, as the standard requires |
 | **HMRC PAYE records** | Career history evidence | No employer API. Candidate self-serves via their Personal Tax Account and uploads; the portal provides the step-by-step instructions `[SV]` |
-| **Watch List / Maps** | Add the officer automatically at onboarding | **Unknown until we know what these systems are** — see document 07. If they are spreadsheets, the portal can replace them outright rather than integrate |
+
 | Calendar | Interview scheduling | Straightforward via Graph or Google Calendar |
 | SMS | Chasers to candidates who do not read email | Straightforward via Twilio or similar |
 
@@ -142,11 +145,13 @@ vetting file with all checks, gates, the clock, My Tasks, dashboard. Manual data
 entry. *This is where the compliance risk gets fixed.*
 
 **Phase 2 — the effort.** Email integration both ways, templates, the full reminder engine,
-personalised document checklists with upload-time validation, automatic gap calculation, **and the
-Casper integration** now that its API is confirmed. *This is where the typing and chasing go
+personalised document checklists with upload-time validation, automatic gap calculation, the
+**Casper integration** now its API is confirmed (INDEL to follow, subject to it having one), and — moved forward from
+Phase 4 on the strength of D1 and D2 — the **candidate self-service portal and e-signature**.
+Those two are the ones that remove the chasing rather than automating it, and the answers were
+explicit that cutting email back-and-forth is the point. *This is where the typing and chasing go
 away.*
 
 **Phase 3 — the remaining connections.** Indeed, e-signature, credit reference agency API.
 
-**Phase 4 — the polish.** Candidate self-service portal, WhatsApp Business, SMS, forecasting,
-automated audit packs.
+**Phase 4 — the polish.** WhatsApp Business, SMS, forecasting, automated audit packs.
