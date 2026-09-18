@@ -68,12 +68,10 @@ deployable, and that should surface 90, 60 and 30 days ahead, not on the day. Th
 right to work: once the recorded expiry passes, no further shifts can be assigned until updated
 evidence is verified.
 
-**This module grows.** Following the decision that the portal replaces INDEL, the officer record
-becomes authoritative rather than a view of the pool: personnel and employment information,
-ongoing compliance, documents with their expiry dates, SIA status monitoring, and the daily visa
-and right-to-work report. The natural moment for that is deployment — an officer onboarded through
-the portal already has all of it, so the record simply does not stop when they go live. Staging in
-[document 08](08-officer-system-of-record.md).
+**Where this stops.** The portal takes the **HR part** — the officer's compliance record, documents
+and expiry dates, and the chasing that hangs off them, which continues naturally from the screening
+file. **Shift assignment and operational deployment stay in INDEL.** The boundary is the handover
+at onboarding. See [document 08](08-officer-system-of-record.md).
 
 ### 2.5 Candidates — the recruitment pipeline
 The single record. Created at the point of shortlisting, and **never created twice** — see the
@@ -132,13 +130,6 @@ recorded, name added to the Recruitment Sheet exactly as per SIA badge, PIN assi
 profile created, added to Watch List, added to Maps, hired in Casper, New Recruit Onboarding Group
 notified. Nothing changes about *what* these are — the portal just makes them a tracked checklist
 instead of a memory exercise, and several can be pre-filled or automated (document 05).
-
-### 2.7a Shifts — not built, Stage D
-
-Shift assignment is the one part of INDEL that is a different application rather than an extension
-of this one: rosters, patterns, availability, clashes and last-minute cover, used by Control to the
-hour. It needs its own discovery with Control and should not begin until the officer record and the
-monitoring that hangs off it are stable. See [document 08 §4](08-officer-system-of-record.md).
 
 ### 2.8 Reports
 KPIs, stage-by-stage delay analysis, workload by owner, source effectiveness, and — importantly —

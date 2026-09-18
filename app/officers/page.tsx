@@ -27,7 +27,7 @@ export default function OfficersPage() {
     <div className="space-y-5">
       <PageHeader
         title="Officers"
-        description="The officer system of record. Control's first action on any requirement is to check here, so it has to be searchable and trustworthy — and following the decision to replace INDEL, this record no longer stops when an officer goes live."
+        description="The officer pool and the HR-side compliance record. Control's first action on any requirement is to check here, so it has to be searchable and trustworthy. Shift assignment and operational deployment stay in INDEL — the boundary is the handover at onboarding."
       />
 
       <Card
@@ -101,7 +101,7 @@ export default function OfficersPage() {
       </Card>
 
       <ModuleOutline
-        note="Everything here except shift assignment is a natural extension of the candidate and screening record already being built — the same person carries through rather than being re-created at deployment. Shift assignment is a different application, and belongs in its own discovery with Control. See docs/proposal/08."
+        note="All of this follows naturally from the candidate and screening record already being built — the same person carries through rather than being re-created at deployment. Shift assignment stays in INDEL: it is a different application, used by Control to the hour, and rebuilding it is not needed to fix the HR problem this portal exists to fix. See docs/proposal/08."
         items={[
           {
             label: "Pool search for the requirement check",
@@ -130,14 +130,9 @@ export default function OfficersPage() {
             phase: 1,
           },
           {
-            label: "Officer record becomes authoritative",
-            detail: "Personnel and employment information, ongoing compliance, and documents with their expiry dates — taking over from INDEL. Run in parallel, with both systems producing the same alerts and daily report until they agree, before INDEL's are turned off.",
+            label: "Officer handover to INDEL",
+            detail: "Create the INDEL profile at onboarding from what the portal already holds, rather than retyping it. Shift assignment and operational deployment stay there — the portal takes the HR part.",
             phase: 3,
-          },
-          {
-            label: "Shift assignment",
-            detail: "Rosters, patterns, availability, clashes and last-minute cover, used by Control to the hour. Its own discovery and design, and not started until the officer record and the monitoring hanging off it are stable.",
-            phase: 4,
           },
         ]}
       />

@@ -1,11 +1,33 @@
-# 08 — The Portal as the Officer System of Record
+# 08 — Scope of the Officer Record
 
-Confirmed 19 September 2026: **the portal replaces INDEL** rather than writing to it. The answer
-came with the note that this had not been thought through yet, so this document does that thinking
-— what INDEL actually does, what replacing each part involves, what could go wrong, and a route
-that avoids betting the workforce on a single cutover.
+**Superseded 19 September 2026.** An earlier answer confirmed the portal would replace INDEL
+outright. That has since been scoped back:
 
-Nothing here changes Phase 1. It changes what comes after.
+> **Do not replace INDEL completely. Take the HR part and build that.**
+
+This document is kept because the analysis behind the decision is still useful — it is what shows
+why taking only the HR part is the right call. The staging in §4 becomes a map of what we are
+*not* doing, and what the boundary is.
+
+## 0. Where the line now sits
+
+| Stays in INDEL | Comes to the portal |
+|----------------|---------------------|
+| Shift assignment and rostering | Candidates and the recruitment pipeline |
+| Day-to-day operational deployment | BS 7858 screening files, checks and evidence |
+| Whatever else Control works in daily | The screening clock and the three gates |
+| The officer's operational running record | Onboarding, PIN allocation, the Recruitment Sheet view |
+| | Documents, expiry dates and the chasing that hangs off them |
+
+**The boundary is the handover at onboarding.** The portal owns everything up to the point an
+officer is deployable, and the compliance record that continues after it. INDEL keeps the
+operational side.
+
+That leaves one thing to agree: **who owns the officer's compliance expiry dates** — SIA licence,
+right to work, visa. The portal needs them, because chasing and blocking deployment are HR work.
+INDEL alerts on them today. Running both invites drift. Our recommendation is that the **portal
+owns them and INDEL reads them**, because the chasing lives with HR, but this needs a decision —
+it is C21 in [document 07](07-open-questions.md).
 
 ## 1. The size of the decision, plainly
 
@@ -56,17 +78,19 @@ expires unnoticed cannot legally be deployed, and the daily report is how that i
 **Everything except shift assignment is a natural extension of what is already being built.** Shift
 assignment is the second programme.
 
-## 4. Recommended staging
+## 4. What we are not doing — kept for reference
 
-Build the portal **as** the system of record from the start — the data model should not assume
-INDEL is authoritative, because unpicking that later is expensive. But **take over INDEL's
-functions one at a time**, running in parallel until each is proven.
+The staging below was the recommendation when the portal was to replace INDEL outright. It is kept
+because it shows what the boundary now excludes, and because if the question is ever revisited this
+is the route that avoids a big-bang cutover.
 
-### Stage A — recruitment and vetting (Phases 1–2, unchanged)
+**Stages A and B are in scope. Stages C and D are not.**
+
+### Stage A — recruitment and vetting (Phases 1–2) — IN SCOPE
 The portal is authoritative for candidates, screening files and onboarding. INDEL still holds live
 officers. Nothing operational changes, so nothing operational can break.
 
-### Stage B — the officer record
+### Stage B — the compliance record — IN SCOPE, partially
 The portal becomes authoritative for officer personnel, compliance, documents and expiry dates.
 This is the natural moment: an officer who was onboarded through the portal already has all of it
 there, so the record simply does not stop at deployment.
@@ -74,16 +98,15 @@ there, so the record simply does not stop at deployment.
 **Run in parallel.** INDEL keeps producing its alerts and daily report while the portal produces
 the same ones, and the two are compared until they agree. Only then does INDEL's version stop.
 
-### Stage C — monitoring and reporting
+### Stage C — monitoring and reporting — OUT OF SCOPE for now
 SIA status sweeps, visa and right-to-work expiry, the daily report, and the shift block once an
 expiry passes. By this point the portal is already producing them in parallel, so this stage is
 mostly turning INDEL's off.
 
-### Stage D — shift assignment
-Its own discovery, design and build, with Control. Not a phase of this project — a project.
-
-**Do not start Stage D until Stages B and C are stable.** Rostering is where Control's day happens,
-and it is the wrong place to be finding out that the officer record has gaps.
+### Stage D — shift assignment — OUT OF SCOPE
+Stays in INDEL. This was always the part that is a different application rather than another
+phase, and scoping it out is the right call: rostering is where Control's day happens, and it does
+not need rebuilding to fix the HR problem this portal exists to fix.
 
 ## 5. What could go wrong, and what to do about it
 
@@ -105,14 +128,16 @@ and it is the wrong place to be finding out that the officer record has gaps.
 - **Non-functional requirements** — uptime, backup and recovery become real requirements rather
   than good practice, because Control will depend on this daily.
 
-## 7. Decisions needed before Stage B is planned
+## 7. Decisions still needed
 
-1. **C19 — who rosters, and where?** Does shift assignment move wholesale, and does anything
-   outside Control depend on INDEL's rostering?
-2. **C20 — a full field-level inventory of INDEL**, including whatever is in it that is not in the
-   description we were given.
-3. **C17 — what INDEL offers for getting data out**: API, export, or neither.
-4. **Availability requirements** — what happens operationally if the portal is unavailable for an
-   hour on a Saturday night, and what that implies for hosting and support.
-5. **D5 — the portal owner.** A programme of this size needs one route for decisions, and it is now
-   the most pressing of the outstanding preferences.
+Most of the earlier list falls away with the scope. What remains:
+
+1. **C21 — who owns the compliance expiry dates**, SIA licence, right to work and visa. The portal
+   needs them because the chasing is HR work; INDEL alerts on them today. Running both invites
+   drift.
+2. **C17 — what INDEL offers for handover**: API, export, or neither. Still needed, but only for
+   the onboarding handover rather than a migration.
+3. **D5 — the portal owner**, so decisions during the build have one route.
+
+Availability requirements drop back to normal: with rostering staying in INDEL, an hour of portal
+downtime delays HR work rather than stopping the operation.

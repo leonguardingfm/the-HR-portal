@@ -15,7 +15,7 @@ Read in this order:
 | 05 | [Automation and integrations](05-automation-and-integrations.md) | What the portal can do alone vs. what needs Casper / Indeed / email |
 | 06 | [Access and permissions](06-access-permissions.md) | Who can see and do what, and the separation-of-duty rules |
 | 07 | [Open questions](07-open-questions.md) | Decision log, and what is still open |
-| 08 | [The portal as the officer system of record](08-officer-system-of-record.md) | What replacing INDEL involves, and how to stage it |
+| 08 | [Scope of the officer record](08-officer-system-of-record.md) | Where the line sits between the portal and INDEL |
 
 ## The two things to read first
 
@@ -24,10 +24,9 @@ live before screening. That came back clean: the order is compliant in practice 
 criminality element, stricter than the standard's minimum. The written process was misleading about
 its own order rather than wrong.
 
-**Document 08** is now the one that needs a decision. The portal has been confirmed as replacing
-INDEL rather than writing to it, which roughly doubles the scope — it adds everything that happens
-to an officer after they go live, including shift assignment. Phase 1 is unaffected; everything
-after it is.
+**Document 08** sets the boundary with INDEL. Briefly confirmed as a full replacement, then scoped
+back: the portal takes the **HR part** — recruitment, vetting, onboarding, and the compliance record
+and chasing that follow from it. **Shift assignment and operational deployment stay in INDEL.**
 
 ## A note on the standard itself
 
