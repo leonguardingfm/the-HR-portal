@@ -33,10 +33,43 @@ have been updated to match.
 
 ### What they raised
 
-Two new items, both in section C below: **C11**, who acts as screening controller on Anas's and
-Talha's own files, since neither may screen themselves and the controller cannot be the
-administrator either; and **C10**, already open, is now more pressing because the Employment
-Contract is signed before history verification completes.
+**C10**, already open, is now more pressing: the Employment Contract is signed before history
+verification completes, so its wording is what makes that sequence defensible.
+
+## Also answered — 18 September 2026
+
+| # | Question | Answer |
+|---|----------|--------|
+| B5 | Is an interview held, by whom, and is it recorded? | **Two stages.** An **optional initial interview** by the recruitment team (Ahmed or Usman), then the **final interview held by Farhan**, always, before any offer. 7.3.4 is satisfied, and by the person with the authority to offer employment. The portal treats the final interview as a **gate**, not a note: Gate 1 will not open without it. |
+| C11 | Who is the screening controller on Anas's and Talha's own files? | **Farhan is the administrator** on both. The controller then falls to whichever of the pair is not the subject: Anas's file → controller Talha; Talha's file → controller Anas; Farhan's own file → administrator Talha, controller Anas. Every combination satisfies 6.1 and 7.5.2b, and no external provider is needed. |
+
+### What these changed
+
+- **Gate 1 now enforces clause 7.3.4.** It was the one requirement in the standard that nothing in
+  the portal checked. The blocking reason reads "Final interview not yet held (7.3.4)".
+- **The pipeline gained a stage.** Initial interview and final interview are separate, so the
+  funnel shows where candidates actually sit rather than collapsing both into "interviewed".
+- **The vetting team competence register is now a real screen** on Admin, with the rule check
+  computed rather than asserted — if anyone is reassigned in a way that breaks 6.1 or 7.5.2b, it
+  shows immediately.
+- **A division-of-functions check came for free.** Farhan interviews, Anas and Talha control the
+  files, so no controller ever signs off a candidate they interviewed. The portal verifies this per
+  file and records an exception rather than blocking, per clause 6.1's "particular attention"
+  wording.
+
+### What these raised
+
+Administering files makes Farhan **a person engaged in screening**, so clauses 6.1 and 6.2 now
+apply to him directly: screened himself (covered by the third row above), a confidentiality
+agreement covering employment and post-employment, and training on the standard, data protection
+law and relevant regulatory requirements — **recorded and reviewed at least annually**. The portal
+will not grant him the administrator role without those on file. New item **C13** below.
+
+It is also worth noting the concentration of roles — Farhan interviews, accepts risk, approves
+extensions, and administers the vetting team's files. The standard does not forbid it, and top
+management is explicitly the party that accepts risk [7.4f]. The mitigation is already in place
+(Anas and Talha control what he administers; he cannot control his own file), and it is worth
+revisiting if the team grows.
 
 ## A. Blocking — answered above, kept for the record
 
@@ -59,7 +92,6 @@ Contract is signed before history verification completes.
 | B2 | **What is a PIN used for, and what is its format?** Sequential, structured, or tied to a client or site? Needed before automatic allocation can be built. |
 | B3 | **Why is an Indeed profile created for each officer at onboarding?** This is unusual for a hired employee and we want to make sure we automate the right thing. |
 | B4 | **What is the New Recruit Onboarding Group?** A WhatsApp group, a distribution list, or a Teams channel? Determines how the notification is sent. |
-| B5 | **Is an interview actually held, by whom, and is the outcome recorded?** The standard requires an interview before any offer [7.3.4], and there is an Interview Sheet, but the written process has no interview step. |
 | B6 | **What exactly do the "online history checks" consist of today?** Mapping needed against the four distinct requirements in [01 §3.4](01-process-and-compliance-review.md). |
 | B7 | **Do Control Alpha (3) and Bravo (2) split by client, geography, or contract type?** And should the numeric or the alpha name be the primary label in the interface? |
 | B8 | **What is the current system of record for the officer pool?** Casper, a spreadsheet, or Maps? The portal needs one authoritative source to seed from. |
@@ -81,8 +113,9 @@ Contract is signed before history verification completes.
 | C8 | **Do our insurers impose requirements beyond BS 7858** — a longer screening period, or additional checks [Clause 1, Note 2]? |
 | C9 | **Are we NSI or SIA ACS approved?** This affects audit expectations and what evidence the portal should be able to produce on demand. |
 | C10 | **Does the employment contract currently state** that confirmed employment depends on satisfactory full screening within the period allowed, and that conditional employment ends if it does not complete [7.5.2]? If not, the contract needs amending, not just the portal. **Now more pressing:** A1 confirms the contract is signed before history verification completes, so this wording is what makes that sequence defensible. |
-| C11 | **Who is the screening controller on Anas's and Talha's own files?** Both must be screened themselves and neither may screen themselves [6.1], and the reviewing controller cannot be the administrator who built the file [7.5.2b] — which rules out both of them for each other's review. Options in [01 §4.2](01-process-and-compliance-review.md): Farhan reviews those files (trained to 6.2 and screened himself), or buy those two files in from an accredited provider and review the returned file ourselves. Also: who screens Farhan? |
+| ~~C11~~ | ~~Who is the screening controller on Anas's and Talha's own files?~~ **Answered above:** Farhan administers both, so the controller falls to the other half of the pair. See [01 §4.2](01-process-and-compliance-review.md). |
 | C12 | **Are Anas and Talha recorded as competent in both roles?** The alternating controller/administrator arrangement only works if both are trained for both, with training records maintained and reviewed annually [6.2]. |
+| C13 | **Is Farhan's clause 6.2 training recorded, with an annual review date, and is his confidentiality agreement on file?** Administering the vetting team's own files brings him inside 6.1 and 6.2. The portal will not grant the administrator role without them. |
 
 ## D. Preferences we can proceed without, but would rather know
 
@@ -105,12 +138,12 @@ A1 to A8 are answered, and Phase 1 can proceed on them.
 1. **B1 to B4** — Watch List, Maps, the PIN format, and the New Recruit Onboarding Group. These
    four are the only thing standing between us and a fully automated onboarding checklist, and
    three of them may turn out to be spreadsheets the portal should simply replace.
-2. **C11 and C12** — the controller arrangement for Anas's and Talha's own files. Needed before
-   either can be granted their role in the portal, because the system checks it.
+2. **C12 and C13** — training records and confidentiality agreements for Anas, Talha and Farhan.
+   Needed before the portal will grant any of them their vetting role, because the system checks it.
 3. **C10** — the contract wording. A document review rather than a build decision, but it is what
    makes the confirmed sequence defensible.
-4. **B5, B6** — whether the interview is recorded, and what the "online history checks" consist of
-   in practice, mapped to the four distinct requirements they cover.
+4. **B6** — what the "online history checks" consist of in practice, mapped to the four distinct
+   requirements they cover.
 
 C1 to C9 can be answered in writing as the relevant modules come up. D can wait until the Phase 1
 spine is working and you have something to react to.

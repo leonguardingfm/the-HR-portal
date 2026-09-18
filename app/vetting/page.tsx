@@ -4,9 +4,14 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { ClauseRef, StatusPill, Tag } from "@/components/ui/StatusPill";
 import { VettingClockBoard } from "@/components/dashboard/VettingClockBoard";
 import { evaluateGate1, evaluateGate2 } from "@/lib/bs7858";
-import { evaluateDeploymentGate } from "@/lib/policy";
+import { evaluateDeploymentGate, reviewIndependence } from "@/lib/policy";
 import { CHECK_STATUS_LABELS, RECRUITMENT_STAGE_ORDER } from "@/lib/labels";
-import { candidateById, screeningFiles } from "@/lib/mock/data";
+import {
+  candidateById,
+  finalInterviewHeld,
+  interviewsFor,
+  screeningFiles,
+} from "@/lib/mock/data";
 import type { CheckGroup, CheckStatus, Severity } from "@/lib/types";
 
 const GROUP_LABELS: Record<CheckGroup, string> = {
@@ -71,12 +76,27 @@ export default function VettingPage() {
     RECRUITMENT_STAGE_ORDER.indexOf(candidate.stage) >=
       RECRUITMENT_STAGE_ORDER.indexOf("signed_docs_complete");
 
-  const gate1 = evaluateGate1(file, true);
+  const interviewHeld = finalInterviewHeld(file.candidateId);
+  const finalInterview = interviewsFor(file.candidateId).find((i) => i.stage === "final");
+
+  const gate1 = evaluateGate1(file, {
+    riskEvaluationDocumented: true,
+    finalInterviewHeld: interviewHeld,
+  });
   const deployment = evaluateDeploymentGate(file, {
     riskEvaluationDocumented: true,
+    finalInterviewHeld: interviewHeld,
     signedDocumentsComplete,
   });
   const gate2 = evaluateGate2(file);
+
+  // Clause 6.1 asks for attention to the division of functions between
+  // interviewing, screening and the decision to employ. Our arrangement
+  // satisfies it: Farhan interviews, Anas and Talha control the files.
+  const independence = reviewIndependence({
+    controller: file.controller ?? "",
+    finalInterviewer: finalInterview?.interviewer ?? null,
+  });
 
   const groups = Object.keys(GROUP_LABELS) as CheckGroup[];
 
@@ -106,10 +126,16 @@ export default function VettingPage() {
             </ul>
           )}
           <p className="mt-3 text-[11px]" style={{ color: "var(--text-muted)" }}>
-            Requires a documented risk evaluation, satisfactory preliminary
-            checks, and limited screening confirmed by the controller.{" "}
+            Requires the final interview held <ClauseRef clause="7.3.4" />, a
+            documented risk evaluation, satisfactory preliminary checks, and
+            limited screening confirmed by the controller.{" "}
             <ClauseRef clause="7.5.1" />
           </p>
+          {!independence.independent && independence.warning && (
+            <p className="mt-2 text-[11px]" style={{ color: "var(--status-serious)" }}>
+              ⚠ {independence.warning}
+            </p>
+          )}
         </Card>
 
         <Card

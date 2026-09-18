@@ -4,15 +4,15 @@ import { ModuleOutline } from "@/components/ui/ModuleOutline";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusPill, Tag } from "@/components/ui/StatusPill";
 import { clockState } from "@/lib/bs7858";
-import { daysSince, formatDays } from "@/lib/format";
+import { daysSince, formatDate, formatDays } from "@/lib/format";
 import {
   RECRUITMENT_STAGE_LABELS,
   RECRUITMENT_STAGE_ORDER,
   SOURCE_LABELS,
   VETTING_STATUS_LABELS,
 } from "@/lib/labels";
-import { candidates, screeningFileById } from "@/lib/mock/data";
-import { STAGE_SLA_DAYS } from "@/lib/sla";
+import { candidates, interviewsFor, screeningFileById } from "@/lib/mock/data";
+import { isRestingStage, STAGE_SLA_DAYS } from "@/lib/sla";
 import type { Severity } from "@/lib/types";
 
 /**
@@ -42,12 +42,13 @@ export default function CandidatesPage() {
         subtitle="Recruitment progress and vetting status are deliberately separate columns."
       >
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[56rem] border-collapse text-left">
+          <table className="w-full min-w-[68rem] border-collapse text-left">
             <thead>
               <tr className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                 <th className="pb-2 pr-3 font-medium">Candidate</th>
                 <th className="pb-2 pr-3 font-medium">Recruitment stage</th>
                 <th className="pb-2 pr-3 font-medium">Days in stage</th>
+                <th className="pb-2 pr-3 font-medium">Interviews</th>
                 <th className="pb-2 pr-3 font-medium">Vetting status</th>
                 <th className="pb-2 pr-3 font-medium">Screening clock</th>
                 <th className="pb-2 pr-3 font-medium">Source</th>
@@ -60,8 +61,15 @@ export default function CandidatesPage() {
                 const clock = file ? clockState(file) : null;
                 const inStage = daysSince(c.stageSince);
                 const sla = STAGE_SLA_DAYS[c.stage] || 1;
-                const stageSeverity: Severity =
-                  inStage > sla * 3 ? "critical" : inStage > sla ? "serious" : "good";
+                // A resting stage has no queue to clear, so it is never late.
+                const resting = isRestingStage(c.stage);
+                const stageSeverity: Severity = resting
+                  ? "neutral"
+                  : inStage > sla * 3
+                    ? "critical"
+                    : inStage > sla
+                      ? "serious"
+                      : "good";
                 return (
                   <tr key={c.id} className="border-t align-top" style={{ borderColor: "var(--hairline)" }}>
                     <td className="py-2.5 pr-3">
@@ -78,6 +86,23 @@ export default function CandidatesPage() {
                     </td>
                     <td className="py-2.5 pr-3">
                       <StatusPill severity={stageSeverity} label={formatDays(inStage)} />
+                    </td>
+                    <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+                      {(() => {
+                        const held = interviewsFor(c.id);
+                        const final = held.find((i) => i.stage === "final");
+                        if (held.length === 0) return "None yet";
+                        return (
+                          <>
+                            {held.map((i) => i.stage === "final" ? "Final" : "Initial").join(" → ")}
+                            <span className="block text-[10px]" style={{ color: "var(--text-muted)" }}>
+                              {final
+                                ? `${final.interviewer}, ${formatDate(final.heldAt)}`
+                                : "final interview outstanding — blocks any offer (7.3.4)"}
+                            </span>
+                          </>
+                        );
+                      })()}
                     </td>
                     <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
                       {file ? VETTING_STATUS_LABELS[file.status] : "No file yet"}
@@ -124,8 +149,8 @@ export default function CandidatesPage() {
             phase: 1,
           },
           {
-            label: "Interview record",
-            detail: "Interviewer, date, outcome and notes. The standard asks for an interview before any offer of employment is made, so this is a gate rather than a note.",
+            label: "Two-stage interview record",
+            detail: "An optional initial interview by Ahmed or Usman, then the final interview held by Farhan. Interviewer, date, outcome and notes on each. The final interview is mandatory before any offer, so the portal blocks Gate 1 without it rather than just noting its absence.",
             clause: "7.3.4",
             phase: 1,
           },

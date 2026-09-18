@@ -13,6 +13,7 @@ import type {
   Candidate,
   Check,
   Client,
+  Interview,
   Officer,
   Requirement,
   ScreeningFile,
@@ -266,14 +267,14 @@ export const screeningFiles: ScreeningFile[] = [
 // ---------------------------------------------------------------------------
 
 export const candidates: Candidate[] = [
-  { id: "cand1", personId: "p1", fullName: "Adebayo Fashola", siaBadgeName: "Adebayo O Fashola", siaLicenceNumber: "1010 2233 4455 6677", siaLicenceExpiry: daysAhead(412), email: "a.fashola@example.com", phone: "07700 900111", requirementId: "r5", stage: "onboarding_complete", stageSince: daysAgo(104), owner: "Ahmed", source: "existing_indeed", screeningFileId: "f1", pin: "4417" },
-  { id: "cand2", personId: "p2", fullName: "Marta Kowalczyk", siaBadgeName: "Marta Kowalczyk", siaLicenceNumber: "1010 3344 5566 7788", siaLicenceExpiry: daysAhead(58), email: "m.kowalczyk@example.com", phone: "07700 900222", requirementId: "r1", stage: "onboarding_complete", stageSince: daysAgo(72), owner: "Ahmed", source: "previous_enquiry", screeningFileId: "f2", pin: "4418" },
-  { id: "cand3", personId: "p3", fullName: "Kieran Doyle", siaBadgeName: "Kieran P Doyle", siaLicenceNumber: "1010 4455 6677 8899", siaLicenceExpiry: daysAhead(690), email: "k.doyle@example.com", phone: "07700 900333", requirementId: "r3", stage: "onboarding_complete", stageSince: daysAgo(58), owner: "Usman", source: "new_indeed_ad", screeningFileId: "f3", pin: "4421" },
-  { id: "cand4", personId: "p4", fullName: "Shanice Bennett", siaBadgeName: "Shanice Bennett", siaLicenceNumber: "1010 5566 7788 9900", siaLicenceExpiry: daysAhead(220), email: "s.bennett@example.com", phone: "07700 900444", requirementId: "r4", stage: "onboarding_complete", stageSince: daysAgo(41), owner: "Usman", source: "previous_enquiry", screeningFileId: "f4", pin: "4423" },
-  { id: "cand5", personId: "p5", fullName: "Rashid Karim", siaBadgeName: "Rashid Karim", siaLicenceNumber: "1010 6677 8899 0011", siaLicenceExpiry: daysAhead(310), email: "r.karim@example.com", phone: "07700 900555", requirementId: "r2", stage: "onboarding_complete", stageSince: daysAgo(96), owner: "Usman", source: "existing_indeed", screeningFileId: "f5", pin: "4425" },
-  { id: "cand6", personId: "p6", fullName: "Elena Petrova", siaBadgeName: "Elena Petrova", siaLicenceNumber: "1010 7788 9900 1122", siaLicenceExpiry: daysAhead(505), email: "e.petrova@example.com", phone: "07700 900666", requirementId: "r4", stage: "onboarding_complete", stageSince: daysAgo(19), owner: "Ahmed", source: "new_indeed_ad", screeningFileId: "f6", pin: "4427" },
-  { id: "cand7", personId: "p7", fullName: "Callum Reid", siaBadgeName: "Callum J Reid", siaLicenceNumber: "1010 8899 0011 2233", siaLicenceExpiry: daysAhead(140), email: "c.reid@example.com", phone: "07700 900777", requirementId: "r3", stage: "onboarding_complete", stageSince: daysAgo(66), owner: "Ahmed", source: "referral", screeningFileId: "f7", pin: "4428" },
-  { id: "cand8", personId: "p8", fullName: "Ify Nwachukwu", siaBadgeName: null, siaLicenceNumber: "1010 9900 1122 3344", siaLicenceExpiry: daysAhead(95), email: "i.nwachukwu@example.com", phone: "07700 900888", requirementId: "r2", stage: "interviewed", stageSince: daysAgo(6), owner: "Usman", source: "existing_indeed", screeningFileId: "f8", pin: null },
+  { id: "cand1", personId: "p1", fullName: "Adebayo Fashola", siaBadgeName: "Adebayo O Fashola", siaLicenceNumber: "1010 2233 4455 6677", siaLicenceExpiry: daysAhead(412), email: "a.fashola@example.com", phone: "07700 900111", requirementId: "r5", stage: "deployed", stageSince: daysAgo(75), owner: "Ahmed", source: "existing_indeed", screeningFileId: "f1", pin: "4417" },
+  { id: "cand2", personId: "p2", fullName: "Marta Kowalczyk", siaBadgeName: "Marta Kowalczyk", siaLicenceNumber: "1010 3344 5566 7788", siaLicenceExpiry: daysAhead(58), email: "m.kowalczyk@example.com", phone: "07700 900222", requirementId: "r1", stage: "deployed", stageSince: daysAgo(69), owner: "Ahmed", source: "previous_enquiry", screeningFileId: "f2", pin: "4418" },
+  { id: "cand3", personId: "p3", fullName: "Kieran Doyle", siaBadgeName: "Kieran P Doyle", siaLicenceNumber: "1010 4455 6677 8899", siaLicenceExpiry: daysAhead(690), email: "k.doyle@example.com", phone: "07700 900333", requirementId: "r3", stage: "deployed", stageSince: daysAgo(55), owner: "Usman", source: "new_indeed_ad", screeningFileId: "f3", pin: "4421" },
+  { id: "cand4", personId: "p4", fullName: "Shanice Bennett", siaBadgeName: "Shanice Bennett", siaLicenceNumber: "1010 5566 7788 9900", siaLicenceExpiry: daysAhead(220), email: "s.bennett@example.com", phone: "07700 900444", requirementId: "r4", stage: "deployed", stageSince: daysAgo(38), owner: "Usman", source: "previous_enquiry", screeningFileId: "f4", pin: "4423" },
+  { id: "cand5", personId: "p5", fullName: "Rashid Karim", siaBadgeName: "Rashid Karim", siaLicenceNumber: "1010 6677 8899 0011", siaLicenceExpiry: daysAhead(310), email: "r.karim@example.com", phone: "07700 900555", requirementId: "r2", stage: "deployed", stageSince: daysAgo(93), owner: "Usman", source: "existing_indeed", screeningFileId: "f5", pin: "4425" },
+  { id: "cand6", personId: "p6", fullName: "Elena Petrova", siaBadgeName: "Elena Petrova", siaLicenceNumber: "1010 7788 9900 1122", siaLicenceExpiry: daysAhead(505), email: "e.petrova@example.com", phone: "07700 900666", requirementId: "r4", stage: "deployed", stageSince: daysAgo(16), owner: "Ahmed", source: "new_indeed_ad", screeningFileId: "f6", pin: "4427" },
+  { id: "cand7", personId: "p7", fullName: "Callum Reid", siaBadgeName: "Callum J Reid", siaLicenceNumber: "1010 8899 0011 2233", siaLicenceExpiry: daysAhead(140), email: "c.reid@example.com", phone: "07700 900777", requirementId: "r3", stage: "deployed", stageSince: daysAgo(63), owner: "Ahmed", source: "referral", screeningFileId: "f7", pin: "4428" },
+  { id: "cand8", personId: "p8", fullName: "Ify Nwachukwu", siaBadgeName: null, siaLicenceNumber: "1010 9900 1122 3344", siaLicenceExpiry: daysAhead(95), email: "i.nwachukwu@example.com", phone: "07700 900888", requirementId: "r2", stage: "final_interview", stageSince: daysAgo(6), owner: "Usman", source: "existing_indeed", screeningFileId: "f8", pin: null },
   { id: "cand9", personId: "p9", fullName: "Gareth Llewellyn", siaBadgeName: null, siaLicenceNumber: null, siaLicenceExpiry: null, email: "g.llewellyn@example.com", phone: "07700 900999", requirementId: "r5", stage: "application_complete", stageSince: daysAgo(3), owner: "Ahmed", source: "new_indeed_ad", screeningFileId: null, pin: null },
   { id: "cand10", personId: "p10", fullName: "Amara Sesay", siaBadgeName: null, siaLicenceNumber: null, siaLicenceExpiry: null, email: "a.sesay@example.com", phone: "07700 901000", requirementId: "r5", stage: "application_received", stageSince: daysAgo(8), owner: "Ahmed", source: "previous_enquiry", screeningFileId: null, pin: null },
   { id: "cand11", personId: "p11", fullName: "Viktor Horvat", siaBadgeName: null, siaLicenceNumber: null, siaLicenceExpiry: null, email: "v.horvat@example.com", phone: "07700 901111", requirementId: "r7", stage: "invited", stageSince: daysAgo(11), owner: "Usman", source: "new_indeed_ad", screeningFileId: null, pin: null },
@@ -281,6 +282,39 @@ export const candidates: Candidate[] = [
   { id: "cand13", personId: "p13", fullName: "Dele Ajayi", siaBadgeName: null, siaLicenceNumber: null, siaLicenceExpiry: null, email: "d.ajayi@example.com", phone: "07700 901333", requirementId: "r1", stage: "invited", stageSince: daysAgo(15), owner: "Ahmed", source: "previous_enquiry", screeningFileId: null, pin: null },
   { id: "cand14", personId: "p14", fullName: "Hannah Oyelaran", siaBadgeName: null, siaLicenceNumber: null, siaLicenceExpiry: null, email: "h.oyelaran@example.com", phone: "07700 901444", requirementId: "r1", stage: "sourcing", stageSince: daysAgo(1), owner: "Ahmed", source: "existing_indeed", screeningFileId: null, pin: null },
 ];
+
+// ---------------------------------------------------------------------------
+// Interviews
+// ---------------------------------------------------------------------------
+
+/**
+ * Two-stage: an optional initial interview by the recruitment team, then the
+ * final interview held by Farhan. The final one is mandatory before any offer
+ * [7.3.4] and is what Gate 1 checks.
+ */
+export const interviews: Interview[] = [
+  { id: "i1", candidateId: "cand1", stage: "initial", interviewer: "Ahmed", heldAt: daysAgo(112), outcome: "progress", notes: "Strong site experience, available for nights." },
+  { id: "i2", candidateId: "cand1", stage: "final", interviewer: "Farhan", heldAt: daysAgo(108), outcome: "progress", notes: "Approved for conditional offer." },
+  { id: "i3", candidateId: "cand2", stage: "final", interviewer: "Farhan", heldAt: daysAgo(76), outcome: "progress", notes: "No initial interview held — direct to final." },
+  { id: "i4", candidateId: "cand3", stage: "initial", interviewer: "Usman", heldAt: daysAgo(66), outcome: "progress", notes: "Retail background, weekends suit." },
+  { id: "i5", candidateId: "cand3", stage: "final", interviewer: "Farhan", heldAt: daysAgo(62), outcome: "progress", notes: "Approved; financial history to be reviewed at screening." },
+  { id: "i6", candidateId: "cand4", stage: "final", interviewer: "Farhan", heldAt: daysAgo(45), outcome: "progress", notes: "Approved for conditional offer." },
+  { id: "i7", candidateId: "cand5", stage: "final", interviewer: "Farhan", heldAt: daysAgo(100), outcome: "progress", notes: "Approved; overseas history flagged for screening." },
+  { id: "i8", candidateId: "cand6", stage: "initial", interviewer: "Ahmed", heldAt: daysAgo(26), outcome: "progress", notes: "Available immediately." },
+  { id: "i9", candidateId: "cand6", stage: "final", interviewer: "Farhan", heldAt: daysAgo(23), outcome: "progress", notes: "Approved for conditional offer." },
+  { id: "i10", candidateId: "cand7", stage: "final", interviewer: "Farhan", heldAt: daysAgo(70), outcome: "progress", notes: "Approved for conditional offer." },
+  { id: "i11", candidateId: "cand8", stage: "initial", interviewer: "Usman", heldAt: daysAgo(6), outcome: "progress", notes: "Data centre experience. Final interview to book." },
+];
+
+/** Every interview held for a candidate, oldest first. */
+export const interviewsFor = (candidateId: string) =>
+  interviews
+    .filter((i) => i.candidateId === candidateId)
+    .sort((a, b) => new Date(a.heldAt).getTime() - new Date(b.heldAt).getTime());
+
+/** Gate 1 checks this: the final interview is mandatory before any offer. */
+export const finalInterviewHeld = (candidateId: string) =>
+  interviews.some((i) => i.candidateId === candidateId && i.stage === "final");
 
 // ---------------------------------------------------------------------------
 // Officers
@@ -323,7 +357,8 @@ export const funnel = [
   { stage: "Candidates shortlisted", count: 96 },
   { stage: "Applications invited", count: 78 },
   { stage: "Applications complete", count: 41 },
-  { stage: "Interviewed", count: 33 },
+  { stage: "Initial interview (team)", count: 38 },
+  { stage: "Final interview (Farhan)", count: 33 },
   { stage: "Conditional offers", count: 27 },
   { stage: "Deployable", count: 24 },
   { stage: "Confirmed employment", count: 16 },

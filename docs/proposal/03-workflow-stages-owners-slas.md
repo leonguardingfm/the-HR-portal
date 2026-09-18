@@ -14,9 +14,10 @@ Admin without a code change.
  Received ─> Pool check ─> [covered internally: CLOSED]
                         └─> Released to sourcing ─> Allocated ─> Filled
 
- TRACK B — RECRUITMENT  (Ahmed, Usman)
+ TRACK B — RECRUITMENT  (Ahmed, Usman; final interview by Farhan)
  Sourcing ─> Shortlisted ─> Invited ─> Application received ─> Application complete
-   ─> Interviewed ─> ((GATE 1)) ─> Conditional offer ─> Welcome pack ─> Signed docs complete
+   ─> [Initial interview: team, optional] ─> Final interview: Farhan  (7.3.4, mandatory)
+   ─> ((GATE 1)) ─> Conditional offer ─> Welcome pack ─> Signed docs complete
    ─> Onboarding complete ─> ((GATE 2)) ─> DEPLOYED ─> ((GATE 3)) ─> Confirmed employment
 
  TRACK C — VETTING  (Anas, Talha — alternating administrator / controller)
@@ -42,12 +43,14 @@ them is ours rather than the standard's.
 ### GATE 1 — conditional offer (BS 7858 minimum)
 This is the standard's own gate. A conditional offer is **blocked** until all four are true:
 
-1. Risk in the intended role evaluated, deemed acceptable, and **documented** [7.5.1a]
-2. Preliminary checks complete — identity from originals, current address, sanctions and
+1. **The final interview has been held** by Farhan [7.3.4]. An initial team interview may precede
+   it but never substitutes for it
+2. Risk in the intended role evaluated, deemed acceptable, and **documented** [7.5.1a]
+3. Preliminary checks complete — identity from originals, current address, sanctions and
    watchlist, public record search via a credit reference agency [7.4]
-3. Limited screening complete — continuous history confirmed for at least the 3 years before
+4. Limited screening complete — continuous history confirmed for at least the 3 years before
    application [7.5.2a]
-4. **The screening controller has reviewed the file and confirmed it** [7.5.2b]
+5. **The screening controller has reviewed the file and confirmed it** [7.5.2b]
 
 On passing Gate 1 the portal **starts the clock**: it records the conditional employment
 commencement date, computes the 12-week deadline, and displays both alongside the date employment
@@ -56,19 +59,25 @@ must cease if screening does not complete [7.2, 7.6].
 ### GATE 2 — deployment to a client site (our policy, stricter)
 Gate 1 is not enough to put someone on a client site. Deployment additionally requires:
 
-5. The **criminality element** satisfied — SIA licence, NPCC Appendix C, or a disclosure from the
+6. The **criminality element** satisfied — SIA licence, NPCC Appendix C, or a disclosure from the
    appropriate body [7.7j]
-6. **Right to work** confirmed, with a follow-up date recorded where leave is time-limited
+7. **Right to work** confirmed, with a follow-up date recorded where leave is time-limited
    (outside BS 7858's scope, but a separate legal obligation)
-7. Signed Welcome Pack documents received — returned same day or next day in practice
+8. Signed Welcome Pack documents received — returned same day or next day in practice
 
-Points 5 and 6 are **stricter than the standard**, which treats the criminality element as part of
+Points 6 and 7 are **stricter than the standard**, which treats the criminality element as part of
 full screening. It is worth keeping and worth recording as a deliberate choice, so it does not
 quietly drift back. In the portal this gate is implemented separately from Gate 1, in the local
 policy module rather than the BS 7858 module, precisely so the distinction stays visible.
 
 The portal shows every block as a plain sentence — "Deployment blocked: SIA licence not yet
 verified against the public register" — never a greyed-out button with no explanation.
+
+**One thing this arrangement gets for free.** Farhan holds the final interview and Anas or Talha
+control the screening file, so no controller ever signs off a candidate they interviewed — the
+division of functions clause 6.1 asks for, arising from how the work already falls rather than
+from an added rule. The portal checks it on every file and records an exception if it ever stops
+being true, rather than blocking.
 
 ### GATE 3 — confirmed employment
 Confirmed employment is blocked until the **whole five-year screening period** is verified with no
@@ -110,7 +119,8 @@ honestly on whether a delay sat with Control or with HR.
 | B3 Invited | Recruitment | Casper application link sent with instructions. The authorisation [7.3.2f] and declaration [7.3.2g] are already part of that form, so consent to screen arrives with the application | Same day as B2 |
 | B4 Application received | Recruitment | Application returned | Chase at **+3 days**, again at **+7**, escalate at **+14** |
 | B5 Application complete | Recruitment | Completeness judged against the **full 7.3.2 list**, not just "form submitted"; document rules validated at upload `[SV]`; missing items chased | Chase within **48h** of a gap being identified, then every 3 working days, **max 3 attempts** then escalate |
-| B6 Interviewed | Recruitment | Interview held **before any offer** [7.3.4]; interviewer, date, outcome and notes recorded | Within 5 working days of B5 |
+| B6a Initial interview | Ahmed / Usman | **Optional.** Held for some candidates; interviewer, date, outcome and notes recorded | Within 3 working days of B5, where held |
+| B6b Final interview | **Farhan** | **Mandatory before any offer** [7.3.4]; interviewer, date, outcome and notes recorded. Gate 1 will not open without it | Within 5 working days of B5 |
 | — | — | **GATE 1** — conditional offer permitted | — |
 | B7 Conditional offer | Recruitment (+ Vetting controller sign-off) | Documented risk evaluation; conditional offer issued; **contract states that confirmed employment depends on full screening completing within the period allowed, and that conditional employment ends if it does not** [7.5.2] | 1 working day of Gate 1 clearing |
 | B8 Welcome pack | Recruitment | Confidentiality & Disclosure, Employee Handbook, Employment Contract, Restrictive Covenant issued | Same day as B7 |

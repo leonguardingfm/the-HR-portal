@@ -155,7 +155,7 @@ Below is the process as described, with the BS 7858 position against each step.
 
 ## 3. Gaps and inconsistencies to resolve
 
-Raised for clarification rather than assumed. **Five have now been answered (Sept 2026)** and are
+Raised for clarification rather than assumed. **Six have now been answered (Sept 2026)** and are
 marked RESOLVED below; the rest still need a decision. The two items originally flagged as
 material — 3.1 and 3.2 — both came back clean: the process is compliant in practice, and the
 written description was misleading about its own order rather than wrong.
@@ -221,14 +221,33 @@ prior written permission [7.7b], and where that permission is withheld until an 
 individual has to be told the offer can be withdrawn if screening is not concluded satisfactorily
 [7.3.3a]. A single blanket consent on the form does not carry that distinction.
 
-### 3.3 The interview is not in the written process
+### 3.3 The interview — RESOLVED
 
-The written process runs application → Welcome Pack, with no interview step, yet there is an
-"Interview Sheet". BS 7858 is direct: **interview the individual before any offer of employment
-is made** [7.3.4].
+The written process ran application → Welcome Pack with no interview step, which sat awkwardly
+against the standard's direct instruction to **interview the individual before any offer of
+employment is made** [7.3.4] — and against the existence of an "Interview Sheet".
 
-**To confirm:** is an interview held, who holds it, and is the outcome recorded anywhere we could
-show an auditor? The portal should record interviewer, date, outcome and notes as a gate.
+**Confirmed (Sept 2026):** interviews are held in two stages.
+
+| Stage | Who | Required? |
+|-------|-----|-----------|
+| Initial interview | The recruitment team — Ahmed or Usman | Optional; held for some candidates |
+| **Final interview** | **Farhan** | **Always, before any offer** |
+
+So 7.3.4 is satisfied, and by the person with the authority to offer employment, which is exactly
+what the standard's introduction has in mind.
+
+**What the portal does with it.** The final interview is a **gate, not a note**: Gate 1 will not
+open without it, and the blocking reason reads "Final interview not yet held (7.3.4)". Each
+interview records interviewer, date, outcome and notes, so there is something to show an auditor
+rather than a name on a spreadsheet. The optional initial interview is recorded the same way but
+never substitutes for the final one.
+
+**A useful side effect for internal control.** Because Farhan interviews and Anas or Talha control
+the screening files, no controller ever signs off a candidate they themselves interviewed — which
+is the division of functions clause 6.1 asks for, achieved by how the work already falls rather
+than by adding a rule. The portal checks it anyway and records an exception if it ever stops being
+true, rather than blocking: in a small team an audited exception is more honest than a workaround.
 
 ### 3.4 "Online history checks" needs decomposing
 
@@ -353,15 +372,15 @@ available to us — it stops the request-reject-rerequest loop before it starts.
 
 A consolidated list of everything needing an answer is in [document 07](07-open-questions.md).
 
-## 4. Who does what — confirmed, with one gap
+## 4. Who does what — confirmed
 
 **Confirmed (Sept 2026):**
 
 | People | Responsibility |
 |--------|----------------|
-| **Ahmed**, **Usman** | Recruitment |
+| **Ahmed**, **Usman** | Recruitment, including the optional **initial interview** |
 | **Anas**, **Talha** | Vetting |
-| **Farhan** | Risk acceptance, deadline extensions, statutory declaration approval — the "top management or authorised person" the standard refers to [3.15, 7.4f, 7.6, 7.7i] |
+| **Farhan** | The **final interview** before any offer [7.3.4]; risk acceptance, deadline extensions, statutory declaration approval — the "top management or authorised person" the standard refers to [3.15, 7.4f, 7.6, 7.7i]; and **administrator on the vetting team's own screening files** (see §4.2) |
 
 That already gives the separation of functions clause 6.1 asks for: recruiting and screening sit
 with different people, so nobody is both interviewing a candidate and signing off their screening
@@ -378,22 +397,38 @@ reviews; Talha administers, Anas reviews. Both need to be trained and recorded a
 both roles, and the portal enforces the pairing so the same person can never appear twice on one
 file. This is what the demonstration data shows.
 
-### 4.2 The gap: screening the screeners
+### 4.2 Screening the screeners — RESOLVED
 
-Both Anas and Talha must themselves be screened to BS 7858, and neither may screen themselves
-[6.1]. For Anas's own file, Talha can be the administrator — but then the controller has to be
-someone who is neither the subject nor the administrator, which rules out both of them.
+Both Anas and Talha must themselves be screened, and neither may screen themselves [6.1]. That
+looked awkward, because if one of them administers the other's file, the controller then has to be
+someone who is neither the subject nor the administrator — which ruled out both of them.
 
-**This needs a decision.** Two workable options:
+**Confirmed (Sept 2026): Farhan is the administrator on Anas's and Talha's own files.** That closes
+it cleanly, because the controller then falls to whichever of the pair is not the subject:
 
-1. **Farhan reviews those two files** as controller. He is already the authorised person for risk
-   acceptance, so he is a natural fit — but he would need to be trained to clause 6.2 and screened
-   himself, and he cannot be the controller on his own file either.
-2. **Buy those specific files in** from an accredited provider, and review the returned file
-   ourselves as clause 6.3 requires. Two files is a small, one-off cost.
+| Whose file | Administrator | Controller | Check |
+|------------|---------------|------------|-------|
+| Anas | Farhan | Talha | No self-screening [6.1] ✓ · controller ≠ administrator [7.5.2b] ✓ |
+| Talha | Farhan | Anas | ✓ ✓ |
+| Farhan | Talha | Anas | ✓ ✓ |
 
-Whichever we choose, it also has to answer who screens **Farhan**, and who holds the training and
-NDA records for all three.
+Every row satisfies both rules, and no external provider is needed. The portal shows this as a
+register on the Admin screen with the rule check computed rather than asserted, so if anyone is
+ever reassigned the conflict surfaces immediately.
+
+**Two consequences to action.** Administering files makes Farhan *a person engaged in screening*,
+so clause 6.2 applies to him directly: trained on the standard, on data protection law and on the
+relevant regulatory requirements, with the training recorded and **reviewed at least annually**
+[6.2]. He also needs a confidentiality agreement covering employment and post-employment [6.1],
+and he must be screened himself — which the third row above provides for.
+
+Worth noting the concentration of roles: Farhan holds the final interview, accepts risk, approves
+extensions and statutory declarations, and administers the vetting team's own files. The standard
+does not forbid this — top management is explicitly the party that accepts risk [7.4f] and has the
+authority to offer employment — but it does ask for "particular attention to the division of
+functions and authority" for internal control [6.1]. The mitigation is already in place: Anas and
+Talha control the files Farhan administers, and he cannot control his own. That is the right shape
+for a team this size, and it is worth revisiting if the team grows.
 
 ### 4.3 What the portal holds for this
 

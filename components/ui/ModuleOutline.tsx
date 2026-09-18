@@ -29,8 +29,8 @@ export function ModuleOutline({
     >
       <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
         {items.map((item) => (
-          <li key={item.label} className="flex flex-wrap items-start justify-between gap-3 py-2.5">
-            <div className="min-w-0 max-w-2xl">
+          <li key={item.label} className="flex items-start justify-between gap-3 py-2.5">
+            <div className="min-w-0 max-w-2xl flex-1">
               <p className="text-[13px] font-medium">
                 {item.label}
                 {item.clause && (

@@ -17,11 +17,13 @@ export const STAGE_SLA_DAYS: Record<RecruitmentStage, number> = {
   invited: 0,
   application_received: 3,
   application_complete: 3,
-  interviewed: 5,
+  initial_interview: 3,
+  final_interview: 5,
   conditional_offer: 1,
   welcome_pack: 0,
   signed_docs_complete: 5,
   onboarding_complete: 2,
+  deployed: 1,
   confirmed_employment: 0,
   withdrawn: 0,
 };
@@ -64,6 +66,23 @@ export function taskSeverity(
   const fractionUsed = 1 + daysLate / Math.max(slaDays, 1);
   if (fractionUsed >= TASK_THRESHOLDS.warning) return "warning";
   return "good";
+}
+
+/**
+ * Stages that are a resting state rather than a queue.
+ *
+ * An officer who has been deployed for 80 days is not breaching anything —
+ * their screening clock is the thing with a deadline, not their stage. Showing
+ * these as overdue trains people to ignore red.
+ */
+export const RESTING_STAGES: RecruitmentStage[] = [
+  "deployed",
+  "confirmed_employment",
+  "withdrawn",
+];
+
+export function isRestingStage(stage: RecruitmentStage): boolean {
+  return RESTING_STAGES.includes(stage);
 }
 
 /** Licence and right-to-work expiry warnings, in calendar days. */

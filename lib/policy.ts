@@ -36,11 +36,15 @@ export function evaluateDeploymentGate(
   file: ScreeningFile,
   args: {
     riskEvaluationDocumented: boolean;
+    finalInterviewHeld: boolean;
     /** All Welcome Pack documents signed and checked. */
     signedDocumentsComplete: boolean;
   },
 ): GateResult {
-  const gate1 = evaluateGate1(file, args.riskEvaluationDocumented);
+  const gate1 = evaluateGate1(file, {
+    riskEvaluationDocumented: args.riskEvaluationDocumented,
+    finalInterviewHeld: args.finalInterviewHeld,
+  });
   const blockedBy = [...gate1.blockedBy];
 
   if (!isGroupSatisfied(file, "criminality")) {
@@ -85,13 +89,64 @@ export const POST_DEPLOYMENT_CHECK_GROUPS = ["history"] as const;
  * Our vetting team is two people who alternate roles per file. Both are
  * trained and recorded as competent in both, and the pairing rule in
  * `canSignOff` stops the same person appearing twice on one file.
- *
- * The open question this leaves is their own files: neither may screen
- * themselves [6.1], and the controller cannot be the administrator either
- * [7.5.2b], so a third reviewer is needed for exactly two files. See C11 in
- * docs/proposal/07.
  */
 export const VETTING_PAIR = ["Anas", "Talha"] as const;
 
 /** The authorised person for risk acceptance, extensions and statutory declarations. */
 export const AUTHORISED_PERSON = "Farhan" as const;
+
+/**
+ * Interviews. The final interview is held by Farhan and is mandatory before
+ * any offer [7.3.4]; an initial interview by the recruitment team is optional
+ * and does not substitute for it.
+ */
+export const FINAL_INTERVIEWER = "Farhan" as const;
+export const INITIAL_INTERVIEW_OPTIONAL = true;
+
+/**
+ * Who screens the screeners.
+ *
+ * Confirmed September 2026: Farhan is the administrator on Anas's and Talha's
+ * own screening files. That closes the problem cleanly, because the reviewing
+ * controller then has to be someone who is neither the subject nor the
+ * administrator — which leaves the other half of the pair:
+ *
+ *   Anas's file    → administrator Farhan, controller Talha
+ *   Talha's file   → administrator Farhan, controller Anas
+ *   Farhan's file  → administrator Talha,  controller Anas
+ *
+ * Every row satisfies both rules: nobody screens themselves [6.1], and no
+ * controller reviews a file they built [7.5.2b]. Being an administrator makes
+ * Farhan a person engaged in screening, so clause 6.2 training and a
+ * confidentiality agreement apply to him too.
+ */
+export const INTERNAL_FILE_ASSIGNMENTS = [
+  { subject: "Anas", administrator: "Farhan", controller: "Talha" },
+  { subject: "Talha", administrator: "Farhan", controller: "Anas" },
+  { subject: "Farhan", administrator: "Talha", controller: "Anas" },
+] as const;
+
+/**
+ * Division of functions [6.1].
+ *
+ * The standard asks for particular attention to the division of functions and
+ * authority between interviewing, screening and the decision to employ. It
+ * does not forbid one person holding more than one, so this warns and records
+ * rather than blocking — in a small team an audited exception is more honest
+ * than a workaround.
+ *
+ * In practice our arrangement satisfies it without needing the warning:
+ * Farhan interviews and accepts risk, while Anas and Talha control the files.
+ */
+export function reviewIndependence(args: {
+  controller: string;
+  finalInterviewer: string | null;
+}): { independent: boolean; warning: string | null } {
+  if (args.finalInterviewer && args.controller === args.finalInterviewer) {
+    return {
+      independent: false,
+      warning: `${args.controller} both interviewed this candidate and is signing off their screening file — permitted, but recorded as an exception to the division of functions (6.1)`,
+    };
+  }
+  return { independent: true, warning: null };
+}

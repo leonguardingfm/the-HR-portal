@@ -144,7 +144,8 @@ export interface GateResult {
  * role has been evaluated, deemed acceptable and documented, preliminary checks
  * are satisfactory, and limited screening is satisfactory [7.5.1]. Limited
  * screening is only complete once the controller has reviewed the file
- * [7.5.2b].
+ * [7.5.2b]. The individual must also have been interviewed before any offer
+ * of employment is made [7.3.4].
  *
  * This is the standard's own minimum and nothing more. Deployment to a client
  * site is gated more tightly than this by our own policy — see
@@ -153,11 +154,23 @@ export interface GateResult {
  */
 export function evaluateGate1(
   file: ScreeningFile,
-  riskEvaluationDocumented: boolean,
+  context: {
+    riskEvaluationDocumented: boolean;
+    /**
+     * The final interview has been held. The standard is direct: interview the
+     * individual before any offer of employment is made [7.3.4]. Ours is held
+     * by Farhan; an initial team interview may precede it but does not
+     * substitute for it.
+     */
+    finalInterviewHeld: boolean;
+  },
 ): GateResult {
   const blockedBy: string[] = [];
 
-  if (!riskEvaluationDocumented) {
+  if (!context.finalInterviewHeld) {
+    blockedBy.push("Final interview not yet held (7.3.4)");
+  }
+  if (!context.riskEvaluationDocumented) {
     blockedBy.push("Risk in the intended role not yet evaluated and documented (7.5.1a)");
   }
   if (!isGroupSatisfied(file, "preliminary")) {

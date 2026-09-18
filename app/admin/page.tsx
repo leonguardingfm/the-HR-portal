@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/Card";
 import { ModuleOutline } from "@/components/ui/ModuleOutline";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { ClauseRef, Tag } from "@/components/ui/StatusPill";
+import { ClauseRef, StatusPill, Tag } from "@/components/ui/StatusPill";
 import { CHASERS, EXPIRY_WARNING_DAYS } from "@/lib/sla";
 import {
   CLOCK_THRESHOLDS,
@@ -9,7 +9,12 @@ import {
   MAX_EXTENSION_WEEKS,
   RETENTION,
 } from "@/lib/bs7858";
-import { AUTHORISED_PERSON, VETTING_PAIR } from "@/lib/policy";
+import {
+  AUTHORISED_PERSON,
+  FINAL_INTERVIEWER,
+  INTERNAL_FILE_ASSIGNMENTS,
+  VETTING_PAIR,
+} from "@/lib/policy";
 
 /**
  * Admin.
@@ -44,8 +49,8 @@ export default function AdminPage() {
               ["Retention — after employment ends", `${RETENTION.afterCessationYears} years`, "11.3"],
               ["Training review", "At least annually", "6.2"],
             ].map(([label, value, clause]) => (
-              <li key={label} className="flex flex-wrap items-start justify-between gap-3 py-2">
-                <div className="min-w-0">
+              <li key={label} className="flex items-start justify-between gap-3 py-2">
+                <div className="min-w-0 flex-1">
                   <p className="text-[13px]">
                     {label} <ClauseRef clause={clause} />
                   </p>
@@ -75,9 +80,10 @@ export default function AdminPage() {
               ["Default screening period", `${DEFAULT_SCREENING_PERIOD_YEARS} years — per client, so a contract or insurer needing longer is a setting rather than a code change`],
               ["Pre-deployment policy", `Criminality (7.7j) and right to work must be complete before an officer reaches site — stricter than the standard`],
               ["Vetting pair", `${VETTING_PAIR.join(" and ")}, alternating administrator and controller per file`],
+              ["Final interview", `Held by ${FINAL_INTERVIEWER}, mandatory before any offer (7.3.4). An initial team interview is optional and does not substitute for it`],
             ].map(([label, value]) => (
-              <li key={label} className="flex flex-wrap items-start justify-between gap-3 py-2">
-                <div className="min-w-0">
+              <li key={label} className="flex items-start justify-between gap-3 py-2">
+                <div className="min-w-0 flex-1">
                   <p className="text-[13px]">{label}</p>
                   <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
                     {value}
@@ -89,6 +95,61 @@ export default function AdminPage() {
           </ul>
         </Card>
       </div>
+
+      <Card
+        title="Vetting team competence register"
+        subtitle="Who screens the screeners. Screening staff must themselves be screened, may not screen themselves, and the controller reviewing a file may not be the administrator who built it."
+      >
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[34rem] border-collapse text-left">
+            <thead>
+              <tr className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                <th className="pb-2 pr-3 font-medium">Whose file</th>
+                <th className="pb-2 pr-3 font-medium">Administrator</th>
+                <th className="pb-2 pr-3 font-medium">Controller</th>
+                <th className="pb-2 font-medium">Rule check</th>
+              </tr>
+            </thead>
+            <tbody>
+              {INTERNAL_FILE_ASSIGNMENTS.map((row) => {
+                const noSelfScreening =
+                  row.administrator !== row.subject && row.controller !== row.subject;
+                const fourEyes = row.administrator !== row.controller;
+                return (
+                  <tr key={row.subject} className="border-t" style={{ borderColor: "var(--hairline)" }}>
+                    <td className="py-2.5 pr-3 text-[13px] font-medium">{row.subject}</td>
+                    <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+                      {row.administrator}
+                    </td>
+                    <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+                      {row.controller}
+                    </td>
+                    <td className="py-2.5">
+                      <StatusPill
+                        severity={noSelfScreening && fourEyes ? "good" : "critical"}
+                        label={
+                          noSelfScreening && fourEyes
+                            ? "6.1 and 7.5.2b satisfied"
+                            : "Conflict — reassign"
+                        }
+                      />
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-4 text-[12px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
+          {AUTHORISED_PERSON} administering the vetting team&rsquo;s own files is what makes this
+          work: the controller then has to be someone who is neither the subject nor the
+          administrator, which leaves the other half of the pair. Because it makes him a person
+          engaged in screening, clause 6.2 training and a confidentiality agreement apply to him
+          too — and his own file is administered by {VETTING_PAIR[1]} and controlled by{" "}
+          {VETTING_PAIR[0]}. {FINAL_INTERVIEWER} also holds the final interview, so no controller
+          ever signs off a candidate they interviewed.
+        </p>
+      </Card>
 
       <ModuleOutline
         note="The vetting team competence register is easy to overlook and is explicitly required: screening staff must themselves be screened, must not screen themselves, must have signed confidentiality agreements, and their training must be reviewed at least annually."

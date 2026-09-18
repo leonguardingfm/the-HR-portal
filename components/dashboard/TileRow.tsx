@@ -1,6 +1,7 @@
 import { StatTile } from "@/components/ui/StatTile";
 import { clockState } from "@/lib/bs7858";
 import { daysSince } from "@/lib/format";
+import { isRestingStage } from "@/lib/sla";
 import {
   candidates,
   complianceRate,
@@ -34,12 +35,9 @@ export function TileRow() {
     return clock !== null && clock.fractionUsed >= 0.9;
   });
 
-  const inPipeline = candidates.filter(
-    (c) =>
-      c.stage !== "confirmed_employment" &&
-      c.stage !== "withdrawn" &&
-      c.stage !== "onboarding_complete",
-  ).length;
+  // "In pipeline" means still being worked on. A deployed or confirmed officer
+  // has left the pipeline even though their screening file may still be open.
+  const inPipeline = candidates.filter((c) => !isRestingStage(c.stage)).length;
 
   const overdue = overdueTasks().length;
   const compliance = Math.round(

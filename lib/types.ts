@@ -3,7 +3,8 @@
  *
  * Two status tracks are modelled deliberately separately, per the agreed design
  * in docs/proposal/02 and 03: recruitment progress and BS 7858 vetting
- * completion. They are linked only by the two gates in lib/bs7858.ts.
+ * completion. They are linked only by the gates — two from the standard in
+ * lib/bs7858.ts, plus our own deployment gate in lib/policy.ts.
  */
 
 // ---------------------------------------------------------------------------
@@ -82,13 +83,32 @@ export type RecruitmentStage =
   | "invited"
   | "application_received"
   | "application_complete"
-  | "interviewed"
+  | "initial_interview"
+  | "final_interview"
   | "conditional_offer"
   | "welcome_pack"
   | "signed_docs_complete"
   | "onboarding_complete"
+  | "deployed"
   | "confirmed_employment"
   | "withdrawn";
+
+/**
+ * Interviews are two-stage: an optional initial interview held by the
+ * recruitment team, then the final interview held by Farhan. The final one is
+ * mandatory before any offer of employment is made [7.3.4].
+ */
+export type InterviewStage = "initial" | "final";
+
+export interface Interview {
+  id: string;
+  candidateId: string;
+  stage: InterviewStage;
+  interviewer: string;
+  heldAt: string;
+  outcome: "progress" | "hold" | "reject";
+  notes: string;
+}
 
 // ---------------------------------------------------------------------------
 // Track C — vetting (BS 7858:2019)

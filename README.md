@@ -15,7 +15,9 @@ Phase 1.
 
 Confirmed process: **we screen to five years**, vetting is **in-house**, and officers reach a
 client site only after initial screening — the one element that runs afterwards is **five-year
-career-history verification**, inside the 12 weeks the standard allows.
+career-history verification**, inside the 12 weeks the standard allows. Interviews are two-stage:
+an optional initial interview by the recruitment team, then the **final interview held by Farhan**,
+which is mandatory before any offer (7.3.4) and which Gate 1 enforces.
 
 ```bash
 npm install
@@ -36,6 +38,8 @@ exists so the seven role views can be reviewed without seven logins.
 | Gate 1 (conditional offer) and Gate 3 (confirmed employment), with plain-English blocking reasons | `lib/bs7858.ts` — `evaluateGate1`, `evaluateGate2` |
 | Gate 2 (deployment to site) — our own policy, stricter than the standard | `lib/policy.ts` — `evaluateDeploymentGate` |
 | Separation of duties: no self-screening, controller ≠ administrator | `lib/bs7858.ts` — `canSignOff` |
+| Interview before any offer (7.3.4), enforced at Gate 1 | `lib/bs7858.ts` — `evaluateGate1` |
+| Division of functions: warns if a controller signs off a candidate they interviewed | `lib/policy.ts` — `reviewIndependence` |
 | Retention periods, risk-acceptance threshold, gap limits | `lib/bs7858.ts` |
 | Service levels, chaser ladders, task severity | `lib/sla.ts` — ours and configurable, deliberately separate from the standard's rules |
 | Company policy that exceeds the standard | `lib/policy.ts` — the deployment gate, the pre/post-deployment split, the named vetting pair |
