@@ -300,6 +300,7 @@ export interface Task {
 
 export type Role =
   | "control"
+  | "operations_manager"
   | "recruitment"
   | "recruitment_manager"
   | "vetting_admin"

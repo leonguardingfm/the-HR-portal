@@ -27,7 +27,10 @@ export function Card({ title, subtitle, action, children, className = "" }: Card
               </p>
             )}
           </div>
-          {action && <div className="shrink-0">{action}</div>}
+          {/* max-w-full so wrapping content inside the slot can actually wrap:
+              a shrink-0 box sizes to max-content, which at phone width pushed
+              the whole page wider than the viewport. */}
+          {action && <div className="max-w-full min-w-0 shrink-0">{action}</div>}
         </header>
       )}
       <div className="px-5 pb-5">{children}</div>

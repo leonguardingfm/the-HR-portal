@@ -36,6 +36,12 @@ export const ROLE_OPTIONS: RoleOption[] = [
       "Raise requirements, check the officer pool, allocate officers and roster them.",
   },
   {
+    id: "operations_manager",
+    label: "Operations Manager",
+    description:
+      "Run the live board, inspections and incidents; own the welfare escalation and corrective actions.",
+  },
+  {
     id: "recruitment",
     label: "Recruitment",
     description:

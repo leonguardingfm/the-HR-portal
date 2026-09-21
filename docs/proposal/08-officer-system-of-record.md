@@ -1,5 +1,13 @@
 # 08 — Scope of the Officer Record
 
+> **Superseded again, 21 September 2026.** The widened brief puts officer scheduling, book-ons and
+> check calls in scope, which reverses the boundary this document draws. The analysis in §2, §3 and
+> §5 is still the best account of what replacing INDEL involves and is why the migration is staged
+> — but for the current boundary and the decision it needs (E1), read
+> [Platform 01 §4](../platform/01-scope-and-domains.md#4-the-consequence-for-indel). In particular,
+> §4 below and the availability note at the end are now wrong: rostering does **not** stay in INDEL,
+> so uptime, backup and recovery are real requirements.
+
 **Superseded 19 September 2026.** An earlier answer confirmed the portal would replace INDEL
 outright. That has since been scoped back:
 

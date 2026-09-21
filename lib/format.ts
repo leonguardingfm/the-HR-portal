@@ -37,3 +37,16 @@ export function titleCase(value: string): string {
     .map((w) => w.charAt(0).toUpperCase() + w.slice(1))
     .join(" ");
 }
+
+const TIME = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+
+/** "19:00". Used wherever a shift time is shown. */
+export function formatTime(value: string | Date | null): string {
+  if (!value) return "—";
+  return TIME.format(typeof value === "string" ? new Date(value) : value);
+}
+
+/** "19:00 → 07:00", the way Control reads a shift. */
+export function formatShiftWindow(startsAt: string, endsAt: string): string {
+  return `${formatTime(startsAt)} → ${formatTime(endsAt)}`;
+}

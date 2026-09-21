@@ -3,9 +3,9 @@ import { AppShell } from "@/components/layout/AppShell";
 import "./globals.css";
 
 export const metadata: Metadata = {
-  title: "HR Portal — Recruitment & Vetting",
+  title: "Leon Guarding — Workforce & Operations",
   description:
-    "Monitor, manage and track recruitment and BS 7858:2019 vetting for a security company.",
+    "One platform for officers, recruitment, BS 7858:2019 vetting, scheduling, live operations, compliance and departmental KPIs.",
 };
 
 export default function RootLayout({

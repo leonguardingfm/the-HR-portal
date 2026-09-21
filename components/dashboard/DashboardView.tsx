@@ -9,7 +9,10 @@ import { useSession } from "@/components/layout/SessionContext";
 import { ROLE_LABELS } from "@/lib/labels";
 import { funnel, stageCycleTimes, workload } from "@/lib/mock/data";
 import { ActiveNow } from "./ActiveNow";
+import { ActivityFeed } from "./ActivityFeed";
+import { DepartmentKpis } from "./DepartmentKpis";
 import { ExceptionsQueue } from "./ExceptionsQueue";
+import { LiveStrip } from "./LiveStrip";
 import { RequirementBoard } from "./RequirementBoard";
 import { TaskDigest } from "./TaskDigest";
 import { TileRow } from "./TileRow";
@@ -18,40 +21,61 @@ import { VettingClockBoard } from "./VettingClockBoard";
 /**
  * The landing dashboard.
  *
- * Same page for everyone, different emphasis by role: Control leads with the
- * order book, Recruitment with its own queue, Vetting with the clock, and
- * management sees the lot. Anything that does not answer one of the four
- * dashboard questions in docs/proposal/04 belongs in Reports instead.
+ * Same page for everyone, different order by role: Control and the operations
+ * manager lead with what is happening on site right now, Recruitment with its
+ * own queue, Vetting with the clock, and management sees the lot. The test it
+ * has to pass is the one in docs/platform/01 §1 — who is working, where,
+ * whether they are allowed to be there, whether they turned up, and what is
+ * overdue, without asking anyone.
+ *
+ * Anything that is analysis rather than an answer belongs in Insight instead.
  */
 export function DashboardView() {
   const { session } = useSession();
   const role = session?.activeRole ?? "recruitment";
   const name = session?.name ?? "";
 
-  const seesClock = role !== "control" && role !== "recruitment";
-  const seesRequirements = true;
+  const operational = role === "control" || role === "operations_manager";
+  const management =
+    role === "recruitment_manager" ||
+    role === "top_management" ||
+    role === "auditor" ||
+    role === "operations_manager";
+
+  const seesClock = role !== "control" && role !== "recruitment" && role !== "operations_manager";
+  const seesLive = operational || management;
+  const seesFlow = role !== "control" && role !== "operations_manager";
   const seesPeople = role === "recruitment_manager" || role === "top_management" || role === "auditor";
-  const seesFlow = role !== "control";
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Dashboard"
-        description={`Outstanding cover, screening deadlines, delays and workload. ${name ? `${name}, working as ` : "Showing the "}${ROLE_LABELS[role]}${name ? "." : " view."}`}
+        description={`Cover on site now, screening deadlines, delays and workload. ${name ? `${name}, working as ` : "Showing the "}${ROLE_LABELS[role]}${name ? "." : " view."}`}
       />
+
+      {/* Operational roles open on what is happening, not on the funnel. */}
+      {operational && seesLive && <LiveStrip />}
 
       <TileRow />
 
       {seesClock && <VettingClockBoard />}
 
-      {seesRequirements && <RequirementBoard />}
+      {!operational && seesLive && <LiveStrip />}
+
+      <RequirementBoard />
 
       <div className="grid gap-5 xl:grid-cols-2">
         <TaskDigest limit={7} />
         <ExceptionsQueue />
       </div>
 
-      <ActiveNow />
+      {management && <DepartmentKpis />}
+
+      <div className="grid gap-5 xl:grid-cols-2">
+        <ActiveNow />
+        <ActivityFeed limit={7} />
+      </div>
 
       {seesFlow && (
         <div className="grid gap-5 xl:grid-cols-2">
@@ -82,13 +106,26 @@ export function DashboardView() {
       {role === "control" && (
         <Card title="Why you are not seeing candidate detail">
           <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
-            Control sees requirements, allocation and whether an officer is
-            deployable. Screening file contents — identity evidence, financial
-            findings and criminal record outcomes — are restricted to the vetting
-            team, top management and audit, because BS&nbsp;7858 restricts that
-            information to those who need it to make a recruitment decision
-            (clauses 6.1 and 7.2). If Control has a practical need for more, that
-            is a design decision to take deliberately rather than by default.
+            Control sees requirements, allocation, the live board and whether an
+            officer is deployable. Screening file contents — identity evidence,
+            financial findings and criminal record outcomes — are restricted to
+            the vetting team, top management and audit, because BS&nbsp;7858
+            restricts that information to those who need it to make a
+            recruitment decision (clauses 6.1 and 7.2). If Control has a
+            practical need for more, that is a design decision to take
+            deliberately rather than by default.
+          </p>
+        </Card>
+      )}
+
+      {role === "operations_manager" && (
+        <Card title="What this role owns">
+          <p className="text-[13px] leading-relaxed" style={{ color: "var(--text-secondary)" }}>
+            The live board, the inspection programme, incidents and the welfare
+            escalation ladder — step 3 on that ladder is this role by name, which
+            is why it exists in the permission model rather than being folded
+            into Control. Screening file contents are restricted here too: this
+            role sees whether an officer is deployable, not why.
           </p>
         </Card>
       )}

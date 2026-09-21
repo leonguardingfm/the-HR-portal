@@ -93,6 +93,7 @@ export const CHECK_STATUS_LABELS: Record<CheckStatus, string> = {
 
 export const ROLE_LABELS: Record<Role, string> = {
   control: "Control",
+  operations_manager: "Operations Manager",
   recruitment: "Recruitment",
   recruitment_manager: "HR Manager",
   vetting_admin: "Screening Administrator",
