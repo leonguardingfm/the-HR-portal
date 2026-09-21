@@ -29,7 +29,7 @@ const CHECKLIST = [
     task: "INDEL profile created",
     owner: "Recruitment",
     automation:
-      "INDEL is the current system of record for personnel, compliance and shift data. Automatable if it exposes an API — not yet confirmed",
+      "INDEL is the current system of record for personnel, compliance and shift data. Done by hand today; the platform holds the same information, so this step is a candidate for removal later",
     done: true,
   },
   {
@@ -127,8 +127,8 @@ export default function OnboardingPage() {
             phase: 2,
           },
           {
-            label: "INDEL and Casper integration",
-            detail: "Push the hire to Casper from the record already captured — its API is confirmed. The same for INDEL, subject to confirming it has one.",
+            label: "Casper integration",
+            detail: "Push the hire to Casper from the record already captured, rather than retyping it. Its API is confirmed.",
             phase: 2,
           },
           {

@@ -144,7 +144,7 @@ may only read it.
 | Name, date of birth, contact details | People | Everything | Written once, at first contact |
 | National Insurance number | People | Vetting, payroll export | Duplicate-check key |
 | SIA licence number and name on badge | Compliance | Scheduling, Live ops, Places | Verified against the public register; never typed from the badge |
-| Licence / right-to-work / visa expiry | Compliance (a Document) | Scheduling (blocks), Insight | Supersedes INDEL's alerting — never both |
+| Licence / right-to-work / visa expiry | Compliance (a Document) | Scheduling (blocks), Insight | One place only — two systems watching the same date is how they come to disagree |
 | Screening status and the clock | Vetting | Recruitment (status only), Scheduling (blocks) | Contents restricted |
 | Deployability | Compliance, derived from Vetting + Compliance | Scheduling — as a hard block | Derived, never set by hand |
 | Recruitment stage | Recruitment | Insight | Separate track from vetting, by design |

@@ -129,17 +129,17 @@ export const assignments: Assignment[] = [
 export const bookOns: BookOn[] = [
   { assignmentId: "a1", at: hours(-5), channel: "qr", locationVerified: true },
   { assignmentId: "a2", at: at(-168), channel: "app", locationVerified: true },
-  { assignmentId: "a3", at: hours(-7), channel: "phone", locationVerified: false },
+  { assignmentId: "a3", at: hours(-7), channel: "site_phone", locationVerified: false },
   { assignmentId: "a7", at: hours(-2), channel: "sms", locationVerified: false },
-  { assignmentId: "a8", at: hours(-9), channel: "qr", locationVerified: true },
+  { assignmentId: "a8", at: hours(-9), channel: "phone", locationVerified: false },
   { assignmentId: "a10", at: hours(-4), channel: "supervisor", locationVerified: false },
 ];
 
 export const checkCalls: CheckCall[] = [
   { id: "cc1", assignmentId: "a1", at: at(-20), channel: "phone", allWell: true, note: null },
   { id: "cc2", assignmentId: "a1", at: at(-82), channel: "phone", allWell: true, note: null },
-  { id: "cc3", assignmentId: "a2", at: at(-75), channel: "app", allWell: true, note: null },
-  { id: "cc4", assignmentId: "a3", at: at(-135), channel: "phone", allWell: true, note: "Quiet. Contractors on site until 1800." },
+  { id: "cc3", assignmentId: "a2", at: at(-82), channel: "app", allWell: true, note: null },
+  { id: "cc4", assignmentId: "a3", at: at(-135), channel: "site_phone", allWell: true, note: "Quiet. Contractors on site until 1800." },
   { id: "cc5", assignmentId: "a7", at: at(-30), channel: "app", allWell: true, note: null },
   { id: "cc6", assignmentId: "a10", at: at(-62), channel: "phone", allWell: true, note: null },
 ];
@@ -260,6 +260,7 @@ export const events: EventRecord[] = [
   { id: "e7", at: hours(-7), type: "screening.check_verified", actorName: "Talha", actorRole: "Screening Administrator", subjectRef: "f4", subjectName: "Shanice Bennett", department: "vetting", detail: "Employment reference verified — Brightwater Security." },
   { id: "e8", at: hours(-9), type: "gate.passed", actorName: "Anas", actorRole: "Screening Controller", subjectRef: "f6", subjectName: "Elena Petrova", department: "vetting", detail: "Deployment gate cleared. Criminality and right to work complete." },
   { id: "e9", at: hours(-11), type: "interview.held", actorName: "Farhan", actorRole: "HR Manager", subjectRef: "cand8", subjectName: "Ify Nwachukwu", department: "recruitment", detail: "Second interview held. Outcome: progress." },
+  { id: "e11", at: at(-12), type: "check_call.escalated", actorName: "Usman", actorRole: "Control", subjectRef: "a3", subjectName: personName("p1"), department: "control", detail: "No check call for 2 hours. Mobile and site phone tried. Escalated to step 3 — operational team attending site." },
   { id: "e10", at: hours(-26), type: "requirement.released", actorName: "Usman", actorRole: "Control", subjectRef: "r7", subjectName: "Riverside — Block A concierge", department: "control", detail: "Released to sourcing after the pool check found no internal cover." },
 ];
 

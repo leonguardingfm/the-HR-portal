@@ -77,7 +77,7 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 | Gate 2 (deployment to site) — our own policy, stricter than the standard | `lib/policy.ts` — `evaluateDeploymentGate` |
 | **Deployability, derived from the screening file and the expiry dates** | `lib/core/deployability.ts` — `evaluateDeployability`, `canPublishAssignment` |
 | **Book-on windows, late and no-show detection** | `lib/core/ops.ts` — `attendance` |
-| **Check-call state and the escalation ladder, with a shorter tolerance when lone working** | `lib/core/ops.ts` — `checkCallStatus`, `ESCALATION_LADDER` |
+| **Check calls and the three-step escalation ladder** — hourly, triggering at the hour, ending with the operational team attending site | `lib/core/ops.ts` — `checkCallStatus`, `ESCALATION_LADDER` |
 | Separation of duties: no self-screening, controller ≠ administrator, controllers screened by higher management | `lib/roles.ts` — `validateFileAssignment` |
 | A screening role cannot be granted without own screening, NDA and in-date training (6.1, 6.2) | `lib/roles.ts` — `canGrantRole` |
 | Interview before any offer (7.3.4), for every stage the client requires | `lib/bs7858.ts` — `evaluateGate1` |
@@ -156,7 +156,10 @@ never mistaken for a regulatory requirement — and vice versa.
 
 **Attendance and contact are separate columns** on the live board, because they fail separately: an
 officer can book on and then go quiet. And every contact record shows *how* it was made, because a
-QR tag at the post and an SMS are not worth the same as evidence.
+call from the site's own phone shows the officer was at the site, where a call from a mobile shows
+they had a mobile. Officers use their own phones and some posts have a site phone, so both routes
+are first-class — and because the handset belongs to the officer, the phone route has to work for
+someone who will not install an app.
 
 **Charts** are built inline rather than with a charting library: thin marks capped at 14px, 4px
 rounded data-ends, hairline gridlines, a 2px surface gap between stacked segments, a legend whenever
@@ -171,7 +174,7 @@ never the only channel. Light and dark are each validated against their own surf
 
 | Document | Covers |
 |----------|--------|
-| [Platform 01 Scope and domains](docs/platform/01-scope-and-domains.md) | The twelve domains, what each owns, the four scope edges, and the consequence for INDEL |
+| [Platform 01 Scope and domains](docs/platform/01-scope-and-domains.md) | The twelve domains, what each owns, and the four scope edges |
 | [Platform 02 Shared engines](docs/platform/02-shared-engines.md) | The nine engines, what would have been built twice, and the single-source-of-truth register |
 | [Platform 03 Release plan](docs/platform/03-release-plan.md) | What is built in which order, and what we are deliberately not building |
 | [Platform 04 Decisions needed](docs/platform/04-decisions-needed.md) | The E-series questions this scope creates, and which releases they block |

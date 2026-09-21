@@ -48,11 +48,7 @@ export function LiveStrip() {
 
   const onPost = rows.filter((r) => r.att.state === "on_post").length;
   const exceptions = rows.filter(
-    (r) =>
-      r.att.state === "late" ||
-      r.att.state === "no_show" ||
-      r.call.state === "overdue" ||
-      r.call.state === "missed",
+    (r) => r.att.state === "late" || r.att.state === "no_show" || r.call.escalation > 0,
   );
 
   return (

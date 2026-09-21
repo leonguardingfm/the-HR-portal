@@ -304,7 +304,7 @@ export const OWNERSHIP_REGISTER: {
   { fact: "Name, date of birth, contact details", owner: "People", readBy: "Everything", note: "Written once, at first contact" },
   { fact: "National Insurance number", owner: "People", readBy: "Vetting, payroll export", note: "Duplicate-check key" },
   { fact: "SIA licence number and badge name", owner: "Compliance", readBy: "Scheduling, Live ops", note: "From the public register, never typed from the badge" },
-  { fact: "Licence, right-to-work and visa expiry", owner: "Compliance", readBy: "Scheduling (blocks), Insight", note: "Supersedes INDEL's alerting — never both" },
+  { fact: "Licence, right-to-work and visa expiry", owner: "Compliance", readBy: "Scheduling (blocks), Insight", note: "Held in one place only, and warned on from one rule" },
   { fact: "Screening status and the clock", owner: "Vetting", readBy: "Recruitment (status only), Scheduling", note: "Contents restricted" },
   { fact: "Deployability", owner: "Compliance (derived)", readBy: "Scheduling, as a hard block", note: "Derived, never set by hand" },
   { fact: "Recruitment stage", owner: "Recruitment", readBy: "Insight", note: "A separate track from vetting, by design" },

@@ -12,6 +12,7 @@ import {
   OPS_RULES,
   attendance,
   checkCallStatus,
+  escalationAction,
 } from "@/lib/core/ops";
 import {
   bookOnFor,
@@ -80,7 +81,8 @@ export function LiveBoard() {
   const onPost = rows.filter((r) => r.att.state === "on_post").length;
   const awaiting = rows.filter((r) => r.att.state === "awaiting_book_on").length;
   const attendanceProblems = rows.filter((r) => r.att.state === "late" || r.att.state === "no_show");
-  const callProblems = rows.filter((r) => r.call.state === "overdue" || r.call.state === "missed");
+  const callProblems = rows.filter((r) => r.call.escalation > 0);
+  const welfare = rows.filter((r) => r.call.state === "welfare");
   const openIncidents = incidents.filter((i) => !i.clientNotified && i.severity !== "log_only");
 
   /** Anything with a named next action, worst first. This is the work. */
@@ -100,13 +102,16 @@ export function LiveBoard() {
     ...callProblems.map((r) => ({
       key: `call-${r.assignment.id}`,
       severity: r.call.severity,
-      what: r.call.state === "missed" ? "Missed check call" : "Check call overdue",
+      what:
+        r.call.state === "welfare"
+          ? "No contact — welfare check"
+          : r.call.state === "no_contact"
+            ? "Cannot reach the officer"
+            : "Check call overdue",
       who: personName(r.assignment.personId),
       where: `${siteNameForPost(r.post.id)} — ${r.post.name}${r.post.loneWorking ? " (lone working)" : ""}`,
-      action:
-        ESCALATION_LADDER.find((l) => l.step === Math.max(1, r.call.escalation))?.action ??
-        "Ring the officer.",
-      step: Math.max(1, r.call.escalation),
+      action: escalationAction(r.call.escalation) ?? "Try the officer.",
+      step: r.call.escalation,
     })),
     ...openIncidents.map((i) => ({
       key: `inc-${i.id}`,
@@ -144,8 +149,12 @@ export function LiveBoard() {
         <StatTile
           label="Check calls outstanding"
           value={callProblems.length}
-          detail={`Hourly; ${OPS_RULES.loneWorkingMissedMinutes} min tolerance when lone working`}
-          severity={callProblems.some((r) => r.call.state === "missed") ? "critical" : callProblems.length > 0 ? "serious" : "good"}
+          detail={
+            welfare.length > 0
+              ? `${welfare.length} at the welfare step — attend site`
+              : `Hourly; escalation starts at ${OPS_RULES.checkCallIntervalMinutes} min`
+          }
+          severity={callProblems.some((r) => r.call.escalation >= 2) ? "critical" : callProblems.length > 0 ? "serious" : "good"}
         />
         <StatTile label="Incidents open" value={openIncidents.length} detail="Awaiting client notification" severity={openIncidents.length > 0 ? "warning" : "good"} />
       </div>
@@ -295,15 +304,22 @@ export function LiveBoard() {
                   <p className="text-[13px]">{l.action}</p>
                   <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                     {l.owner}
+                    {l.afterMinutes > 0
+                      ? ` · ${l.afterMinutes} min past the hour, still no contact`
+                      : " · as soon as the hour passes"}
                   </p>
                 </div>
               </li>
             ))}
           </ol>
           <p className="mt-4 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-            These timings are proposed defaults, not agreed policy — decision E4
-            in docs/platform/04. They live in lib/core/ops.ts and become Admin
-            settings once signed off, so changing them is not a release.
+            The hour and the three steps are the confirmed process. The two
+            intervals between the steps are <strong>assumed</strong> — the
+            process says &ldquo;further measures&rdquo; without naming a time,
+            and the one worth agreeing deliberately is how long without contact
+            before someone sets off for site. All of it lives in
+            lib/core/ops.ts and becomes an Admin setting, so changing it is not
+            a release.
           </p>
         </Card>
       </div>

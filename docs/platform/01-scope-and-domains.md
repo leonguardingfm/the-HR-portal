@@ -53,29 +53,23 @@ Scope is defined as much by what stays out. These are the four edges that would 
 | **Sales** | Client contract terms the operation depends on | Pipeline, quotes, tenders | A CRM problem, not an operations one |
 | **Training** | That a licence or a training record exists and when it expires | Delivering or marking courses | An LMS problem. We own the expiry, not the content |
 
-## 4. The consequence for INDEL
+## 4. A note on INDEL
 
-[`docs/proposal/08`](../proposal/08-officer-system-of-record.md) scoped the portal back to the HR
-part on the basis that **shift assignment stays in INDEL**. Scheduling, book-ons and check calls are
-now explicitly in the brief, which reverses that.
+**Parked, at the client's direction.** This plan describes what we are building, and nothing in it
+depends on what happens to INDEL. Whether anything is eventually migrated from it, integrated with
+it, or left alone is a separate conversation to have later, when there is something running to have
+it about.
 
-**Document 08 is superseded by this one.** The boundary it drew no longer holds, and the analysis in
-its §3 becomes live again: everything except shift assignment was a natural extension of the HR
-build, and shift assignment is a second programme with its own discovery.
+Two things follow from the scope itself rather than from that question, and they hold either way:
 
-Three things follow, and none of them is optional:
-
-1. **INDEL becomes a migration, not an integration.** Its field-level contents need an inventory
-   before anything depends on replacing it.
-2. **Availability stops being a nicety.** Once Control works the rota here, an outage on a Friday
-   night is an operational incident, not delayed HR admin. Targets, backup, recovery and an offline
-   fallback for book-ons have to be agreed *before* the operations release, not after.
-3. **Nothing goes big-bang.** INDEL keeps running and producing its alerts while the platform
-   produces the same ones, until the two agree for a full cycle. See
-   [document 03](03-release-plan.md).
-
-This is decision **E1** in [document 04](04-decisions-needed.md) — it needs an explicit yes, because
-it commits the company to depending on this system daily.
+1. **Availability stops being a nicety.** Once Control works the rota and the live board here, an
+   outage on a Friday night is an operational incident, not delayed HR admin. An uptime position, a
+   backup and recovery position, and a fallback for what Control does during an outage have to be
+   agreed before the operations release — a printed rota and a phone number is a perfectly good
+   answer, but it has to be the agreed one. This is **E2** in
+   [document 04](04-decisions-needed.md).
+2. **Nothing goes live big-bang.** Each release is usable on its own and is proved against real work
+   before the next one depends on it. See [document 03](03-release-plan.md).
 
 ## 5. Departments, and why the navigation is grouped by them
 

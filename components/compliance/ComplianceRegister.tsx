@@ -198,10 +198,11 @@ export function ComplianceRegister() {
           </table>
         </div>
         <p className="mt-4 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-          This register replaces INDEL&rsquo;s expiry alerting rather than
-          running alongside it — two systems watching the same dates is how they
-          come to disagree. That is decision C21 in docs/proposal/07, and it
-          needs confirming before INDEL&rsquo;s alerts are switched off.
+          Each of these dates is held in <strong>one</strong> place and warned
+          on from <strong>one</strong> rule. Two systems watching the same date
+          is how they come to disagree, and the disagreement is always
+          discovered late — which is why the register reads the dates from the
+          person record rather than keeping a copy.
         </p>
       </Card>
     </div>

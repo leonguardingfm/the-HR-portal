@@ -3,42 +3,68 @@
 The HR decisions are logged in [`docs/proposal/07`](../proposal/07-open-questions.md) as A–D, and
 still stand. The wider scope creates these. They are numbered **E** so the two lists never collide.
 
-The ones that block a release are marked. The rest can be answered as the build reaches them.
+Answered ones stay in the log with the answer, because the answer is the reason the code is the way
+it is. The ones that block a release are marked; the rest can be answered as the build reaches them.
 
-## Blocking R2 and R3
+## Answered
 
-### E1 — Does the platform become the operational system of record? **Blocks R2**
-Scheduling, book-ons and check calls in scope means INDEL is superseded, not integrated with — which
-reverses the earlier decision to keep the operational side there
-([`docs/platform/01` §4](01-scope-and-domains.md#4-the-consequence-for-indel)).
+### E1 — INDEL — **parked**
+Whether the platform eventually replaces, integrates with, or simply coexists with INDEL is set
+aside, at the client's direction, and nothing in this plan depends on it. We are building the
+platform's own scheduling, book-on and check-call capability. Revisit when there is something
+running to have the conversation about. See
+[document 01 §4](01-scope-and-domains.md#4-a-note-on-indel).
 
-*Recommendation:* yes, but staged and parallel-run, retiring INDEL only at R6. This needs an explicit
-yes because it commits the company to depending on this system every day.
+### E3 — How officers interact with the system — **answered**
+> Officers have their own personal phones, and some sites also provide a phone.
 
-### E2 — What availability does the operation need? **Blocks R2**
-Once Control works the rota here, an outage is an operational incident. Needed: an uptime target, a
-backup and recovery position, and what Control does during an outage. A printable rota and a phone
-number is a legitimate answer — but it has to be the agreed one.
+So two channels, and the design uses both:
 
-### E3 — How do officers interact with the system? **Blocks R3**
-Book-on and check-in have to work for the officers you actually employ, on the phones they actually
-carry, at the sites' actual signal strength.
+| Channel | What it proves | Used for |
+|---------|----------------|----------|
+| **Site phone at the post** | That the officer was **at the site** — the call comes from the site's own line | Preferred where a post has one. The strongest routine record we can get without installing anything |
+| **Officer's own phone** — app or call | That the officer had their phone | Everywhere else, and always available as a fallback |
 
-| Option | Evidence quality | Needs |
-|--------|------------------|-------|
-| Web app on their own phone | Good; timestamped, can carry location | Smartphone, data, goodwill |
-| Call a number (IVR) | Good; caller ID proves the handset, landline proves the site | Telephony cost per call |
-| SMS | Weak; easy to send from anywhere | Cheapest |
-| QR or NFC at the post | Strongest; proves they were physically there | Tags installed at every site |
-| Geofence | Strong; passive | Smartphone, location consent, battery |
+Recorded per contact and shown on the live board (`lib/core/ops.ts` — `CHANNEL_EVIDENCE`), so the
+strength of each record is visible rather than assumed. Two consequences:
 
-*Needed from you:* roughly what proportion of officers have a smartphone they would use for work,
-and whether sites have a landline at the post.
+- **No app install can be made mandatory.** It is the officer's own handset, so the phone route has
+  to work for someone who will not or cannot install anything. That is a design constraint, not a
+  preference.
+- **QR or NFC tags at the post** remain the only way to prove physical presence outright. Not
+  needed now; worth knowing it is the upgrade path if a client ever asks for proof of patrol.
 
-### E4 — Check calls: who calls whom, and what happens when one is missed? **Blocks R3**
-Currently hourly. The ladder needs agreeing: how long after a missed call before it escalates, to
-whom, and at what point it becomes a welfare emergency rather than an admin failure. This is a duty
-of care, so it needs to be a written rule the system enforces.
+### E4 — The check-call ladder — **answered**
+> After one hour, if the officer has not given the check call, it starts triggering. Then we take
+> further measures to get in contact. If we cannot reach them, a person from the operational team
+> goes to site to check everything is okay.
+
+Implemented exactly as stated, in `lib/core/ops.ts`:
+
+| Step | Trigger | Who acts |
+|------|---------|----------|
+| — | Check call received | Nothing. Clock restarts |
+| 1 | One hour with no check call | Control tries the officer — own mobile, then the site phone |
+| 2 | Contact still not made | Control widens it — site phone, other officers on site, the client's on-site contact |
+| 3 | Contact cannot be made | **A member of the operational team attends site** |
+
+**Two intervals are assumed rather than confirmed**, because the process says "further measures"
+without naming a time: 15 minutes from step 1 to step 2, and 30 minutes from step 1 to someone
+setting off for site. The second one is worth agreeing deliberately — it is the point at which this
+stops being an administrative problem and becomes a welfare one. Both are single values in one file
+and become Admin settings, so changing them is not a release.
+
+One open option, not an assumption we have made: whether a **lone-working post** should have a
+shorter ladder than a post with several officers on it. The rule above is currently applied
+identically to both.
+
+## Blocking R3
+
+### E2 — What availability does the operation need?
+Once Control works the rota and the live board here, an outage is an operational incident rather
+than delayed admin. Needed: an uptime position, a backup and recovery position, and what Control
+does during an outage. A printed rota and a phone number is a perfectly good answer — it just has to
+be the agreed one, and book-on needs a route that works when the system does not.
 
 ## Needed soon
 
@@ -59,14 +85,15 @@ commercial feature and a large amount of care about permissions. In or out?
 Which payroll and accounts systems consume the approved hours, and in what format. It shapes the
 export, not the platform.
 
-### E9 — What exists to migrate? **Blocks R6**
-A field-level inventory of INDEL, Casper and the spreadsheets. Written from a description, this list
-is certainly incomplete — the people who use INDEL daily will know what is in it that nobody
-documented.
+### E9 — What existing data should be loaded at the start?
+Not a migration question — just: on day one of R1, which officer and candidate records should
+already be in the platform, and where do they come from? The spreadsheets are the obvious source.
+Worth listing the fields before the schema is fixed rather than after.
 
-### E10 — Devices and connectivity
-What Control uses, what supervisors carry, and whether site posts have usable signal. It decides how
-much has to work offline.
+### E10 — Signal at the posts
+E3 settles what officers use. What is left is whether the posts themselves have usable mobile signal,
+because that decides how much has to work offline — and it is the reason the site phone matters as
+more than an evidence upgrade.
 
 ### E11 — Who owns the platform?
 One named person who makes the calls during the build. This supersedes D5, which asked the same
@@ -84,8 +111,6 @@ block R1:
 - **C14** — current retention practice, and how disposal is recorded (clause 11)
 - **C16** — which clients or posts involve contact with children or vulnerable adults, and what level
   of disclosure is obtained (clause 7.7j, Note 6)
-- **C17** — whether INDEL exposes an API or an export. Now an E9 question too
 - **C18** — whether the contract wording making confirmation conditional on screening is signed off
 - **C21** — now answered by the register in [document 02](02-shared-engines.md#3-the-single-source-of-truth-register):
-  **the platform owns the compliance expiry dates.** Needs confirming, because it means INDEL's
-  alerting is switched off rather than run alongside
+  **the platform owns the compliance expiry dates**, and they are held in one place only

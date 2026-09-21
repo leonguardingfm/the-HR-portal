@@ -27,7 +27,7 @@ export default function OfficersPage() {
     <div className="space-y-5">
       <PageHeader
         title="Officers"
-        description="The officer pool and the HR-side compliance record. Control's first action on any requirement is to check here, so it has to be searchable and trustworthy. Shift assignment and operational deployment stay in INDEL — the boundary is the handover at onboarding."
+        description="The officer pool and the compliance record behind it. Control's first action on any requirement is to check here, so it has to be searchable and trustworthy. Scheduling reads deployability from this record — see Compliance."
       />
 
       <Card
@@ -101,7 +101,7 @@ export default function OfficersPage() {
       </Card>
 
       <ModuleOutline
-        note="All of this follows naturally from the candidate and screening record already being built — the same person carries through rather than being re-created at deployment. Shift assignment stays in INDEL: it is a different application, used by Control to the hour, and rebuilding it is not needed to fix the HR problem this portal exists to fix. See docs/proposal/08."
+        note="All of this follows from the candidate and screening record: the same person carries through rather than being re-created at deployment, which is the identity engine doing its job. The rota and the live board read from here — an officer's deployability is worked out once, in one place, and Scheduling is blocked by it."
         items={[
           {
             label: "Pool search for the requirement check",
@@ -121,7 +121,7 @@ export default function OfficersPage() {
           },
           {
             label: "Right-to-work follow-up and shift block",
-            detail: "Warnings at 90, 60 and 30 days rather than the one month INDEL gives today, chased by email and message, with shift assignment blocked once the expiry passes until updated evidence is verified. Plus the daily visa and right-to-work status report.",
+            detail: "Warnings at 90, 60 and 30 days, chased by email and message, with shift assignment blocked once an expiry passes until updated evidence is verified. Plus the daily visa and right-to-work status report.",
             phase: 1,
           },
           {
@@ -130,8 +130,8 @@ export default function OfficersPage() {
             phase: 1,
           },
           {
-            label: "Officer handover to INDEL",
-            detail: "Create the INDEL profile at onboarding from what the portal already holds, rather than retyping it. Shift assignment and operational deployment stay there — the portal takes the HR part.",
+            label: "Handover to operations",
+            detail: "At onboarding the officer becomes rosterable: the PIN is allocated, the record is complete, and Scheduling can publish assignments for them once deployability clears. No retyping, because it is the same record.",
             phase: 3,
           },
         ]}

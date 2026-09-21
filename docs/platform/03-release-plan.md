@@ -56,9 +56,9 @@ Assignments, the rota, shift changes, availability and absence.
 - The rota fills **posts**, and an assignment cannot be published for a person who is not deployable.
   This is the release where compliance stops being advisory.
 - Shift changes keep their history, with reason and author.
-- **Runs in parallel with INDEL.** Both hold the rota; they are compared until they agree.
+- Availability, absence, repeating shift patterns, clash detection and last-minute cover.
 
-**Needs first:** E1 (INDEL's future), E2 (availability targets), and a discovery session with Control
+**Needs first:** E2 (availability and the outage fallback), and a discovery session with Control
 about how they actually work rather than how the process document says they do. Rostering is the part
 that looks simple in a specification and is not.
 
@@ -67,12 +67,14 @@ that looks simple in a specification and is not.
 Book-ons, check calls, welfare checks, incidents, and the live site board.
 
 - Book-on windows, late and no-show detection, and escalation that reaches a human.
-- Hourly check calls generated from assignments, with a missed-call ladder.
-- Welfare checks as a form on a timer, and lone-worker escalation.
+- Hourly check calls generated from assignments, escalating at the hour per the confirmed process,
+  and ending with a member of the operational team attending site.
+- Welfare checks as a form on a timer.
 - The board Control watches: every post, its state, and what needs a phone call now.
 
-**This is the release with real-time consequences.** It cannot ship without an agreed uptime target,
-an offline fallback for book-ons, and a decision on how officers interact with it (E3, E4).
+**This is the release with real-time consequences.** It needs an agreed uptime position and a
+fallback for book-ons during an outage (E2). How officers interact with it is settled: their own
+phones, plus the site phone where a post has one (E3).
 
 ## R4 — Quality and clients
 
@@ -91,11 +93,6 @@ Inspections, operational reports, corrective actions, client feedback and satisf
 
 **The KPIs are cheap here precisely because nothing counted anything of its own** — R5 is writing
 queries over an event log that has been filling since R1.
-
-## R6 — Retire INDEL
-
-Only after parallel running has proved parity on the alerts and the daily right-to-work report for a
-full cycle. Requires a field-level inventory of INDEL first (E9).
 
 ## Not being built
 

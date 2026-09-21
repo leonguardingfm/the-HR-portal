@@ -127,8 +127,21 @@ export interface AssignmentAmendment {
 // Live operations — evidence that the shift happened
 // ---------------------------------------------------------------------------
 
-/** How the officer confirmed it. Sets how much the record is worth as evidence. */
-export type ContactChannel = "app" | "phone" | "sms" | "qr" | "supervisor";
+/**
+ * How the officer made contact. Sets how much the record is worth as evidence.
+ *
+ * Officers use their own phones, and some sites provide a phone at the post.
+ * The site phone is the stronger record of the two, because a call from the
+ * site's own line is evidence of being at the site; a mobile is evidence of
+ * having a mobile.
+ */
+export type ContactChannel =
+  | "app"
+  | "phone"
+  | "site_phone"
+  | "sms"
+  | "qr"
+  | "supervisor";
 
 export interface BookOn {
   assignmentId: string;

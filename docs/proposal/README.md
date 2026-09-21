@@ -4,8 +4,8 @@
 > workforce and operations platform. **These documents are unchanged and still authoritative for
 > Recruitment and Vetting** — they are the detail behind two of the platform's twelve domains. The
 > platform-level plan is in [`docs/platform`](../platform/README.md), which cross-references this
-> folder rather than repeating it. The one exception is document 08: its INDEL boundary is
-> superseded by [Platform 01 §4](../platform/01-scope-and-domains.md#4-the-consequence-for-indel).
+> folder rather than repeating it. The one exception is document 08, which is about INDEL — a
+> question now **parked**; see [Platform 01 §4](../platform/01-scope-and-domains.md#4-a-note-on-indel).
 
 These documents write down how Recruitment and Vetting actually work today, map that against
 BS 7858:2019, and agree a target workflow. They were written before any code, and the compliance
@@ -31,12 +31,9 @@ live before screening. That came back clean: the order is compliant in practice 
 criminality element, stricter than the standard's minimum. The written process was misleading about
 its own order rather than wrong.
 
-**Document 08** set the boundary with INDEL, and is now **superseded**. It was confirmed as a full
-replacement, then scoped back to the HR part on the basis that shift assignment stays in INDEL. The
-widened brief puts scheduling, book-ons and check calls in scope, which reverses that: INDEL becomes
-a migration rather than an integration. The reasoning is in
-[Platform 01 §4](../platform/01-scope-and-domains.md#4-the-consequence-for-indel), and the decision
-it needs is **E1**.
+**Document 08** was about the boundary with INDEL. That question is now **parked** at the client's
+direction: we are building the platform's own capability, and nothing in the plan depends on what
+happens to INDEL. The document is kept for its analysis, not as a live decision.
 
 ## A note on the standard itself
 

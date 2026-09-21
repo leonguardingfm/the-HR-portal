@@ -1,34 +1,50 @@
 /**
  * Live operations rules — book-on windows, check calls, welfare escalation.
  *
- * These are OUR operational numbers, not a standard's. They are proposed
- * defaults pending decision E4 (docs/platform/04), and belong in Admin as
- * configuration once agreed. Kept out of lib/bs7858.ts for the same reason
- * lib/policy.ts is: a local preference must never be mistaken for a regulatory
- * requirement.
+ * These are OUR operational numbers, not a standard's, so they are kept out of
+ * lib/bs7858.ts for the same reason lib/policy.ts is: a local preference must
+ * never be mistaken for a regulatory requirement. They belong in Admin as
+ * configuration.
  *
- * A duty of care runs through all of it. A missed check call on a lone-working
- * post is a welfare question before it is an administrative one, which is why
- * the escalation ladder ends with a person and not with a red row on a screen.
+ * The check-call rule is the confirmed process (E4): check calls are hourly,
+ * and at one hour without one the escalation starts. Control then tries to
+ * reach the officer; if contact cannot be made, a member of the operational
+ * team goes to site to check they are safe.
+ *
+ * That last step is why the ladder ends with a person attending rather than
+ * with a red row on a screen. It is a duty of care, not an administrative
+ * chase.
  */
 
 import type { Severity } from "../types";
-import type { Assignment, BookOn, CheckCall, Post } from "./types";
+import type { Assignment, BookOn, CheckCall, ContactChannel, Post } from "./types";
 
-/** Proposed defaults. Minutes throughout. */
+/** Minutes throughout. */
 export const OPS_RULES = {
   /** Late, but not yet a problem. */
   bookOnGraceMinutes: 15,
   /** Treated as a no-show, and escalated. */
   bookOnNoShowMinutes: 30,
-  /** Client instruction on most sites is hourly. */
+  /**
+   * Hourly, per client instruction. At one hour without a check call the
+   * escalation starts — confirmed process, not a chosen threshold.
+   */
   checkCallIntervalMinutes: 60,
-  /** Overdue but unremarkable. */
-  checkCallGraceMinutes: 10,
-  /** Missed. Someone rings the officer. */
-  checkCallMissedMinutes: 20,
-  /** Lone working shortens the tolerance: welfare, not admin. */
-  loneWorkingMissedMinutes: 10,
+  /**
+   * Minutes PAST the hour at which Control stops trying the officer alone and
+   * widens to the other contact routes. ASSUMED: the process says "further
+   * measures" without naming a time. Worth confirming.
+   */
+  contactAttemptMinutes: 15,
+  /**
+   * Minutes PAST the hour at which someone from the operational team sets off
+   * for site. ASSUMED, as above, and the one worth agreeing deliberately: it is
+   * the point at which this stops being an administrative problem.
+   *
+   * Both are measured from the missed hour, not from each other, so the ladder
+   * has one clock rather than three.
+   */
+  attendSiteMinutes: 30,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -114,28 +130,48 @@ export function attendance(
 // Check calls
 // ---------------------------------------------------------------------------
 
-export type CheckCallState = "not_required" | "ok" | "due" | "overdue" | "missed";
+export type CheckCallState =
+  | "not_required"
+  | "ok"
+  | "overdue"
+  | "no_contact"
+  | "welfare";
 
 export interface CheckCallStatus {
   state: CheckCallState;
   label: string;
   severity: Severity;
   minutesSinceLast: number | null;
-  /** Escalation step, per the ladder below. Zero where nothing is needed. */
+  /** Step on the ladder below. Zero where nothing is needed yet. */
   escalation: 0 | 1 | 2 | 3;
 }
 
 /**
- * The ladder. Each step names who acts, because "overdue" with no named next
- * person is how a missed call becomes nobody's job.
+ * The escalation ladder — the confirmed process.
+ *
+ * Each step names who acts, because "overdue" with no named next person is how
+ * a missed call becomes nobody's job. The third step is a person getting in a
+ * car; that is the point of the whole mechanism.
  */
 export const ESCALATION_LADDER = [
-  { step: 1, action: "Control rings the officer", owner: "Control" },
-  { step: 2, action: "Control rings the site supervisor", owner: "Control" },
+  {
+    step: 1,
+    action: "Control tries the officer — personal mobile, then the site phone where the post has one",
+    owner: "Control",
+    afterMinutes: 0,
+  },
+  {
+    step: 2,
+    action:
+      "Further measures to make contact — the site phone, other officers on site, the client's on-site contact",
+    owner: "Control",
+    afterMinutes: OPS_RULES.contactAttemptMinutes,
+  },
   {
     step: 3,
-    action: "Welfare procedure: operations manager attends or client is notified",
-    owner: "Operations manager",
+    action: "A member of the operational team attends site to check the officer is safe",
+    owner: "Operations team",
+    afterMinutes: OPS_RULES.attendSiteMinutes,
   },
 ] as const;
 
@@ -180,66 +216,69 @@ export function checkCallStatus(
   const minutesSinceLast = Math.round((t - lastAt) / MS_PER_MIN);
   const overdueBy = minutesSinceLast - OPS_RULES.checkCallIntervalMinutes;
 
-  const missedThreshold = post.loneWorking
-    ? OPS_RULES.loneWorkingMissedMinutes
-    : OPS_RULES.checkCallMissedMinutes;
-
-  if (overdueBy >= missedThreshold) {
-    // Two intervals missed moves it up the ladder rather than repeating step 1.
-    const intervalsMissed = Math.floor(overdueBy / OPS_RULES.checkCallIntervalMinutes) + 1;
-    const escalation = Math.min(intervalsMissed, 3) as 1 | 2 | 3;
+  if (overdueBy < 0) {
     return {
-      state: "missed",
-      label: `Missed — ${minutesSinceLast} min since last contact`,
-      severity: "critical",
-      minutesSinceLast,
-      escalation,
-    };
-  }
-
-  if (overdueBy >= OPS_RULES.checkCallGraceMinutes) {
-    return {
-      state: "overdue",
-      label: `Overdue by ${overdueBy} min`,
-      severity: "serious",
-      minutesSinceLast,
-      escalation: 1,
-    };
-  }
-
-  if (overdueBy >= 0) {
-    return {
-      state: "due",
-      label: "Due now",
-      severity: "warning",
+      state: "ok",
+      label: `Next in ${Math.abs(overdueBy)} min`,
+      severity: "good",
       minutesSinceLast,
       escalation: 0,
     };
   }
 
+  // Past the hour. The ladder starts immediately — there is no grace period,
+  // because the hour IS the tolerance.
+  if (overdueBy >= OPS_RULES.attendSiteMinutes) {
+    return {
+      state: "welfare",
+      label: `No contact for ${minutesSinceLast} min — attend site`,
+      severity: "critical",
+      minutesSinceLast,
+      escalation: 3,
+    };
+  }
+
+  if (overdueBy >= OPS_RULES.contactAttemptMinutes) {
+    return {
+      state: "no_contact",
+      label: `No contact — ${minutesSinceLast} min since last call`,
+      severity: "critical",
+      minutesSinceLast,
+      escalation: 2,
+    };
+  }
+
   return {
-    state: "ok",
-    label: `Next in ${Math.abs(overdueBy)} min`,
-    severity: "good",
+    state: "overdue",
+    label: `Check call overdue by ${overdueBy} min`,
+    severity: "serious",
     minutesSinceLast,
-    escalation: 0,
+    escalation: 1,
   };
+}
+
+/** The step the ladder is on, as a sentence Control can act on. */
+export function escalationAction(step: 0 | 1 | 2 | 3): string | null {
+  if (step === 0) return null;
+  return ESCALATION_LADDER.find((l) => l.step === step)?.action ?? null;
 }
 
 /**
  * How much a contact record is worth as evidence.
  *
- * Relevant to decision E3: an SMS proves a phone sent a message, a QR tag at
- * the post proves someone was standing at it. Shown in the UI so the strength
- * of the record is visible rather than assumed.
+ * Officers use their own phones, and some posts have a site phone. The site
+ * phone is the better record of the two: a call from the site's own line shows
+ * the officer was at the site, where a mobile shows they had a mobile. Shown on
+ * the board so the strength of the record is visible rather than assumed.
  */
 export const CHANNEL_EVIDENCE: Record<
-  string,
+  ContactChannel,
   { label: string; strength: "strong" | "good" | "weak" }
 > = {
   qr: { label: "QR tag at post", strength: "strong" },
-  app: { label: "App", strength: "good" },
-  phone: { label: "Phone call", strength: "good" },
+  site_phone: { label: "Site phone", strength: "strong" },
+  app: { label: "App on own phone", strength: "good" },
+  phone: { label: "Call from own mobile", strength: "good" },
   supervisor: { label: "Confirmed by supervisor", strength: "good" },
   sms: { label: "SMS", strength: "weak" },
 };
