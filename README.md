@@ -61,6 +61,9 @@ case it exists to reject (`npm run db:test`). The application is not wired to it
 
 **All data in the running application is still demonstration data.** No integration is connected.
 
+**Never run this before?** [`SETUP.md`](SETUP.md) is the step-by-step version, including installing
+Node and PostgreSQL and what to do when something errors.
+
 ```bash
 npm install
 cp .env.example .env # then point DATABASE_URL at a PostgreSQL 16 database
