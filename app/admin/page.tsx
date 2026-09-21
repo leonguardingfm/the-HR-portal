@@ -43,7 +43,7 @@ export default function AdminPage() {
               ["Maximum unverified gap", "31 days", "7.7"],
               ["Statutory declaration cover", "One period of up to 6 months, prior documented approval", "7.7i"],
               ["Risk acceptance threshold", "CCJs over £10,000, bankruptcy, or a directorship", "7.4f"],
-              ["Retention — unsuccessful at preliminary", `${RETENTION.unsuccessfulAtPreliminaryMonths} months, then secure disposal`, "11.1"],
+              ["Retention — unsuccessful applicants", `${RETENTION.unsuccessfulApplicantMonths} months, then secure disposal, recorded in the disposal log`, "11.1"],
               ["Retention — after employment ends", `${RETENTION.afterCessationYears} years`, "11.3"],
               ["Training review", "At least annually", "6.2"],
             ].map(([label, value, clause]) => (

@@ -279,11 +279,28 @@ export function canSignOff(args: {
 // ---------------------------------------------------------------------------
 
 export const RETENTION = {
-  /** Unsuccessful at preliminary screening: minimum 12 months [11.1]. */
-  unsuccessfulAtPreliminaryMonths: 12,
+  /**
+   * Unsuccessful applicants: 12 months.
+   *
+   * Clause 11.1 sets this for applicants unsuccessful *at preliminary
+   * screening*. Confirmed company policy (C14) applies it to all unsuccessful
+   * applicants, which is simpler and stricter, so it is what the portal
+   * implements.
+   */
+  unsuccessfulApplicantMonths: 12,
   /** After employment ceases: seven years for the listed records [11.3]. */
   afterCessationYears: 7,
 } as const;
+
+/**
+ * Every disposal is recorded (C14).
+ *
+ * The retention period is the easy half. The half that gets missed is proving
+ * the disposal happened — so the sweep writes a DisposalRecord naming what was
+ * destroyed, under which rule, and what was deliberately kept instead. A
+ * retention policy with no disposal log is an intention.
+ */
+export const DISPOSAL_LOG_REQUIRED = true as const;
 
 /** Training must be reviewed at least annually [6.2]. */
 export const TRAINING_REVIEW_MONTHS = 12 as const;

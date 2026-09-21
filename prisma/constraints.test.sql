@@ -124,3 +124,23 @@ SELECT expect_failure('the same normalised identity key twice',
   $$INSERT INTO "PersonIdentityKey"(id,"personId",kind,value) VALUES
       ('k1','p1','sia_licence','101022334455'),
       ('k2','p2','sia_licence','101022334455')$$);
+
+-- 9. The disposal log  [clause 11, C14]
+SELECT expect_success('record a disposal',
+  $$INSERT INTO "DisposalRecord"(id,rule,"subjectDescription","performedBySystem","retainedInstead")
+    VALUES ('dl1','unsuccessful_applicant_12_months',
+            'Screening file for an unsuccessful applicant, application Mar 2025',
+            'retention-sweep','Outcome and date of the criminality check')$$);
+SELECT expect_failure('edit a disposal log entry',
+  $$UPDATE "DisposalRecord" SET "subjectDescription" = 'something else' WHERE id = 'dl1'$$);
+SELECT expect_failure('delete a disposal log entry',
+  $$DELETE FROM "DisposalRecord" WHERE id = 'dl1'$$);
+SELECT expect_failure('a disposal nobody performed',
+  $$INSERT INTO "DisposalRecord"(id,rule,"subjectDescription")
+    VALUES ('dl2','after_cessation_7_years','Leaver file')$$);
+SELECT expect_failure('a disposal performed by both a person and the sweep',
+  $$INSERT INTO "DisposalRecord"(id,rule,"subjectDescription","performedByUserId","performedBySystem")
+    VALUES ('dl3','after_cessation_7_years','Leaver file','u3','retention-sweep')$$);
+SELECT expect_failure('a disposal that destroyed nothing',
+  $$INSERT INTO "DisposalRecord"(id,rule,"subjectDescription","performedBySystem","itemsDestroyed")
+    VALUES ('dl4','after_cessation_7_years','Leaver file','retention-sweep',0)$$);

@@ -241,15 +241,15 @@ table above leads with the corrections.
 | ~~C10~~ | ~~Does the employment contract currently state~~ that confirmed employment depends on satisfactory full screening within the period allowed, and that conditional employment ends if it does not complete [7.5.2]? If not, the contract needs amending, not just the portal. **Now more pressing:** A1 confirms the contract is signed before history verification completes, so this wording is what makes that sequence defensible. |
 | ~~C11~~ | ~~Who screens the controllers?~~ **Answered:** higher management administers their files, so the review falls to another controller. See [01 §4.1](01-process-and-compliance-review.md). |
 | ~~C12~~ | ~~Are the vetting staff recorded as competent in both roles?~~ **Answered:** yes, with training records maintained and reviewed annually [6.2]. |
-| C13 | **Is higher management's clause 6.2 training recorded, with an annual review date, and the confidentiality agreement on file?** Administering the vetting team's own files brings whoever does it inside 6.1 and 6.2. The portal will not grant the administrator role without them. |
-| C14 | **Retention practice — partially answered.** We know the data protection officer owns secure disposal. Still open: are unsuccessful applicants disposed of at 12 months, leavers at 7 years, and is the disposal itself recorded [11.1, 11.3]? |
-| ~~C15~~ | ~~Does the portal replace INDEL, or write to it?~~ **Answered: replace it.** Scope and staging in [document 08](08-officer-system-of-record.md). |
+| ~~C13~~ | ~~Is higher management's clause 6.2 training recorded?~~ **Answered 21 Sept 2026:** all higher-management personnel have completed the required certifications and training. That closes the gap created by higher management administering the controllers' own files. **One thing the portal still needs from it:** a *date*. Clause 6.2 asks for training to be reviewed at least annually, so the record has to be "reviewed on <date>", not "completed" — `canGrantRole` blocks a screening role once that date passes 12 months. Loading the dates is a setup task, not an open question. |
+| ~~C14~~ | ~~Retention practice?~~ **Answered 21 Sept 2026:** unsuccessful-applicant records are securely disposed of after 12 months, leaver records after 7 years, and **every deletion is recorded in the disposal log** [11.1, 11.3]. Note that this is slightly wider than the standard: 11.1 sets 12 months for applicants unsuccessful *at preliminary checks*, and the policy applies it to all unsuccessful applicants. Simpler and stricter, so it is the rule the portal implements. The disposal log is now a table (`DisposalRecord`), append-only, holding what was destroyed, under which rule, by whom, and what was deliberately kept instead. |
+| ~~C15~~ | ~~Does the portal replace INDEL, or write to it?~~ **Answered 21 Sept 2026: the portal will fully replace INDEL.** That is the end state, and it is consistent with the direction to stop weighing migration against integration — nothing in the build depends on INDEL, and the replacement happens by the platform covering the ground rather than by a cutover project. What INDEL holds that should be loaded at the start is E9 in [platform/04](../platform/04-decisions-needed.md). |
 | C16 | **Which clients or posts involve contact with children or vulnerable adults, and what level of disclosure is obtained for them today?** C7 confirms some do [7.7j, Note 6]. |
 | C18 | **Has the contract been amended so the condition is explicit, and when is it signed off?** The position is confirmed; the wording was previously reported as not stating it. See C10 above. |
 | ~~C19~~ | ~~Who rosters, and where?~~ **Closed by the rescope:** rostering stays in INDEL. |
 | ~~C20~~ | ~~A field-level inventory of INDEL?~~ **Closed by the rescope:** no migration, so no inventory needed — only the onboarding handover. |
-| C21 | **Who owns the officer's compliance expiry dates** — SIA licence, right to work and visa? The portal needs them because chasing and blocking deployment are HR work; INDEL alerts on them today. Running both invites drift. Recommendation: the portal owns them, INDEL reads them. |
-| C17 | **Does INDEL expose an API?** Still relevant even though we are replacing it — a migration needs to get the data out, and parallel running needs to keep both in step. | Casper's was confirmed; INDEL's was not. It is the system of record for the officer pool, so it is the next most valuable integration — and the answer also bears on C15. |
+| ~~C21~~ | ~~Who owns the officer's compliance expiry dates?~~ **Answered 21 Sept 2026: the portal is the single source** for SIA licences, right-to-work evidence, visa expiry dates and all other compliance information. One place, one reminder rule, nothing running alongside. This is the register in [platform/02 §3](../platform/02-shared-engines.md#3-the-single-source-of-truth-register) confirmed rather than recommended. |
+| ~~C17~~ | ~~Does INDEL expose an API?~~ **Withdrawn 21 Sept 2026.** No continuing INDEL integration is required, so the question has nothing hanging off it. |
 
 ## D. Preferences — answered
 
@@ -259,7 +259,7 @@ table above leads with the corrections.
 | D2 | E-signature for the Welcome Pack? | **Yes**, with signing status visible so outstanding packs are obvious. Moves to **Phase 2**. |
 | D3 | Replace the spreadsheets outright? | **Yes**, with a **short transition** where the portal exports to them until confidence is there, then they stop. |
 | D4 | Users and mobile access? | Candidates, Control and officers, and **mobile access is required** — particularly Control and officers away from a desk, and candidates uploading from a phone. Must scale as candidate numbers grow. |
-| D5 | Portal owner? | To be nominated — the only D item still open. |
+| ~~D5~~ | Portal owner? | **Answered 21 Sept 2026. Portal Owner: Muhammad Shahzad. Operational Lead: Tanveer Mahmood.** Build decisions route to the portal owner; anything about how Control and the operations team actually work routes to the operational lead. Recorded here and nowhere in the code — who holds which *role* in the platform stays data, set up in Admin. |
 | D6 | Social media / open-source checks? | **No.** Agreed they sit outside the standard and carry discrimination and consistency risk. Left out. |
 | D7 | Hosting and data residency? | **UK hosting, UK data residency.** As assumed. |
 
@@ -270,21 +270,18 @@ Mobile is now a requirement rather than a preference, which affects every screen
 rather than being a later pass — the build has been checked at phone width from
 the start for that reason.
 
-## Suggested way to work through these
+## What is left
 
-A1 to A8 are answered, and Phase 1 can proceed on them.
+Sections A, B and D are answered. In C, everything is answered except three
+items, and none of them blocks the build:
 
-Sections A, B, D and most of C are answered, and Phase 1 can proceed. Five items
-remain, in the order they hold things up:
+| # | What it needs | Who |
+|---|---------------|-----|
+| **C16** | Which clients or posts involve contact with children or vulnerable adults, and what level of disclosure is obtained for them. C7 confirms some do, so this is real compliance work that is currently unspecified [7.7j, Note 6]. | Operational lead, with the vetting team |
+| **C18** | The contract amendment making confirmation conditional on satisfactory screening, signed off. A document to sign; the portal cannot cover for it [7.5.2]. | Portal owner |
+| **C13 follow-up** | Not a question — a setup task. Load each higher-management training record with the date it was last *reviewed*, so the annual review under 6.2 is measurable. | Portal owner |
 
-1. **C21 — who owns the compliance expiry dates.** The one boundary question
-   left after the rescope, and it affects what the portal chases.
-2. **C16 — which posts involve regulated activity**, and what disclosure is
-   obtained for them. C7 confirms some do, so this is real compliance work
-   currently unspecified.
-3. **C18 — the contract amendment.** A document to sign off. The portal cannot
-   cover for it.
-4. **C13, C14 — training evidence for whoever administers the controllers'
-   files, and the retention practice.** Both block specific portal behaviour:
-   role grants, and the disposal queue.
-5. **D5 — name the portal owner**, so decisions during the build have one route.
+Everything else has moved into the platform decision log as the E-series, in
+[`docs/platform/04`](../platform/04-decisions-needed.md). The one still blocking
+a release is **E2**: what availability the operation needs, and what Control
+does during an outage.

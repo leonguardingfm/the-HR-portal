@@ -178,3 +178,34 @@ ALTER TABLE "ScreeningFile"
 ALTER TABLE "BookOff"
   ADD CONSTRAINT book_off_approval_complete
   CHECK (num_nonnulls("approvedById", "approvedAt") <> 1);
+
+-- ---------------------------------------------------------------------------
+-- 8. The disposal log is append-only, and always attributable
+-- ---------------------------------------------------------------------------
+-- Clause 11 and confirmed policy C14: every deletion is recorded. A disposal
+-- log that can be edited afterwards proves nothing, and an entry with no
+-- performer proves nothing either.
+
+CREATE OR REPLACE FUNCTION reject_disposal_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'The disposal log is append-only: entries cannot be % once written', TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER disposal_append_only
+  BEFORE UPDATE OR DELETE ON "DisposalRecord"
+  FOR EACH ROW EXECUTE FUNCTION reject_disposal_mutation();
+
+CREATE TRIGGER disposal_no_truncate
+  BEFORE TRUNCATE ON "DisposalRecord"
+  FOR EACH STATEMENT EXECUTE FUNCTION reject_disposal_mutation();
+
+ALTER TABLE "DisposalRecord"
+  ADD CONSTRAINT disposal_has_performer
+  CHECK (num_nonnulls("performedByUserId", "performedBySystem") = 1);
+
+-- Something must actually have been destroyed.
+ALTER TABLE "DisposalRecord"
+  ADD CONSTRAINT disposal_items_positive
+  CHECK ("itemsDestroyed" > 0);

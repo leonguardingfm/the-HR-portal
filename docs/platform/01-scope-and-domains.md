@@ -53,14 +53,25 @@ Scope is defined as much by what stays out. These are the four edges that would 
 | **Sales** | Client contract terms the operation depends on | Pipeline, quotes, tenders | A CRM problem, not an operations one |
 | **Training** | That a licence or a training record exists and when it expires | Delivering or marking courses | An LMS problem. We own the expiry, not the content |
 
-## 4. A note on INDEL
+## 4. INDEL
 
-**Parked, at the client's direction.** This plan describes what we are building, and nothing in it
-depends on what happens to INDEL. Whether anything is eventually migrated from it, integrated with
-it, or left alone is a separate conversation to have later, when there is something running to have
-it about.
+**The portal fully replaces it, and there is no integration.** Confirmed 21 September 2026.
 
-Two things follow from the scope itself rather than from that question, and they hold either way:
+The thing worth being clear about is *how*. This is not a cutover project with a date on it. The
+replacement happens because the platform takes over the ground release by release, and INDEL stops
+being used for whatever has been taken over:
+
+| Release | What stops being done in INDEL |
+|---------|-------------------------------|
+| R1 | The officer and candidate record, compliance dates, documents, expiry alerting |
+| R2 | The rota, shift changes, availability |
+| R3 | Book-ons, check calls, the live picture |
+
+So there is no migrate-or-integrate question to weigh, and no design decision in this plan waits on
+INDEL. The one remaining question is narrow: **which existing records should be loaded at the start**
+(E9 in [document 04](04-decisions-needed.md)) — a one-off import, not a programme.
+
+Two things follow from the scope itself rather than from INDEL, and they hold regardless:
 
 1. **Availability stops being a nicety.** Once Control works the rota and the live board here, an
    outage on a Friday night is an operational incident, not delayed HR admin. An uptime position, a

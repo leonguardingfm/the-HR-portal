@@ -29,7 +29,7 @@ const CHECKLIST = [
     task: "INDEL profile created",
     owner: "Recruitment",
     automation:
-      "INDEL is the current system of record for personnel, compliance and shift data. Done by hand today; the platform holds the same information, so this step is a candidate for removal later",
+      "Done by hand today. The platform holds the same information and is confirmed as fully replacing INDEL, so this step is retired once R1 is in live use — it is on the list precisely so nobody forgets to stop doing it",  
     done: true,
   },
   {

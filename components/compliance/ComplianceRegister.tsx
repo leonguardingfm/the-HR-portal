@@ -10,10 +10,13 @@ import { documentTypeById } from "@/lib/core/documents";
 import { formatDate } from "@/lib/format";
 import {
   deployabilityFor,
+  disposalLog,
   expiringDocuments,
   personName,
+  retentionQueue,
   workforcePersonIds,
 } from "@/lib/mock/ops";
+import { RETENTION } from "@/lib/bs7858";
 import { EXPIRY_WARNING_DAYS } from "@/lib/sla";
 
 /**
@@ -146,6 +149,76 @@ export function ComplianceRegister() {
           </ul>
         </Card>
       )}
+
+      <Card
+        title="Retention and disposal"
+        subtitle={`${RETENTION.unsuccessfulApplicantMonths} months for unsuccessful applicants, ${RETENTION.afterCessationYears} years after employment ends — and every deletion recorded.`}
+        action={<Tag>Clause 11</Tag>}
+      >
+        <div className="grid gap-6 xl:grid-cols-2">
+          <div>
+            <p className="mb-2 text-[12px] font-semibold">Due for disposal</p>
+            <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
+              {retentionQueue
+                .slice()
+                .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
+                .map((r) => {
+                  const days = daysUntil(r.dueAt, now);
+                  return (
+                    <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5">
+                      <div className="min-w-0 flex-1">
+                        <p className="text-[12px] leading-snug">{r.description}</p>
+                        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {r.itemsHeld} record{r.itemsHeld === 1 ? "" : "s"} ·{" "}
+                          {r.rule === "unsuccessful_applicant_12_months"
+                            ? `${RETENTION.unsuccessfulApplicantMonths} months`
+                            : `${RETENTION.afterCessationYears} years`}
+                        </p>
+                      </div>
+                      <StatusPill
+                        severity={days < 0 ? "critical" : days <= 30 ? "warning" : "neutral"}
+                        label={days < 0 ? `${Math.abs(days)} days overdue` : `in ${days} days`}
+                      />
+                    </li>
+                  );
+                })}
+            </ul>
+            <p className="mt-3 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
+              Overdue means we are holding data longer than the policy allows,
+              which is a compliance failure in its own right — not a tidying job.
+            </p>
+          </div>
+
+          <div>
+            <p className="mb-2 text-[12px] font-semibold">Disposal log</p>
+            <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
+              {disposalLog.map((d) => (
+                <li key={d.id} className="py-2.5">
+                  <div className="flex flex-wrap items-baseline justify-between gap-2">
+                    <p className="text-[12px] leading-snug">{d.subjectDescription}</p>
+                    <span className="tnum text-[11px] tabular-nums whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                      {formatDate(d.at)}
+                    </span>
+                  </div>
+                  <p className="mt-0.5 text-[11px]" style={{ color: "var(--text-secondary)" }}>
+                    {d.itemsDestroyed} destroyed · {d.rule} · {d.performedBy}
+                  </p>
+                  {d.retainedInstead && (
+                    <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      Kept: {d.retainedInstead}
+                    </p>
+                  )}
+                </li>
+              ))}
+            </ul>
+            <p className="mt-3 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
+              Append-only, and enforced as such in the database. Note what the
+              entries do not contain: names. A disposal log that reproduces the
+              data it destroyed has not destroyed it.
+            </p>
+          </div>
+        </div>
+      </Card>
 
       <Card
         title="The expiry register"

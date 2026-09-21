@@ -8,12 +8,16 @@ it is. The ones that block a release are marked; the rest can be answered as the
 
 ## Answered
 
-### E1 — INDEL — **parked**
-Whether the platform eventually replaces, integrates with, or simply coexists with INDEL is set
-aside, at the client's direction, and nothing in this plan depends on it. We are building the
-platform's own scheduling, book-on and check-call capability. Revisit when there is something
-running to have the conversation about. See
-[document 01 §4](01-scope-and-domains.md#4-a-note-on-indel).
+### E1 — INDEL — **answered**
+> The portal will fully replace INDEL. No continuing INDEL integration is required.
+
+So full replacement is the end state, and there is nothing to integrate with. That sits comfortably
+with the earlier direction to stop weighing migration against integration: **the replacement happens
+by the platform covering the ground, release by release, not by a cutover project.** Each release is
+usable on its own, and INDEL stops being used for whatever the platform has taken over.
+
+Nothing in the plan depends on INDEL, and no design decision is now waiting on it. The only thing
+left is what should be loaded into the platform at the start, which is **E9**.
 
 ### E3 — How officers interact with the system — **answered**
 > Officers have their own personal phones, and some sites also provide a phone.
@@ -90,31 +94,55 @@ Which payroll and accounts systems consume the approved hours, and in what forma
 export, not the platform.
 
 ### E9 — What existing data should be loaded at the start?
-Not a migration question — just: on day one of R1, which officer and candidate records should
-already be in the platform, and where do they come from? The spreadsheets are the obvious source.
-Worth listing the fields before the schema is fixed rather than after.
+Now the last INDEL question, and a narrow one: on day one of R1, which officer and candidate records
+should already be in the platform, and where does each field come from? The spreadsheets and INDEL
+are the sources.
+
+This is a **load**, not a migration — a one-off import into a schema that already exists, not a
+programme to keep two systems in step. What it needs is a list of fields and one person who can say
+which value is right where two sources disagree. Worth doing before R1 goes live rather than after,
+because a record loaded wrong is then chased, reminded about and reported on.
 
 ### E10 — Signal at the posts
 E3 settles what officers use. What is left is whether the posts themselves have usable mobile signal,
 because that decides how much has to work offline — and it is the reason the site phone matters as
 more than an evidence upgrade.
 
-### E11 — Who owns the platform?
-One named person who makes the calls during the build. This supersedes D5, which asked the same
-question about the smaller portal. Without it, every decision here waits for a meeting.
+### E11 — Who owns the platform? — **answered**
+> **Portal Owner: Muhammad Shahzad. Operational Lead: Tanveer Mahmood.**
+
+Two routes, which is better than one: build decisions, scope and sign-off go to the portal owner;
+anything about how Control and the operations team actually work goes to the operational lead. The
+Control discovery session ([document 05](05-control-discovery.md)) is the operational lead's to
+convene.
+
+Recorded here and **nowhere in the code**. Who holds which *role in the platform* stays data, set up
+in Admin, so a transfer is an edit rather than a release — `lib/roles.ts` contains no names by
+design. This supersedes D5.
 
 ### E12 — What is it called?
 "HR Portal" no longer describes it. Worth naming before people start referring to it by module.
 
 ## Still open from the HR scope
 
-Carried over unchanged from [`docs/proposal/07`](../proposal/07-open-questions.md), because they
-block R1:
+Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them
+blocks the build**:
 
-- **C13** — training evidence for whoever administers the controllers' own screening files (clause 6.2)
-- **C14** — current retention practice, and how disposal is recorded (clause 11)
-- **C16** — which clients or posts involve contact with children or vulnerable adults, and what level
-  of disclosure is obtained (clause 7.7j, Note 6)
-- **C18** — whether the contract wording making confirmation conditional on screening is signed off
-- **C21** — now answered by the register in [document 02](02-shared-engines.md#3-the-single-source-of-truth-register):
-  **the platform owns the compliance expiry dates**, and they are held in one place only
+- **C16** — which clients or posts involve contact with children or vulnerable adults, and what
+  level of disclosure is obtained (clause 7.7j, Note 6). Real compliance work, currently
+  unspecified. The schema carries the `regulatedActivity` flag ready for it
+- **C18** — whether the contract wording making confirmation conditional on screening is signed off.
+  A document to sign; no amount of software substitutes for it (clause 7.5.2)
+- **C13 follow-up** — a setup task rather than a question: load each higher-management training
+  record with the date it was last *reviewed*, because clause 6.2 asks for an annual review and
+  "completed" carries no date
+
+Answered and now implemented:
+
+| # | Answer | Where it lives in the build |
+|---|--------|-----------------------------|
+| C13 | Higher management hold the required certifications and training | `lib/roles.ts` — `canGrantRole` refuses a screening role without in-date training |
+| C14 | 12 months for unsuccessful applicants, 7 years for leavers, every deletion logged | `lib/bs7858.ts` — `RETENTION`; `prisma/schema.prisma` — `DisposalRecord`, append-only |
+| C15 | The portal fully replaces INDEL | E1 above |
+| C17 | Withdrawn — no INDEL integration required | Removed from the plan |
+| C21 | The portal is the single source for SIA, right to work, visa and all compliance information | The register in [document 02 §3](02-shared-engines.md#3-the-single-source-of-truth-register) |

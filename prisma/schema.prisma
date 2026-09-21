@@ -1205,3 +1205,64 @@ model Setting {
   updatedAt   DateTime @updatedAt @db.Timestamptz(3)
   updatedById String?
 }
+
+// ===========================================================================
+// DOMAIN — Retention and disposal  [clause 11, confirmed policy C14]
+// ===========================================================================
+
+enum DisposalRule {
+  /// Unsuccessful applicants: 12 months [11.1, applied to all unsuccessful
+  /// applicants by company policy rather than only those unsuccessful at
+  /// preliminary checks].
+  unsuccessful_applicant_12_months
+  /// Leavers: 7 years after employment ceases [11.3].
+  after_cessation_7_years
+  /// The document type's own rule — a criminality certificate is never kept at
+  /// all, only its outcome and date.
+  document_type_rule
+  /// A subject access or erasure request, handled outside the schedule.
+  subject_request
+}
+
+/// The disposal log. Every deletion is recorded.
+///
+/// The retention period is the easy half of a retention policy. The half that
+/// gets missed is proving the disposal happened — so this table is the point of
+/// the exercise, not a by-product of it.
+///
+/// It deliberately holds NO foreign keys. The whole purpose of a row here is to
+/// outlive the record it describes, and a foreign key would either block the
+/// deletion or cascade the evidence away with it. The references are plain
+/// strings, and `subjectDescription` carries enough that the entry still means
+/// something once the thing it names has gone.
+model DisposalRecord {
+  id String   @id @default(cuid())
+  at DateTime @default(now()) @db.Timestamptz(3)
+
+  rule DisposalRule
+
+  /// Enough to identify what was destroyed without the destroyed record —
+  /// e.g. "Screening file for an unsuccessful applicant, application Mar 2025".
+  /// Deliberately not the person's name: a disposal log that reproduces the
+  /// data it destroyed has not destroyed it.
+  subjectDescription String
+  personRef          String?
+  screeningFileRef   String?
+  documentRef        String?
+
+  itemsDestroyed Int @default(1)
+
+  /// What was deliberately kept, and why. A criminality check's outcome and
+  /// date survive its certificate; without this column that looks like an
+  /// incomplete disposal rather than a correct one.
+  retainedInstead String?
+
+  /// Exactly one of these is set: a person ran it, or the retention sweep did.
+  performedByUserId String?
+  performedBySystem String?
+  /// Countersigned where policy requires a second pair of eyes.
+  verifiedByUserId  String?
+
+  @@index([at])
+  @@index([rule, at])
+}

@@ -49,8 +49,8 @@ insight and admin. Modules that are planned rather than built say so and show wh
 
 **Release R1 has started: the database schema is written and proved.**
 [`prisma/schema.prisma`](prisma/schema.prisma) covers the engines and the domains — 61 models and
-enums — with the eight rules Prisma cannot express in
-[`prisma/constraints.sql`](prisma/constraints.sql) and 24 assertions proving each one rejects the
+enums — with the rules Prisma cannot express written as database constraints in
+[`prisma/constraints.sql`](prisma/constraints.sql), and 30 assertions proving each one rejects the
 case it exists to reject (`npm run db:test`). The application is not wired to it yet.
 
 **All data in the running application is still demonstration data.** No integration is connected.
@@ -92,7 +92,8 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 | Expiry warnings at 90 / 60 / 30 days, one engine for every document type | `lib/core/documents.ts`, `lib/sla.ts` |
 | Service levels, chaser ladders, task severity | `lib/sla.ts` — ours and configurable, deliberately separate from the standard's rules |
 | **The platform map, the engine list and the ownership register** | `lib/core/domains.ts` — rendered at `/platform` |
-| **The database schema, and the constraints that make its rules true** | `prisma/schema.prisma`, `prisma/constraints.sql` — 24 assertions in `prisma/constraints.test.sql` |
+| **The database schema, and the constraints that make its rules true** | `prisma/schema.prisma`, `prisma/constraints.sql` — 30 assertions in `prisma/constraints.test.sql` |
+| **Retention: 12 months, 7 years, and an append-only disposal log** | `lib/bs7858.ts` — `RETENTION`; `prisma/schema.prisma` — `DisposalRecord` |
 | Sign-in with name and active role, and who is working on what | `components/layout/SessionContext.tsx`, `components/dashboard/ActiveNow.tsx` |
 | Role-based, department-grouped navigation | `components/layout/nav.ts` |
 
@@ -137,8 +138,8 @@ lib/
   mock/                  Demonstration data — data.ts (HR) and ops.ts (operational)
 prisma/
   schema.prisma          The R1 database. Engines first, then the domains on them
-  constraints.sql        The eight rules Prisma cannot express. Not optional
-  constraints.test.sql   24 assertions that each rule rejects what it should
+  constraints.sql        The rules Prisma cannot express. Not optional
+  constraints.test.sql   30 assertions that each rule rejects what it should
 docs/platform/           The platform plan — read this first
 docs/proposal/           The HR detail: process review, BS 7858 mapping, decisions
 ```

@@ -44,20 +44,21 @@ npx prisma migrate diff --from-empty --to-schema-datamodel prisma/schema.prisma 
 cat /tmp/schema.sql prisma/constraints.sql > prisma/migrations/<id>/migration.sql
 ```
 
-`constraints.sql` is **not optional**. It holds eight rules the Prisma schema
-cannot express, and each one is a rule the platform claims to enforce:
+`constraints.sql` is **not optional**. It holds nine groups of rules the Prisma
+schema cannot express, and each one is a rule the platform claims to enforce:
 separation of duties on a screening file, no double-booked officer, an
 append-only event log (including against `TRUNCATE`, which slips past a
 row-level trigger), no retained copy where the document type forbids one,
 exactly one subject per polymorphic row, the standard's four-week extension
-limit, and no hours exported before approval.
+limit, no hours exported before approval, and an append-only, always-attributable
+disposal log.
 
 A rule enforced only in application code survives until the first bug, the first
 background job written in a hurry, or the first manual fix applied at 2am.
 
 ## The constraints are tested
 
-`constraints.test.sql` makes 24 assertions against a real PostgreSQL 16: it
+`constraints.test.sql` makes 30 assertions against a real PostgreSQL 16: it
 tries to break each rule and expects to be stopped. The cases that are supposed
 to *succeed* are in there too, because a constraint that rejects everything is
 not a constraint, it is an outage — a back-to-back shift with no overlap has to
@@ -70,7 +71,7 @@ PASS  same officer, back-to-back shift            <- allowed, as it should be
 PASS  edit an event                               <- The event log is append-only …
 PASS  keep a copy of a criminality certificate    <- Document type crc does not permit a copy …
 ...
-24 assertions passed.
+30 assertions passed.
 ```
 
 ## What is deliberately not in here yet

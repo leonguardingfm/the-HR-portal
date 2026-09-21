@@ -16,6 +16,24 @@ worked out in [`docs/proposal`](../proposal/README.md) and is cross-referenced r
 | [04 — Decisions needed](04-decisions-needed.md) | The new questions this scope creates (E-series), separate from the HR ones (A–D in proposal/07) | You are the one who has to decide |
 | [05 — Control discovery](05-control-discovery.md) | The question list for the session with Control, before any rostering estimate | You are about to sit down with Control |
 
+## Who decides
+
+Confirmed 21 September 2026.
+
+| | Who | What routes here |
+|---|-----|------------------|
+| **Portal Owner** | Muhammad Shahzad | Scope, priorities, sign-off, anything where the build needs a decision |
+| **Operational Lead** | Tanveer Mahmood | How Control and the operations team actually work — the rota, cover, book-ons, check calls, the escalation ladder. The [Control discovery session](05-control-discovery.md) is theirs to convene |
+
+Two routes is better than one: most build questions are not operational
+questions, and most operational questions are not build questions.
+
+**These names appear in this folder and nowhere in the code.** Who holds which
+*role in the platform* is data, set up in Admin, so a new starter or an internal
+transfer is an edit rather than a release — `lib/roles.ts` contains no names by
+design. Governance is a different thing from a permission, and only one of them
+belongs in a build.
+
 ## The one rule that keeps this from becoming a mess
 
 > **Every fact has exactly one owner — in the software and in these documents.**

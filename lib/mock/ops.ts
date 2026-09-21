@@ -375,3 +375,49 @@ export const workforcePersonIds = (): string[] =>
       ...candidates.filter((c) => c.stage === "deployed").map((c) => c.personId),
     ]),
   );
+
+// ---------------------------------------------------------------------------
+// Retention and disposal — clause 11, confirmed policy C14
+// ---------------------------------------------------------------------------
+
+/** The two periods, confirmed: 12 months for unsuccessful applicants, 7 years
+ *  after employment ceases. Both end in a recorded disposal. */
+export interface RetentionItem {
+  id: string;
+  /** Deliberately not a name. See the note on disposalLog below. */
+  description: string;
+  rule: "unsuccessful_applicant_12_months" | "after_cessation_7_years";
+  dueAt: string;
+  itemsHeld: number;
+}
+
+export const retentionQueue: RetentionItem[] = [
+  { id: "rq1", description: "Screening files — applicants unsuccessful at preliminary checks, Sept 2025", rule: "unsuccessful_applicant_12_months", dueAt: days(-4), itemsHeld: 3 },
+  { id: "rq2", description: "Screening files — applicants unsuccessful at interview, Oct 2025", rule: "unsuccessful_applicant_12_months", dueAt: days(19), itemsHeld: 5 },
+  { id: "rq3", description: "Employment and screening records — leaver, ceased Sept 2019", rule: "after_cessation_7_years", dueAt: days(6), itemsHeld: 1 },
+  { id: "rq4", description: "Employment and screening records — leavers, ceased Q4 2019", rule: "after_cessation_7_years", dueAt: days(74), itemsHeld: 4 },
+];
+
+/**
+ * The disposal log.
+ *
+ * Note what the descriptions do NOT contain: names. A disposal log that
+ * reproduces the data it destroyed has not destroyed it. The entry has to say
+ * enough to be auditable and no more, which is why it identifies a batch and a
+ * date rather than a person.
+ */
+export interface DisposalEntry {
+  id: string;
+  at: string;
+  rule: string;
+  subjectDescription: string;
+  itemsDestroyed: number;
+  retainedInstead: string | null;
+  performedBy: string;
+}
+
+export const disposalLog: DisposalEntry[] = [
+  { id: "dl1", at: days(-11), rule: "12 months — unsuccessful applicant", subjectDescription: "Screening files, applicants unsuccessful at preliminary checks, Aug 2025", itemsDestroyed: 4, retainedInstead: "Outcome and date only, per the criminality document rule", performedBy: "Retention sweep, verified by the screening controller" },
+  { id: "dl2", at: days(-38), rule: "7 years — after cessation", subjectDescription: "Employment and screening records, leavers ceased Aug 2019", itemsDestroyed: 2, retainedInstead: null, performedBy: "Retention sweep, verified by the screening controller" },
+  { id: "dl3", at: days(-63), rule: "Document type rule", subjectDescription: "Criminal record certificates seen at screening, Jun 2026 intake", itemsDestroyed: 9, retainedInstead: "Check outcome and date of issue", performedBy: "Screening administrator" },
+];

@@ -70,6 +70,9 @@ CREATE TYPE "ContactChannel" AS ENUM ('app', 'phone', 'site_phone', 'sms', 'qr',
 -- CreateEnum
 CREATE TYPE "IncidentSeverity" AS ENUM ('log_only', 'notable', 'serious');
 
+-- CreateEnum
+CREATE TYPE "DisposalRule" AS ENUM ('unsuccessful_applicant_12_months', 'after_cessation_7_years', 'document_type_rule', 'subject_request');
+
 -- CreateTable
 CREATE TABLE "Person" (
     "id" TEXT NOT NULL,
@@ -643,6 +646,24 @@ CREATE TABLE "Setting" (
     CONSTRAINT "Setting_pkey" PRIMARY KEY ("key")
 );
 
+-- CreateTable
+CREATE TABLE "DisposalRecord" (
+    "id" TEXT NOT NULL,
+    "at" TIMESTAMPTZ(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "rule" "DisposalRule" NOT NULL,
+    "subjectDescription" TEXT NOT NULL,
+    "personRef" TEXT,
+    "screeningFileRef" TEXT,
+    "documentRef" TEXT,
+    "itemsDestroyed" INTEGER NOT NULL DEFAULT 1,
+    "retainedInstead" TEXT,
+    "performedByUserId" TEXT,
+    "performedBySystem" TEXT,
+    "verifiedByUserId" TEXT,
+
+    CONSTRAINT "DisposalRecord_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "Person_nationalInsurance_key" ON "Person"("nationalInsurance");
 
@@ -828,6 +849,12 @@ CREATE INDEX "Incident_severity_clientNotified_idx" ON "Incident"("severity", "c
 
 -- CreateIndex
 CREATE INDEX "EquipmentIssue_personId_returnedAt_idx" ON "EquipmentIssue"("personId", "returnedAt");
+
+-- CreateIndex
+CREATE INDEX "DisposalRecord_at_idx" ON "DisposalRecord"("at");
+
+-- CreateIndex
+CREATE INDEX "DisposalRecord_rule_at_idx" ON "DisposalRecord"("rule", "at");
 
 -- AddForeignKey
 ALTER TABLE "PersonIdentityKey" ADD CONSTRAINT "PersonIdentityKey_personId_fkey" FOREIGN KEY ("personId") REFERENCES "Person"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -1150,3 +1177,34 @@ ALTER TABLE "ScreeningFile"
 ALTER TABLE "BookOff"
   ADD CONSTRAINT book_off_approval_complete
   CHECK (num_nonnulls("approvedById", "approvedAt") <> 1);
+
+-- ---------------------------------------------------------------------------
+-- 8. The disposal log is append-only, and always attributable
+-- ---------------------------------------------------------------------------
+-- Clause 11 and confirmed policy C14: every deletion is recorded. A disposal
+-- log that can be edited afterwards proves nothing, and an entry with no
+-- performer proves nothing either.
+
+CREATE OR REPLACE FUNCTION reject_disposal_mutation()
+RETURNS TRIGGER AS $$
+BEGIN
+  RAISE EXCEPTION 'The disposal log is append-only: entries cannot be % once written', TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER disposal_append_only
+  BEFORE UPDATE OR DELETE ON "DisposalRecord"
+  FOR EACH ROW EXECUTE FUNCTION reject_disposal_mutation();
+
+CREATE TRIGGER disposal_no_truncate
+  BEFORE TRUNCATE ON "DisposalRecord"
+  FOR EACH STATEMENT EXECUTE FUNCTION reject_disposal_mutation();
+
+ALTER TABLE "DisposalRecord"
+  ADD CONSTRAINT disposal_has_performer
+  CHECK (num_nonnulls("performedByUserId", "performedBySystem") = 1);
+
+-- Something must actually have been destroyed.
+ALTER TABLE "DisposalRecord"
+  ADD CONSTRAINT disposal_items_positive
+  CHECK ("itemsDestroyed" > 0);
