@@ -8,6 +8,8 @@ import { WorkloadChart } from "@/components/charts/WorkloadChart";
 import { useSession } from "@/components/layout/SessionContext";
 import { ROLE_LABELS } from "@/lib/labels";
 import { funnel, stageCycleTimes, workload } from "@/lib/mock/data";
+import type { DashboardCounts, LiveRow } from "@/lib/db/queries";
+import type { EventRecord } from "@/lib/core/types";
 import { ActiveNow } from "./ActiveNow";
 import { ActivityFeed } from "./ActivityFeed";
 import { DepartmentKpis } from "./DepartmentKpis";
@@ -30,7 +32,15 @@ import { VettingClockBoard } from "./VettingClockBoard";
  *
  * Anything that is analysis rather than an answer belongs in Insight instead.
  */
-export function DashboardView() {
+export function DashboardView({
+  liveRows,
+  events,
+  counts,
+}: {
+  liveRows: LiveRow[];
+  events: EventRecord[];
+  counts: DashboardCounts;
+}) {
   const { session } = useSession();
   const role = session?.activeRole ?? "recruitment";
   const name = session?.name ?? "";
@@ -55,13 +65,13 @@ export function DashboardView() {
       />
 
       {/* Operational roles open on what is happening, not on the funnel. */}
-      {operational && seesLive && <LiveStrip />}
+      {operational && seesLive && <LiveStrip rows={liveRows} />}
 
       <TileRow />
 
       {seesClock && <VettingClockBoard />}
 
-      {!operational && seesLive && <LiveStrip />}
+      {!operational && seesLive && <LiveStrip rows={liveRows} />}
 
       <RequirementBoard />
 
@@ -70,11 +80,11 @@ export function DashboardView() {
         <ExceptionsQueue />
       </div>
 
-      {management && <DepartmentKpis />}
+      {management && <DepartmentKpis counts={counts} />}
 
       <div className="grid gap-5 xl:grid-cols-2">
         <ActiveNow />
-        <ActivityFeed limit={7} />
+        <ActivityFeed events={events} />
       </div>
 
       {seesFlow && (

@@ -132,7 +132,7 @@ CREATE TRIGGER document_copy_retention
 
 ALTER TABLE "DocumentRecord"
   ADD CONSTRAINT document_one_owner
-  CHECK (num_nonnulls("personId", "siteId", "screeningFileId") = 1);
+  CHECK (num_nonnulls("personId", "siteId", "clientId", "screeningFileId") = 1);
 
 ALTER TABLE "FormResponse"
   ADD CONSTRAINT form_response_one_subject

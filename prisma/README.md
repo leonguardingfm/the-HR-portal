@@ -74,6 +74,17 @@ PASS  keep a copy of a criminality certificate    <- Document type crc does not 
 30 assertions passed.
 ```
 
+## A user is deactivated, never deleted
+
+`Event.actorUserId` is an optional relation, so deleting a user would set it to
+null — and `event_has_actor` then refuses the row, because an event with no
+actor is an event nobody did. So the database will not let you delete a user who
+has done anything.
+
+That is the correct behaviour rather than an obstacle: attribution is half of
+what an audit trail is for. Use `User.active = false`. The same shape applies
+to `DisposalRecord.performedByUserId`.
+
 ## What is deliberately not in here yet
 
 | Not yet | Why |

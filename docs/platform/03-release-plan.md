@@ -46,9 +46,17 @@ separation of duties on a screening file, no double-booked officer, an append-on
 retained copy where the document type forbids one, and the standard's four-week extension limit.
 Twenty-four assertions prove each one rejects what it should.
 
+**Also done:** the application reads the database. Dashboard, Live board, Scheduling and Compliance
+are server-rendered from PostgreSQL through `lib/db/queries.ts`, which returns the same domain types
+the rule modules already take — so `evaluateDeployability`, `checkCallStatus` and the BS 7858 gates
+run unchanged against database rows. The retention queue is derived from when each application was
+withdrawn and each employment ceased, rather than maintained as a list.
+
 **Remaining:**
 
-- Wire the application to the database; company sign-on; server-side permissions.
+- The HR screens (requirements, candidates, vetting, onboarding), Insight and Admin on the database.
+- Company sign-on, and permissions enforced server-side rather than by hiding navigation.
+- Writes: at the moment every screen is read-only.
 - Requirements → candidates → interviews → offer → onboarding, with the duplicate check at entry.
 - BS 7858 screening files: checks, evidence, the 12-week clock, the three gates, controller reviews.
 - The document engine with per-candidate checklists validated at upload.

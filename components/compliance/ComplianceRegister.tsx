@@ -5,43 +5,65 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { StatTile } from "@/components/ui/StatTile";
 import { ClauseRef, StatusPill, Tag } from "@/components/ui/StatusPill";
 import { useNow } from "@/components/ui/useNow";
-import { daysUntil, expirySeverity } from "@/lib/core/deployability";
-import { documentTypeById } from "@/lib/core/documents";
-import { formatDate } from "@/lib/format";
-import {
-  deployabilityFor,
-  disposalLog,
-  expiringDocuments,
-  personName,
-  retentionQueue,
-  workforcePersonIds,
-} from "@/lib/mock/ops";
 import { RETENTION } from "@/lib/bs7858";
+import { daysUntil, expirySeverity } from "@/lib/core/deployability";
+import { formatDate } from "@/lib/format";
 import { EXPIRY_WARNING_DAYS } from "@/lib/sla";
+import type {
+  ExpiringDocument,
+  RetentionItemRow,
+  WorkforceDeployability,
+} from "@/lib/db/queries";
+
+interface DisposalRow {
+  id: string;
+  at: string;
+  rule: string;
+  subjectDescription: string;
+  itemsDestroyed: number;
+  retainedInstead: string | null;
+  performedBy: string;
+  verified: boolean;
+}
+
+const RULE_LABELS: Record<string, string> = {
+  unsuccessful_applicant_12_months: `${RETENTION.unsuccessfulApplicantMonths} months — unsuccessful applicant`,
+  after_cessation_7_years: `${RETENTION.afterCessationYears} years — after employment ceased`,
+  document_type_rule: "Document type rule",
+  subject_request: "Subject request",
+};
 
 /**
  * The expiry register.
  *
  * One table for every document in the business that has a date on it — SIA
  * licences, right to work, visas, training certificates, site instructions and
- * client contracts — because they are one engine and one reminder rule, not six
- * (docs/platform/02 §2.5).
+ * client contracts — because they are one engine and one reminder rule, not six.
  *
- * The compliance dates are read from the person record, not maintained here. A
- * second list is a second thing to be wrong, which is the whole argument of the
- * single-source-of-truth register.
+ * Nothing on this page is stored as a status. Deployability is worked out from
+ * the screening file and the dated documents each time it is asked, and the
+ * retention queue is derived from when an application was withdrawn or an
+ * employment ended. A maintained list would be right on the day it was written.
  */
-export function ComplianceRegister() {
+export function ComplianceRegister({
+  documents,
+  workforce,
+  retention,
+  disposals,
+}: {
+  documents: ExpiringDocument[];
+  workforce: WorkforceDeployability[];
+  retention: RetentionItemRow[];
+  disposals: DisposalRow[];
+}) {
   const now = useNow();
 
   if (!now) {
-    return <PageHeader title="Compliance" description="Loading the expiry register…" />;
+    return <PageHeader title="Compliance" description="Reading the register…" />;
   }
 
-  const docs = expiringDocuments();
-  const dated = docs.map((d) => ({
+  const dated = documents.map((d) => ({
     doc: d,
-    type: documentTypeById(d.typeId),
     days: daysUntil(d.expiresAt!, now),
     severity: expirySeverity(d.expiresAt, now),
   }));
@@ -50,20 +72,17 @@ export function ComplianceRegister() {
   const within30 = dated.filter((d) => d.days >= 0 && d.days <= 30);
   const within90 = dated.filter((d) => d.days > 30 && d.days <= EXPIRY_WARNING_DAYS[0]);
 
-  // Deployability is derived on demand, which is why it can never be stale.
-  const blocked = workforcePersonIds()
-    .map((personId) => ({ personId, d: deployabilityFor(personId, true, now) }))
-    .filter((x) => !x.d.deployable);
-
-  const warned = workforcePersonIds()
-    .map((personId) => ({ personId, d: deployabilityFor(personId, true, now) }))
-    .filter((x) => x.d.deployable && x.d.warnings.length > 0);
+  const blocked = workforce.filter((w) => !w.deployability.deployable);
+  const warned = workforce.filter(
+    (w) => w.deployability.deployable && w.deployability.warnings.length > 0,
+  );
+  const overdueDisposal = retention.filter((r) => daysUntil(r.dueAt, now) < 0);
 
   return (
     <div className="space-y-5">
       <PageHeader
         title="Compliance"
-        description="Every document with a date on it, and who it stops. The dates are read from the person record — this page maintains nothing of its own."
+        description="Every document with a date on it, and who it stops. The dates are held in one place and warned on from one rule."
       />
 
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4">
@@ -89,7 +108,7 @@ export function ComplianceRegister() {
         <StatTile
           label="Cannot be deployed"
           value={blocked.length}
-          detail="Assignment publication is blocked for these people"
+          detail={`of ${workforce.length} on the books`}
           severity={blocked.length > 0 ? "critical" : "good"}
         />
       </div>
@@ -104,14 +123,14 @@ export function ComplianceRegister() {
           </p>
         ) : (
           <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
-            {blocked.map(({ personId, d }) => (
-              <li key={personId} className="py-3">
+            {blocked.map((w) => (
+              <li key={w.personId} className="py-3">
                 <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[13px] font-medium">{personName(personId)}</p>
+                  <p className="text-[13px] font-medium">{w.personName}</p>
                   <StatusPill severity="critical" label="Cannot be rostered" />
                 </div>
                 <ul className="mt-1.5 space-y-1">
-                  {d.blockers.map((b) => (
+                  {w.deployability.blockers.map((b) => (
                     <li key={b.code} className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
                       {b.label}
                       {b.clause && (
@@ -135,15 +154,15 @@ export function ComplianceRegister() {
           subtitle="Not a block yet. This is the list the reminder engine works from, at 90, 60 and 30 days."
         >
           <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
-            {warned.map(({ personId, d }) => (
-              <li key={personId} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+            {warned.map((w) => (
+              <li key={w.personId} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-[13px] font-medium">{personName(personId)}</p>
+                  <p className="text-[13px] font-medium">{w.personName}</p>
                   <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                    {d.warnings.map((w) => w.label).join(" · ")}
+                    {w.deployability.warnings.map((x) => x.label).join(" · ")}
                   </p>
                 </div>
-                <StatusPill severity={d.warnings[0].severity} />
+                <StatusPill severity={w.deployability.warnings[0].severity} />
               </li>
             ))}
           </ul>
@@ -153,26 +172,32 @@ export function ComplianceRegister() {
       <Card
         title="Retention and disposal"
         subtitle={`${RETENTION.unsuccessfulApplicantMonths} months for unsuccessful applicants, ${RETENTION.afterCessationYears} years after employment ends — and every deletion recorded.`}
-        action={<Tag>Clause 11</Tag>}
+        action={
+          <div className="flex items-center gap-1.5">
+            {overdueDisposal.length > 0 && (
+              <StatusPill severity="critical" label={`${overdueDisposal.length} overdue`} />
+            )}
+            <Tag>Clause 11</Tag>
+          </div>
+        }
       >
         <div className="grid gap-6 xl:grid-cols-2">
           <div>
             <p className="mb-2 text-[12px] font-semibold">Due for disposal</p>
-            <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
-              {retentionQueue
-                .slice()
-                .sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime())
-                .map((r) => {
+            {retention.length === 0 ? (
+              <p className="py-4 text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                Nothing has reached its retention date.
+              </p>
+            ) : (
+              <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
+                {retention.map((r) => {
                   const days = daysUntil(r.dueAt, now);
                   return (
                     <li key={r.id} className="flex flex-wrap items-start justify-between gap-2 py-2.5">
                       <div className="min-w-0 flex-1">
                         <p className="text-[12px] leading-snug">{r.description}</p>
                         <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                          {r.itemsHeld} record{r.itemsHeld === 1 ? "" : "s"} ·{" "}
-                          {r.rule === "unsuccessful_applicant_12_months"
-                            ? `${RETENTION.unsuccessfulApplicantMonths} months`
-                            : `${RETENTION.afterCessationYears} years`}
+                          {RULE_LABELS[r.rule] ?? r.rule} · due {formatDate(r.dueAt)}
                         </p>
                       </div>
                       <StatusPill
@@ -182,26 +207,33 @@ export function ComplianceRegister() {
                     </li>
                   );
                 })}
-            </ul>
+              </ul>
+            )}
             <p className="mt-3 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              Overdue means we are holding data longer than the policy allows,
-              which is a compliance failure in its own right — not a tidying job.
+              Derived from when each application was withdrawn or each
+              employment ceased, not from a list anyone maintains. Overdue means
+              we are holding data longer than the policy allows, which is a
+              compliance failure in its own right — not a tidying job.
             </p>
           </div>
 
           <div>
             <p className="mb-2 text-[12px] font-semibold">Disposal log</p>
             <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
-              {disposalLog.map((d) => (
+              {disposals.map((d) => (
                 <li key={d.id} className="py-2.5">
                   <div className="flex flex-wrap items-baseline justify-between gap-2">
                     <p className="text-[12px] leading-snug">{d.subjectDescription}</p>
-                    <span className="tnum text-[11px] tabular-nums whitespace-nowrap" style={{ color: "var(--text-muted)" }}>
+                    <span
+                      className="tnum text-[11px] tabular-nums whitespace-nowrap"
+                      style={{ color: "var(--text-muted)" }}
+                    >
                       {formatDate(d.at)}
                     </span>
                   </div>
                   <p className="mt-0.5 text-[11px]" style={{ color: "var(--text-secondary)" }}>
-                    {d.itemsDestroyed} destroyed · {d.rule} · {d.performedBy}
+                    {d.itemsDestroyed} destroyed · {RULE_LABELS[d.rule] ?? d.rule} · {d.performedBy}
+                    {d.verified ? " · countersigned" : ""}
                   </p>
                   {d.retainedInstead && (
                     <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
@@ -212,9 +244,10 @@ export function ComplianceRegister() {
               ))}
             </ul>
             <p className="mt-3 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-              Append-only, and enforced as such in the database. Note what the
-              entries do not contain: names. A disposal log that reproduces the
-              data it destroyed has not destroyed it.
+              Append-only, enforced in the database — an entry cannot be edited
+              or deleted once written. Note what the entries do not contain:
+              names. A disposal log that reproduces the data it destroyed has
+              not destroyed it.
             </p>
           </div>
         </div>
@@ -236,33 +269,43 @@ export function ComplianceRegister() {
               </tr>
             </thead>
             <tbody>
-              {dated.map(({ doc, type, days, severity }) => (
+              {dated.map(({ doc, days, severity }) => (
                 <tr key={doc.id} className="border-t align-top" style={{ borderColor: "var(--hairline)" }}>
                   <td className="px-1 py-2.5">
                     <p className="font-medium">
-                      {type?.label ?? doc.typeId}
-                      {type?.clause && (
+                      {doc.typeLabel}
+                      {doc.clause && (
                         <>
                           {" "}
-                          <ClauseRef clause={type.clause} />
+                          <ClauseRef clause={doc.clause} />
                         </>
                       )}
                     </p>
-                    {type && !type.copyRetained && (
+                    {!doc.copyRetained && (
                       <p className="mt-0.5">
                         <Tag>Outcome only — no copy kept</Tag>
                       </p>
                     )}
                   </td>
                   <td className="px-1 py-2.5">{doc.ownerName}</td>
-                  <td className="tnum px-1 py-2.5 tabular-nums whitespace-nowrap">{formatDate(doc.expiresAt)}</td>
+                  <td className="tnum px-1 py-2.5 tabular-nums whitespace-nowrap">
+                    {formatDate(doc.expiresAt)}
+                  </td>
                   <td className="tnum px-1 py-2.5 tabular-nums whitespace-nowrap">
                     {days < 0 ? `${Math.abs(days)} days over` : `${days} days`}
                   </td>
                   <td className="px-1 py-2.5">
                     <StatusPill
                       severity={severity}
-                      label={days < 0 ? "Expired" : days <= 30 ? "Renew now" : days <= 90 ? "Renewal due" : "In date"}
+                      label={
+                        days < 0
+                          ? "Expired"
+                          : days <= 30
+                            ? "Renew now"
+                            : days <= 90
+                              ? "Renewal due"
+                              : "In date"
+                      }
                     />
                   </td>
                 </tr>
@@ -270,13 +313,6 @@ export function ComplianceRegister() {
             </tbody>
           </table>
         </div>
-        <p className="mt-4 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-          Each of these dates is held in <strong>one</strong> place and warned
-          on from <strong>one</strong> rule. Two systems watching the same date
-          is how they come to disagree, and the disagreement is always
-          discovered late — which is why the register reads the dates from the
-          person record rather than keeping a copy.
-        </p>
       </Card>
     </div>
   );

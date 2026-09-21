@@ -228,6 +228,7 @@ model Client {
   sites        Site[]
   requirements Requirement[]
   feedback     FormResponse[]
+  documents    DocumentRecord[]
 }
 
 model Site {
@@ -397,6 +398,7 @@ model DocumentRecord {
 
   personId        String?
   siteId          String?
+  clientId        String?
   screeningFileId String?
 
   verification    DocumentVerification @default(not_supplied)
@@ -416,6 +418,7 @@ model DocumentRecord {
   type          DocumentType   @relation(fields: [typeId], references: [id])
   person        Person?        @relation(fields: [personId], references: [id])
   site          Site?          @relation(fields: [siteId], references: [id])
+  client        Client?        @relation(fields: [clientId], references: [id])
   screeningFile ScreeningFile? @relation(fields: [screeningFileId], references: [id])
 
   @@index([expiresAt])

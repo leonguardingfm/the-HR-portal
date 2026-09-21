@@ -12,7 +12,9 @@
     "db:generate": "prisma generate",
     "db:migrate": "prisma migrate deploy",
     "db:validate": "prisma validate",
-    "db:test": "bash scripts/test-constraints.sh"
+    "db:test": "bash scripts/test-constraints.sh",
+    "db:seed": "tsx prisma/seed.ts",
+    "db:reset": "prisma migrate reset --force --skip-generate && npm run db:seed"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",
@@ -28,6 +30,10 @@
     "postcss": "^8.5.28",
     "prisma": "^6.19.3",
     "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.15",
     "typescript": "^5.9.3"
+  },
+  "prisma": {
+    "seed": "tsx prisma/seed.ts"
   }
 }

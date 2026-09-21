@@ -1,7 +1,7 @@
 import { Card } from "@/components/ui/Card";
 import { Tag } from "@/components/ui/StatusPill";
 import { formatTime } from "@/lib/format";
-import { recentEvents } from "@/lib/mock/ops";
+import type { EventRecord } from "@/lib/core/types";
 
 /**
  * The event log, read forwards.
@@ -11,9 +11,7 @@ import { recentEvents } from "@/lib/mock/ops";
  * answerable rather than inferred from a job title. The same log is the audit
  * trail an ACS assessor asks for, filtered differently.
  */
-export function ActivityFeed({ limit = 8 }: { limit?: number }) {
-  const events = recentEvents(limit);
-
+export function ActivityFeed({ events }: { events: EventRecord[] }) {
   return (
     <Card
       title="Recent activity"

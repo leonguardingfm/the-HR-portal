@@ -1,10 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatTile } from "@/components/ui/StatTile";
 import { StatusPill, Tag } from "@/components/ui/StatusPill";
+import { useNow } from "@/components/ui/useNow";
 import { formatShiftWindow, formatTime } from "@/lib/format";
 import {
   CHANNEL_EVIDENCE,
@@ -14,18 +14,7 @@ import {
   checkCallStatus,
   escalationAction,
 } from "@/lib/core/ops";
-import {
-  attemptsFor,
-  bookOnFor,
-  checkCalls,
-  contactAttempts,
-  incidents,
-  liveAssignments,
-  personName,
-  personPin,
-  postById,
-  siteNameForPost,
-} from "@/lib/mock/ops";
+import type { IncidentRow, LiveRow } from "@/lib/db/queries";
 import type { Severity } from "@/lib/types";
 
 /**
@@ -36,8 +25,12 @@ import type { Severity } from "@/lib/types";
  * heard from them since. They are separate columns because they fail
  * separately — an officer can book on and then go quiet.
  *
- * The rows are ordered by what needs doing rather than by site, so the top of
- * the board is the work. A board sorted alphabetically is a report.
+ * The rows come from the database; the clock is the browser's, so the severity
+ * of a missed check call advances while the page is open rather than being
+ * fixed at whatever moment the page was rendered.
+ *
+ * Ordered by what needs doing rather than by site, so the top of the board is
+ * the work. A board sorted alphabetically is a report.
  */
 
 const SEVERITY_RANK: Record<Severity, number> = {
@@ -48,31 +41,26 @@ const SEVERITY_RANK: Record<Severity, number> = {
   neutral: 4,
 };
 
-export function LiveBoard() {
-  // Gated on mount so the clock is the browser's, not the build's.
-  const [now, setNow] = useState<Date | null>(null);
-  useEffect(() => {
-    setNow(new Date());
-    const id = setInterval(() => setNow(new Date()), 30_000);
-    return () => clearInterval(id);
-  }, []);
+export function LiveBoard({
+  rows: input,
+  incidents,
+}: {
+  rows: LiveRow[];
+  incidents: IncidentRow[];
+}) {
+  const now = useNow(30_000);
 
   if (!now) {
-    return (
-      <div>
-        <PageHeader title="Live board" description="Loading the current shift picture…" />
-      </div>
-    );
+    return <PageHeader title="Live board" description="Reading the current shift picture…" />;
   }
 
-  const rows = liveAssignments(now)
-    .map((assignment) => {
-      const post = postById(assignment.postId);
-      const bookOn = bookOnFor(assignment.id);
-      const att = attendance(assignment, bookOn, now);
-      const call = checkCallStatus(assignment, post, checkCalls, bookOn, contactAttempts, now);
-      const worst = SEVERITY_RANK[att.severity] <= SEVERITY_RANK[call.severity] ? att.severity : call.severity;
-      return { assignment, post, bookOn, att, call, worst };
+  const rows = input
+    .map((r) => {
+      const att = attendance(r.assignment, r.bookOn, now);
+      const call = checkCallStatus(r.assignment, r.post, r.calls, r.bookOn, r.attempts, now);
+      const worst =
+        SEVERITY_RANK[att.severity] <= SEVERITY_RANK[call.severity] ? att.severity : call.severity;
+      return { ...r, att, call, worst };
     })
     .sort((a, b) => {
       const bySeverity = SEVERITY_RANK[a.worst] - SEVERITY_RANK[b.worst];
@@ -93,8 +81,8 @@ export function LiveBoard() {
       key: `att-${r.assignment.id}`,
       severity: r.att.severity,
       what: r.att.state === "no_show" ? "No show" : "Late book-on",
-      who: personName(r.assignment.personId),
-      where: `${siteNameForPost(r.post.id)} — ${r.post.name}`,
+      who: r.personName,
+      where: `${r.siteName} — ${r.post.name}`,
       action:
         r.att.state === "no_show"
           ? "Ring the officer, then find cover. Client notification if cover will be late."
@@ -111,11 +99,11 @@ export function LiveBoard() {
           : r.call.escalation === 2
             ? "Cannot reach the officer"
             : "Check call missed",
-      who: personName(r.assignment.personId),
-      where: `${siteNameForPost(r.post.id)} — ${r.post.name}${r.post.loneWorking ? " (lone working)" : ""}`,
+      who: r.personName,
+      where: `${r.siteName} — ${r.post.name}${r.post.loneWorking ? " (lone working)" : ""}`,
       action: escalationAction(r.call.escalation) ?? "Try the officer.",
       step: r.call.escalation,
-      tried: attemptsFor(r.assignment.id)
+      tried: r.attempts
         .filter((a) => !a.reached)
         .map((a) => `${CHANNEL_EVIDENCE[a.channel].label} — ${a.note ?? "no answer"}`),
     })),
@@ -145,12 +133,23 @@ export function LiveBoard() {
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         <StatTile label="Officers on post" value={onPost} detail={`of ${rows.length} shifts in the window`} />
-        <StatTile label="Awaiting book-on" value={awaiting} detail={`Grace period ${OPS_RULES.bookOnGraceMinutes} min`} severity={awaiting > 0 ? "warning" : "good"} />
+        <StatTile
+          label="Awaiting book-on"
+          value={awaiting}
+          detail={`Grace period ${OPS_RULES.bookOnGraceMinutes} min`}
+          severity={awaiting > 0 ? "warning" : "good"}
+        />
         <StatTile
           label="Late or no show"
           value={attendanceProblems.length}
           detail={`No show after ${OPS_RULES.bookOnNoShowMinutes} min`}
-          severity={attendanceProblems.some((r) => r.att.state === "no_show") ? "critical" : attendanceProblems.length > 0 ? "serious" : "good"}
+          severity={
+            attendanceProblems.some((r) => r.att.state === "no_show")
+              ? "critical"
+              : attendanceProblems.length > 0
+                ? "serious"
+                : "good"
+          }
           hero={attendanceProblems.length > 0}
         />
         <StatTile
@@ -161,9 +160,20 @@ export function LiveBoard() {
               ? `${welfare.length} at the welfare step — attend site`
               : `Hourly; escalation starts at ${OPS_RULES.checkCallIntervalMinutes} min`
           }
-          severity={callProblems.some((r) => r.call.escalation >= 2) ? "critical" : callProblems.length > 0 ? "serious" : "good"}
+          severity={
+            callProblems.some((r) => r.call.escalation >= 2)
+              ? "critical"
+              : callProblems.length > 0
+                ? "serious"
+                : "good"
+          }
         />
-        <StatTile label="Incidents open" value={openIncidents.length} detail="Awaiting client notification" severity={openIncidents.length > 0 ? "warning" : "good"} />
+        <StatTile
+          label="Incidents open"
+          value={openIncidents.length}
+          detail="Awaiting client notification"
+          severity={openIncidents.length > 0 ? "warning" : "good"}
+        />
       </div>
 
       <Card
@@ -223,35 +233,38 @@ export function LiveBoard() {
               </tr>
             </thead>
             <tbody>
-              {rows.map(({ assignment, post, bookOn, att, call }) => {
-                const pin = personPin(assignment.personId);
-                const evidence = bookOn ? CHANNEL_EVIDENCE[bookOn.channel] : null;
+              {rows.map((r) => {
+                const evidence = r.bookOn ? CHANNEL_EVIDENCE[r.bookOn.channel] : null;
                 return (
-                  <tr key={assignment.id} className="border-t align-top" style={{ borderColor: "var(--hairline)" }}>
+                  <tr
+                    key={r.assignment.id}
+                    className="border-t align-top"
+                    style={{ borderColor: "var(--hairline)" }}
+                  >
                     <td className="px-1 py-2.5">
-                      <p className="font-medium">{post.name}</p>
-                      <p style={{ color: "var(--text-secondary)" }}>{siteNameForPost(post.id)}</p>
+                      <p className="font-medium">{r.post.name}</p>
+                      <p style={{ color: "var(--text-secondary)" }}>{r.siteName}</p>
                       <div className="mt-1 flex flex-wrap gap-1">
-                        {post.loneWorking && <Tag>Lone working</Tag>}
-                        {assignment.state === "amended" && <Tag>Amended</Tag>}
+                        {r.post.loneWorking && <Tag>Lone working</Tag>}
+                        {r.assignment.state === "amended" && <Tag>Amended</Tag>}
                       </div>
                     </td>
                     <td className="px-1 py-2.5">
-                      <p className="font-medium">{personName(assignment.personId)}</p>
-                      {pin && (
+                      <p className="font-medium">{r.personName}</p>
+                      {r.pin && (
                         <p className="tnum tabular-nums" style={{ color: "var(--text-muted)" }}>
-                          PIN {pin}
+                          PIN {r.pin}
                         </p>
                       )}
                     </td>
                     <td className="tnum px-1 py-2.5 tabular-nums whitespace-nowrap">
-                      {formatShiftWindow(assignment.startsAt, assignment.endsAt)}
+                      {formatShiftWindow(r.assignment.startsAt, r.assignment.endsAt)}
                     </td>
                     <td className="px-1 py-2.5">
-                      <StatusPill severity={att.severity} label={att.label} />
+                      <StatusPill severity={r.att.severity} label={r.att.label} />
                     </td>
                     <td className="px-1 py-2.5">
-                      <StatusPill severity={call.severity} label={call.label} />
+                      <StatusPill severity={r.call.severity} label={r.call.label} />
                     </td>
                     <td className="px-1 py-2.5">
                       {evidence ? (
@@ -281,31 +294,57 @@ export function LiveBoard() {
       </Card>
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <Card title="Incidents" subtitle="Reported from site. Severity decides whether the client is notified and how fast.">
-          <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
-            {incidents.map((i) => (
-              <li key={i.id} className="py-2.5">
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <p className="text-[13px] font-medium">{i.reportedBy}</p>
-                  <StatusPill
-                    severity={i.severity === "serious" ? "critical" : i.severity === "notable" ? "warning" : "neutral"}
-                    label={i.severity === "log_only" ? "Log only" : i.severity === "notable" ? "Notable" : "Serious"}
-                  />
-                </div>
-                <p className="mt-0.5 text-[12px] leading-snug" style={{ color: "var(--text-secondary)" }}>
-                  {i.summary}
-                </p>
-                <p className="mt-1 text-[11px]" style={{ color: i.clientNotified ? "var(--text-muted)" : "var(--status-warning)" }}>
-                  {formatTime(i.at)} · {i.clientNotified ? "Client notified" : "Client not yet notified"}
-                </p>
-              </li>
-            ))}
-          </ul>
+        <Card
+          title="Incidents"
+          subtitle="Reported from site. Severity decides whether the client is notified and how fast."
+        >
+          {incidents.length === 0 ? (
+            <p className="py-6 text-center text-[13px]" style={{ color: "var(--text-secondary)" }}>
+              Nothing reported in the last 48 hours.
+            </p>
+          ) : (
+            <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
+              {incidents.map((i) => (
+                <li key={i.id} className="py-2.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <p className="text-[13px] font-medium">{i.reportedBy}</p>
+                    <StatusPill
+                      severity={
+                        i.severity === "serious"
+                          ? "critical"
+                          : i.severity === "notable"
+                            ? "warning"
+                            : "neutral"
+                      }
+                      label={
+                        i.severity === "log_only"
+                          ? "Log only"
+                          : i.severity === "notable"
+                            ? "Notable"
+                            : "Serious"
+                      }
+                    />
+                  </div>
+                  <p className="mt-0.5 text-[12px] leading-snug" style={{ color: "var(--text-secondary)" }}>
+                    {i.summary}
+                  </p>
+                  <p
+                    className="mt-1 text-[11px]"
+                    style={{ color: i.clientNotified ? "var(--text-muted)" : "var(--status-warning)" }}
+                  >
+                    {formatTime(i.at)}
+                    {i.siteName ? ` · ${i.siteName}` : ""} ·{" "}
+                    {i.clientNotified ? "Client notified" : "Client not yet notified"}
+                  </p>
+                </li>
+              ))}
+            </ul>
+          )}
         </Card>
 
         <Card
           title="The escalation ladder"
-          subtitle="Proposed. A missed call on a lone-working post is a welfare question before it is an administrative one."
+          subtitle="Check calls are hourly. At one hour without one, this starts — and it ends with a person going to site, not with a red row on a screen."
         >
           <ol className="space-y-2.5">
             {ESCALATION_LADDER.map((l) => (
@@ -319,7 +358,8 @@ export function LiveBoard() {
                 <div className="min-w-0">
                   <p className="text-[13px]">{l.action}</p>
                   <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                    {l.owner} · {l.step === 1 ? "the moment the hour is crossed" : l.reached}
+                    {l.owner} ·{" "}
+                    {l.step === 1 ? "the moment the hour is crossed" : l.reached}
                   </p>
                 </div>
               </li>

@@ -47,7 +47,13 @@ against demonstration data rather than outlined:
 Plus the HR modules from the earlier phase: requirements, candidates, vetting, onboarding, tasks,
 insight and admin. Modules that are planned rather than built say so and show what they will sit on.
 
-**Release R1 has started: the database schema is written and proved.**
+**Release R1: the database is live and four screens read from it.**
+Dashboard, Live board, Scheduling and Compliance are server-rendered from PostgreSQL — no mock data
+behind them. Expire a licence with a SQL `UPDATE` and the officer appears under "Cannot be rostered"
+on the next page load, with the reason. The remaining screens (the HR pipeline, Insight, Admin) are
+next.
+
+**The schema is written and proved.**
 [`prisma/schema.prisma`](prisma/schema.prisma) covers the engines and the domains — 61 models and
 enums — with the rules Prisma cannot express written as database constraints in
 [`prisma/constraints.sql`](prisma/constraints.sql), and 30 assertions proving each one rejects the
@@ -57,11 +63,15 @@ case it exists to reject (`npm run db:test`). The application is not wired to it
 
 ```bash
 npm install
+cp .env.example .env # then point DATABASE_URL at a PostgreSQL 16 database
+npm run db:migrate   # schema + the constraints in prisma/constraints.sql
+npm run db:seed      # configuration registries, plus demonstration records
 npm run dev          # http://localhost:3000
 npm run build        # production build
 npm run typecheck    # tsc --noEmit
 npm run db:validate  # check the schema
 npm run db:test      # apply the migration to a throwaway database and test the constraints
+npm run db:reset     # drop, migrate, seed
 ```
 
 **Sign in with your name and the role you are working as.** People hold more than one role and move
@@ -93,13 +103,15 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 | Service levels, chaser ladders, task severity | `lib/sla.ts` — ours and configurable, deliberately separate from the standard's rules |
 | **The platform map, the engine list and the ownership register** | `lib/core/domains.ts` — rendered at `/platform` |
 | **The database schema, and the constraints that make its rules true** | `prisma/schema.prisma`, `prisma/constraints.sql` — 30 assertions in `prisma/constraints.test.sql` |
+| **The read layer: queries that return the domain types the rules already understand** | `lib/db/queries.ts` — so `evaluateDeployability` runs unchanged against database rows |
 | **Retention: 12 months, 7 years, and an append-only disposal log** | `lib/bs7858.ts` — `RETENTION`; `prisma/schema.prisma` — `DisposalRecord` |
 | Sign-in with name and active role, and who is working on what | `components/layout/SessionContext.tsx`, `components/dashboard/ActiveNow.tsx` |
 | Role-based, department-grouped navigation | `components/layout/nav.ts` |
 
 | Stub | Note |
 |------|------|
-| All records | `lib/mock/data.ts` and `lib/mock/ops.ts`, replaced by database queries in R1. No component reads anything but their exported selectors. |
+| Records on the HR screens | Still `lib/mock/data.ts`. Dashboard, Live board, Scheduling and Compliance now read the database; the rest follow. |
+| The asserted dashboard KPIs | Marked **asserted** on screen. The derivable ones are real queries. |
 | Presence of other users | A browser cannot see another person's session. The shape is what the R1 API will return; the current viewer's own row is real. |
 | Department KPIs | Marked **asserted** on screen where the prototype has no event history behind them yet. The derivable ones are computed. |
 | Quality, Clients, People, Equipment | Outlines, not mock-ups. A screen full of invented detail looks like progress and is not. |
@@ -124,6 +136,9 @@ components/
   charts/                Funnel, stage-vs-SLA, workload — inline, no chart library
   dashboard/ live/ scheduling/ compliance/ platform/
 lib/
+  db/
+    client.ts            One Prisma client per process
+    queries.ts           The read layer. Returns domain types, not database rows
   core/                  The shared engines — domain-agnostic
     types.ts             Identity, Places, Assignment, Forms, Documents, Work, Events
     deployability.ts     The single choke point: may this person be put on a post
@@ -140,6 +155,8 @@ prisma/
   schema.prisma          The R1 database. Engines first, then the domains on them
   constraints.sql        The rules Prisma cannot express. Not optional
   constraints.test.sql   30 assertions that each rule rejects what it should
+  migrations/            The generated schema with the constraints appended
+  seed.ts                Configuration registries from lib/core, plus demo records
 docs/platform/           The platform plan — read this first
 docs/proposal/           The HR detail: process review, BS 7858 mapping, decisions
 ```

@@ -242,6 +242,7 @@ CREATE TABLE "DocumentRecord" (
     "typeId" TEXT NOT NULL,
     "personId" TEXT,
     "siteId" TEXT,
+    "clientId" TEXT,
     "screeningFileId" TEXT,
     "verification" "DocumentVerification" NOT NULL DEFAULT 'not_supplied',
     "storageKey" TEXT,
@@ -899,6 +900,9 @@ ALTER TABLE "DocumentRecord" ADD CONSTRAINT "DocumentRecord_personId_fkey" FOREI
 ALTER TABLE "DocumentRecord" ADD CONSTRAINT "DocumentRecord_siteId_fkey" FOREIGN KEY ("siteId") REFERENCES "Site"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "DocumentRecord" ADD CONSTRAINT "DocumentRecord_clientId_fkey" FOREIGN KEY ("clientId") REFERENCES "Client"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "DocumentRecord" ADD CONSTRAINT "DocumentRecord_screeningFileId_fkey" FOREIGN KEY ("screeningFileId") REFERENCES "ScreeningFile"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -1131,7 +1135,7 @@ CREATE TRIGGER document_copy_retention
 
 ALTER TABLE "DocumentRecord"
   ADD CONSTRAINT document_one_owner
-  CHECK (num_nonnulls("personId", "siteId", "screeningFileId") = 1);
+  CHECK (num_nonnulls("personId", "siteId", "clientId", "screeningFileId") = 1);
 
 ALTER TABLE "FormResponse"
   ADD CONSTRAINT form_response_one_subject

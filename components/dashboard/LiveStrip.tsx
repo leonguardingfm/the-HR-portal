@@ -6,15 +6,7 @@ import { StatusPill, Tag } from "@/components/ui/StatusPill";
 import { useNow } from "@/components/ui/useNow";
 import { attendance, checkCallStatus } from "@/lib/core/ops";
 import { formatShiftWindow } from "@/lib/format";
-import {
-  bookOnFor,
-  checkCalls,
-  contactAttempts,
-  liveAssignments,
-  personName,
-  postById,
-  siteNameForPost,
-} from "@/lib/mock/ops";
+import type { LiveRow } from "@/lib/db/queries";
 
 /**
  * The operational summary on the dashboard.
@@ -23,7 +15,7 @@ import {
  * is the live board, and there is one of those. What belongs here is the answer
  * to "is anything wrong right now", with a route to the detail.
  */
-export function LiveStrip() {
+export function LiveStrip({ rows: input }: { rows: LiveRow[] }) {
   const now = useNow(30_000);
 
   if (!now) {
@@ -36,16 +28,11 @@ export function LiveStrip() {
     );
   }
 
-  const rows = liveAssignments(now).map((assignment) => {
-    const post = postById(assignment.postId);
-    const bookOn = bookOnFor(assignment.id);
-    return {
-      assignment,
-      post,
-      att: attendance(assignment, bookOn, now),
-      call: checkCallStatus(assignment, post, checkCalls, bookOn, contactAttempts, now),
-    };
-  });
+  const rows = input.map((r) => ({
+    ...r,
+    att: attendance(r.assignment, r.bookOn, now),
+    call: checkCallStatus(r.assignment, r.post, r.calls, r.bookOn, r.attempts, now),
+  }));
 
   const onPost = rows.filter((r) => r.att.state === "on_post").length;
   const exceptions = rows.filter(
@@ -73,17 +60,17 @@ export function LiveStrip() {
         </p>
       ) : (
         <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
-          {exceptions.map(({ assignment, post, att, call }) => {
-            const attBad = att.state === "late" || att.state === "no_show";
-            const status = attBad ? att : call;
+          {exceptions.map((r) => {
+            const attBad = r.att.state === "late" || r.att.state === "no_show";
+            const status = attBad ? r.att : r.call;
             return (
-              <li key={assignment.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
+              <li key={r.assignment.id} className="flex flex-wrap items-center justify-between gap-2 py-2.5">
                 <div className="min-w-0">
-                  <p className="text-[13px] font-medium">{personName(assignment.personId)}</p>
+                  <p className="text-[13px] font-medium">{r.personName}</p>
                   <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                    {siteNameForPost(post.id)} — {post.name} ·{" "}
+                    {r.siteName} — {r.post.name} ·{" "}
                     <span className="tnum tabular-nums">
-                      {formatShiftWindow(assignment.startsAt, assignment.endsAt)}
+                      {formatShiftWindow(r.assignment.startsAt, r.assignment.endsAt)}
                     </span>
                   </p>
                 </div>

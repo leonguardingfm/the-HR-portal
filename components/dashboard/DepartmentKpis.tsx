@@ -2,6 +2,7 @@ import { Card } from "@/components/ui/Card";
 import { SEVERITY_META } from "@/lib/labels";
 import { departmentKpis } from "@/lib/mock/ops";
 import type { DepartmentId } from "@/lib/core/types";
+import type { DashboardCounts } from "@/lib/db/queries";
 
 const DEPARTMENT_LABELS: Record<DepartmentId, string> = {
   control: "Control",
@@ -23,9 +24,43 @@ const DEPARTMENT_LABELS: Record<DepartmentId, string> = {
  * to compute yet — said out loud, because a figure whose provenance is unclear
  * is worse than no figure.
  */
-export function DepartmentKpis() {
+export function DepartmentKpis({ counts }: { counts: DashboardCounts }) {
+  // The derivable figures are replaced with the real query result; the rest
+  // stay asserted and are labelled as such on screen. A number whose
+  // provenance is unclear is worse than no number.
+  const live: Record<string, { value: string; detail: string }> = {
+    "Open requirements": {
+      value: String(counts.openRequirements),
+      detail: "Raised and not yet filled",
+    },
+    "Files on the clock": {
+      value: String(counts.filesOnClock),
+      detail: "In conditional employment, screening not complete",
+    },
+    "Licences expiring in 90 days": {
+      value: String(counts.expiringIn90),
+      detail: `${counts.expiringIn30} inside 30 days`,
+    },
+    "Documents expired": {
+      value: String(counts.expired),
+      detail: "Past their date and still on the register",
+    },
+    "Open incidents": {
+      value: String(counts.openIncidents),
+      detail: "Awaiting client notification",
+    },
+    "Overdue tasks": {
+      value: String(counts.overdueWork),
+      detail: "Across all departments",
+    },
+  };
+
+  const kpis = departmentKpis.map((k) =>
+    live[k.label] ? { ...k, ...live[k.label], derivable: true } : k,
+  );
+
   const grouped = Object.entries(
-    departmentKpis.reduce<Record<string, typeof departmentKpis>>((acc, k) => {
+    kpis.reduce<Record<string, typeof kpis>>((acc, k) => {
       (acc[k.department] ??= []).push(k);
       return acc;
     }, {}),
@@ -34,7 +69,7 @@ export function DepartmentKpis() {
   return (
     <Card
       title="Department KPIs"
-      subtitle="Derived from the event log rather than maintained. Management reporting cannot drift from operations if it has no numbers of its own."
+      subtitle="Queried, not maintained. Management reporting cannot drift from operations if it has no numbers of its own — the ones still marked asserted are the ones with no data behind them yet."
     >
       <div className="grid gap-x-6 gap-y-4 sm:grid-cols-2 xl:grid-cols-4">
         {grouped.map(([department, kpis]) => (
