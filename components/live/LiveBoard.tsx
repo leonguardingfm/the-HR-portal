@@ -15,8 +15,10 @@ import {
   escalationAction,
 } from "@/lib/core/ops";
 import {
+  attemptsFor,
   bookOnFor,
   checkCalls,
+  contactAttempts,
   incidents,
   liveAssignments,
   personName,
@@ -68,7 +70,7 @@ export function LiveBoard() {
       const post = postById(assignment.postId);
       const bookOn = bookOnFor(assignment.id);
       const att = attendance(assignment, bookOn, now);
-      const call = checkCallStatus(assignment, post, checkCalls, bookOn, now);
+      const call = checkCallStatus(assignment, post, checkCalls, bookOn, contactAttempts, now);
       const worst = SEVERITY_RANK[att.severity] <= SEVERITY_RANK[call.severity] ? att.severity : call.severity;
       return { assignment, post, bookOn, att, call, worst };
     })
@@ -82,7 +84,7 @@ export function LiveBoard() {
   const awaiting = rows.filter((r) => r.att.state === "awaiting_book_on").length;
   const attendanceProblems = rows.filter((r) => r.att.state === "late" || r.att.state === "no_show");
   const callProblems = rows.filter((r) => r.call.escalation > 0);
-  const welfare = rows.filter((r) => r.call.state === "welfare");
+  const welfare = rows.filter((r) => r.call.escalation === 3);
   const openIncidents = incidents.filter((i) => !i.clientNotified && i.severity !== "log_only");
 
   /** Anything with a named next action, worst first. This is the work. */
@@ -98,20 +100,24 @@ export function LiveBoard() {
           ? "Ring the officer, then find cover. Client notification if cover will be late."
           : "Ring the officer to confirm they are on their way.",
       step: r.att.state === "no_show" ? 2 : 1,
+      tried: [] as string[],
     })),
     ...callProblems.map((r) => ({
       key: `call-${r.assignment.id}`,
       severity: r.call.severity,
       what:
-        r.call.state === "welfare"
+        r.call.escalation === 3
           ? "No contact — welfare check"
-          : r.call.state === "no_contact"
+          : r.call.escalation === 2
             ? "Cannot reach the officer"
-            : "Check call overdue",
+            : "Check call missed",
       who: personName(r.assignment.personId),
       where: `${siteNameForPost(r.post.id)} — ${r.post.name}${r.post.loneWorking ? " (lone working)" : ""}`,
       action: escalationAction(r.call.escalation) ?? "Try the officer.",
       step: r.call.escalation,
+      tried: attemptsFor(r.assignment.id)
+        .filter((a) => !a.reached)
+        .map((a) => `${CHANNEL_EVIDENCE[a.channel].label} — ${a.note ?? "no answer"}`),
     })),
     ...openIncidents.map((i) => ({
       key: `inc-${i.id}`,
@@ -121,6 +127,7 @@ export function LiveBoard() {
       where: i.summary,
       action: "Notify the client contact and record the time it was done.",
       step: 1,
+      tried: [] as string[],
     })),
   ].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
 
@@ -182,6 +189,15 @@ export function LiveBoard() {
                     <span style={{ color: "var(--text-muted)" }}>Step {a.step}: </span>
                     {a.action}
                   </p>
+                  {a.tried.length > 0 && (
+                    <ul className="mt-1 space-y-0.5">
+                      {a.tried.map((t) => (
+                        <li key={t} className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          Already tried: {t}
+                        </li>
+                      ))}
+                    </ul>
+                  )}
                 </div>
                 <StatusPill severity={a.severity} />
               </li>
@@ -303,23 +319,19 @@ export function LiveBoard() {
                 <div className="min-w-0">
                   <p className="text-[13px]">{l.action}</p>
                   <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                    {l.owner}
-                    {l.afterMinutes > 0
-                      ? ` · ${l.afterMinutes} min past the hour, still no contact`
-                      : " · as soon as the hour passes"}
+                    {l.owner} · {l.step === 1 ? "the moment the hour is crossed" : l.reached}
                   </p>
                 </div>
               </li>
             ))}
           </ol>
           <p className="mt-4 text-[11px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-            The hour and the three steps are the confirmed process. The two
-            intervals between the steps are <strong>assumed</strong> — the
-            process says &ldquo;further measures&rdquo; without naming a time,
-            and the one worth agreeing deliberately is how long without contact
-            before someone sets off for site. All of it lives in
-            lib/core/ops.ts and becomes an Admin setting, so changing it is not
-            a release.
+            <strong>There are no timers between the steps.</strong> Crossing the
+            hour triggers it at once, and the step moves up when an attempt
+            fails — so a row sits on step 2 because the mobile did not answer,
+            not because a clock ran down. Logging each attempt is therefore not
+            admin: it is what drives the escalation, and it is the record that
+            shows the duty of care was discharged.
           </p>
         </Card>
       </div>

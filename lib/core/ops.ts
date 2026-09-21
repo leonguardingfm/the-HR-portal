@@ -7,17 +7,28 @@
  * configuration.
  *
  * The check-call rule is the confirmed process (E4): check calls are hourly,
- * and at one hour without one the escalation starts. Control then tries to
- * reach the officer; if contact cannot be made, a member of the operational
- * team goes to site to check they are safe.
+ * and the moment the hour is crossed it triggers. There is no grace period and
+ * no timer between the steps — Control tries to reach the officer, and if
+ * contact cannot be made, a member of the operational team goes to site.
  *
- * That last step is why the ladder ends with a person attending rather than
- * with a red row on a screen. It is a duty of care, not an administrative
- * chase.
+ * So the ladder advances on FAILED CONTACT ATTEMPTS, not on elapsed minutes.
+ * That is what actually happens: Control does not wait fifteen minutes to try
+ * the site phone, it tries the site phone because the mobile did not answer.
+ *
+ * The ladder ending with a person attending rather than with a red row on a
+ * screen is the point of the whole mechanism. It is a duty of care, not an
+ * administrative chase.
  */
 
 import type { Severity } from "../types";
-import type { Assignment, BookOn, CheckCall, ContactChannel, Post } from "./types";
+import type {
+  Assignment,
+  BookOn,
+  CheckCall,
+  ContactAttempt,
+  ContactChannel,
+  Post,
+} from "./types";
 
 /** Minutes throughout. */
 export const OPS_RULES = {
@@ -26,25 +37,11 @@ export const OPS_RULES = {
   /** Treated as a no-show, and escalated. */
   bookOnNoShowMinutes: 30,
   /**
-   * Hourly, per client instruction. At one hour without a check call the
-   * escalation starts — confirmed process, not a chosen threshold.
+   * Hourly, per client instruction. The moment the hour is crossed it
+   * triggers — confirmed process, and the only threshold in the rule. There is
+   * deliberately no grace period: the hour IS the tolerance.
    */
   checkCallIntervalMinutes: 60,
-  /**
-   * Minutes PAST the hour at which Control stops trying the officer alone and
-   * widens to the other contact routes. ASSUMED: the process says "further
-   * measures" without naming a time. Worth confirming.
-   */
-  contactAttemptMinutes: 15,
-  /**
-   * Minutes PAST the hour at which someone from the operational team sets off
-   * for site. ASSUMED, as above, and the one worth agreeing deliberately: it is
-   * the point at which this stops being an administrative problem.
-   *
-   * Both are measured from the missed hour, not from each other, so the ladder
-   * has one clock rather than three.
-   */
-  attendSiteMinutes: 30,
 } as const;
 
 // ---------------------------------------------------------------------------
@@ -130,48 +127,48 @@ export function attendance(
 // Check calls
 // ---------------------------------------------------------------------------
 
-export type CheckCallState =
-  | "not_required"
-  | "ok"
-  | "overdue"
-  | "no_contact"
-  | "welfare";
+export type CheckCallState = "not_required" | "ok" | "triggered";
 
 export interface CheckCallStatus {
   state: CheckCallState;
   label: string;
   severity: Severity;
   minutesSinceLast: number | null;
-  /** Step on the ladder below. Zero where nothing is needed yet. */
+  /** Minutes past the hour. Zero or less means nothing is due. */
+  minutesOver: number;
+  /** Step on the ladder — driven by failed attempts, not by elapsed time. */
   escalation: 0 | 1 | 2 | 3;
+  /** Attempts made since the last successful contact. */
+  attemptsMade: number;
 }
 
 /**
  * The escalation ladder — the confirmed process.
  *
  * Each step names who acts, because "overdue" with no named next person is how
- * a missed call becomes nobody's job. The third step is a person getting in a
- * car; that is the point of the whole mechanism.
+ * a missed call becomes nobody's job. Steps advance when an attempt fails, so
+ * nothing sits waiting for a clock: if Control tries the mobile and gets no
+ * answer, the board is already on step 2.
  */
 export const ESCALATION_LADDER = [
   {
     step: 1,
     action: "Control tries the officer — personal mobile, then the site phone where the post has one",
     owner: "Control",
-    afterMinutes: 0,
+    reached: "No answer",
   },
   {
     step: 2,
     action:
       "Further measures to make contact — the site phone, other officers on site, the client's on-site contact",
     owner: "Control",
-    afterMinutes: OPS_RULES.contactAttemptMinutes,
+    reached: "Still no contact",
   },
   {
     step: 3,
     action: "A member of the operational team attends site to check the officer is safe",
     owner: "Operations team",
-    afterMinutes: OPS_RULES.attendSiteMinutes,
+    reached: "Contact cannot be made",
   },
 ] as const;
 
@@ -180,32 +177,27 @@ export function checkCallStatus(
   post: Post,
   calls: CheckCall[],
   bookOn: BookOn | undefined,
+  attempts: ContactAttempt[] = [],
   now: Date = new Date(),
 ): CheckCallStatus {
-  if (!post.checkCallsRequired) {
-    return {
-      state: "not_required",
-      label: "Not required on this post",
-      severity: "neutral",
-      minutesSinceLast: null,
-      escalation: 0,
-    };
-  }
+  const idle = (label: string): CheckCallStatus => ({
+    state: "not_required",
+    label,
+    severity: "neutral",
+    minutesSinceLast: null,
+    minutesOver: 0,
+    escalation: 0,
+    attemptsMade: 0,
+  });
+
+  if (!post.checkCallsRequired) return idle("Not required on this post");
 
   const t = now.getTime();
   const start = new Date(assignment.startsAt).getTime();
   const end = new Date(assignment.endsAt).getTime();
 
   // Calls are expected only while the officer is actually on post.
-  if (!bookOn || t < start || t >= end) {
-    return {
-      state: "not_required",
-      label: "Not on post",
-      severity: "neutral",
-      minutesSinceLast: null,
-      escalation: 0,
-    };
-  }
+  if (!bookOn || t < start || t >= end) return idle("Not on post");
 
   const mine = calls
     .filter((c) => c.assignmentId === assignment.id)
@@ -214,46 +206,50 @@ export function checkCallStatus(
   // The clock runs from the book-on until the first call.
   const lastAt = mine.length > 0 ? new Date(mine[0].at).getTime() : new Date(bookOn.at).getTime();
   const minutesSinceLast = Math.round((t - lastAt) / MS_PER_MIN);
-  const overdueBy = minutesSinceLast - OPS_RULES.checkCallIntervalMinutes;
+  const minutesOver = minutesSinceLast - OPS_RULES.checkCallIntervalMinutes;
 
-  if (overdueBy < 0) {
+  // Attempts only count if they were made after the call went missing —
+  // anything earlier belongs to a check call that was since satisfied.
+  const failedAttempts = attempts.filter(
+    (a) => a.assignmentId === assignment.id && !a.reached && new Date(a.at).getTime() > lastAt,
+  ).length;
+
+  if (minutesOver <= 0) {
     return {
       state: "ok",
-      label: `Next in ${Math.abs(overdueBy)} min`,
+      label: `Next in ${Math.abs(minutesOver)} min`,
       severity: "good",
       minutesSinceLast,
+      minutesOver,
       escalation: 0,
+      attemptsMade: failedAttempts,
     };
   }
 
-  // Past the hour. The ladder starts immediately — there is no grace period,
-  // because the hour IS the tolerance.
-  if (overdueBy >= OPS_RULES.attendSiteMinutes) {
-    return {
-      state: "welfare",
-      label: `No contact for ${minutesSinceLast} min — attend site`,
-      severity: "critical",
-      minutesSinceLast,
-      escalation: 3,
-    };
-  }
+  // Past the hour: triggered, immediately. The step is decided by what has
+  // already been tried, so it opens at step 1 and moves up as attempts fail.
+  const escalation = Math.min(failedAttempts + 1, 3) as 1 | 2 | 3;
 
-  if (overdueBy >= OPS_RULES.contactAttemptMinutes) {
-    return {
-      state: "no_contact",
-      label: `No contact — ${minutesSinceLast} min since last call`,
-      severity: "critical",
-      minutesSinceLast,
-      escalation: 2,
-    };
-  }
+  // Severity separates "just triggered" from "we have tried and failed", which
+  // is what lets the board sort the work. It is not a second set of thresholds:
+  // both are actionable now, and both are red or amber the moment they appear.
+  const severity: Severity = escalation === 1 ? "serious" : "critical";
+
+  const label =
+    escalation === 3
+      ? `Contact not made after ${failedAttempts} attempts — attend site`
+      : escalation === 2
+        ? `No answer after ${failedAttempts} attempt${failedAttempts === 1 ? "" : "s"} — widen contact`
+        : `Check call missed — ${minutesOver} min over`;
 
   return {
-    state: "overdue",
-    label: `Check call overdue by ${overdueBy} min`,
-    severity: "serious",
+    state: "triggered",
+    label,
+    severity,
     minutesSinceLast,
-    escalation: 1,
+    minutesOver,
+    escalation,
+    attemptsMade: failedAttempts,
   };
 }
 

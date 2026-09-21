@@ -14,6 +14,7 @@ worked out in [`docs/proposal`](../proposal/README.md) and is cross-referenced r
 | [02 — Shared engines](02-shared-engines.md) | The nine engines every domain reuses, and the single-source-of-truth register | You are about to build anything |
 | [03 — Release plan](03-release-plan.md) | What gets built in which order, what each release unlocks, and what we are deliberately *not* building | You want to know when something lands |
 | [04 — Decisions needed](04-decisions-needed.md) | The new questions this scope creates (E-series), separate from the HR ones (A–D in proposal/07) | You are the one who has to decide |
+| [05 — Control discovery](05-control-discovery.md) | The question list for the session with Control, before any rostering estimate | You are about to sit down with Control |
 
 ## The one rule that keeps this from becoming a mess
 

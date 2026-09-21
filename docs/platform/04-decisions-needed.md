@@ -35,28 +35,32 @@ strength of each record is visible rather than assumed. Two consequences:
   needed now; worth knowing it is the upgrade path if a client ever asks for proof of patrol.
 
 ### E4 — The check-call ladder — **answered**
-> After one hour, if the officer has not given the check call, it starts triggering. Then we take
-> further measures to get in contact. If we cannot reach them, a person from the operational team
-> goes to site to check everything is okay.
+> After one hour, if the officer has not given the check call, it starts triggering. It gives instant
+> triggers, if it crosses a minute. Then we take further measures to get in contact. If we cannot
+> reach them, a person from the operational team goes to site to check everything is okay.
 
 Implemented exactly as stated, in `lib/core/ops.ts`:
 
-| Step | Trigger | Who acts |
-|------|---------|----------|
-| — | Check call received | Nothing. Clock restarts |
-| 1 | One hour with no check call | Control tries the officer — own mobile, then the site phone |
-| 2 | Contact still not made | Control widens it — site phone, other officers on site, the client's on-site contact |
-| 3 | Contact cannot be made | **A member of the operational team attends site** |
+| Step | What moves it here | Who acts |
+|------|--------------------|----------|
+| — | Check call received | Nothing. The clock restarts |
+| 1 | **The hour is crossed** — triggers immediately, no grace period | Control tries the officer: own mobile, then the site phone |
+| 2 | That attempt failed | Control widens it — site phone, other officers on site, the client's on-site contact |
+| 3 | Contact still cannot be made | **A member of the operational team attends site** |
 
-**Two intervals are assumed rather than confirmed**, because the process says "further measures"
-without naming a time: 15 minutes from step 1 to step 2, and 30 minutes from step 1 to someone
-setting off for site. The second one is worth agreeing deliberately — it is the point at which this
-stops being an administrative problem and becomes a welfare one. Both are single values in one file
-and become Admin settings, so changing them is not a release.
+**There are no timers between the steps, and nothing is assumed.** The only threshold in the whole
+rule is the hour itself. The step advances when an **attempt fails**, which is what actually
+happens: Control does not wait a set number of minutes before trying the site phone, it tries the
+site phone because the mobile did not answer.
 
-One open option, not an assumption we have made: whether a **lone-working post** should have a
-shorter ladder than a post with several officers on it. The rule above is currently applied
-identically to both.
+That has one consequence worth knowing, because it is a change to how Control works rather than just
+to the software: **each attempt has to be logged.** The attempt log is what drives the escalation —
+it is not paperwork after the fact. It is also the record that shows the duty of care was discharged,
+which is the thing an insurer or a coroner would ask for.
+
+One open option, not an assumption we have made: whether a **lone-working post** should escalate
+faster than a post with several officers on it. The rule above is currently applied identically to
+both.
 
 ## Blocking R3
 

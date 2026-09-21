@@ -161,6 +161,25 @@ export interface CheckCall {
   note: string | null;
 }
 
+/**
+ * An attempt by Control to reach an officer who has missed a check call.
+ *
+ * The escalation ladder advances on these rather than on a timer: a missed call
+ * triggers the moment it crosses the hour, and the step Control is on is
+ * decided by what has already been tried and failed. Recording the attempts is
+ * therefore not admin — it is what drives the escalation, and it is the record
+ * that shows the duty of care was discharged.
+ */
+export interface ContactAttempt {
+  id: string;
+  assignmentId: string;
+  at: string;
+  by: string;
+  channel: ContactChannel;
+  reached: boolean;
+  note: string | null;
+}
+
 export type IncidentSeverity = "log_only" | "notable" | "serious";
 
 export interface Incident {

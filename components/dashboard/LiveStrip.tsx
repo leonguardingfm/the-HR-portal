@@ -9,6 +9,7 @@ import { formatShiftWindow } from "@/lib/format";
 import {
   bookOnFor,
   checkCalls,
+  contactAttempts,
   liveAssignments,
   personName,
   postById,
@@ -42,7 +43,7 @@ export function LiveStrip() {
       assignment,
       post,
       att: attendance(assignment, bookOn, now),
-      call: checkCallStatus(assignment, post, checkCalls, bookOn, now),
+      call: checkCallStatus(assignment, post, checkCalls, bookOn, contactAttempts, now),
     };
   });
 

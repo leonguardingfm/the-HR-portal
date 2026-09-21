@@ -23,7 +23,8 @@ and a review-ready front end running on demonstration data.
 | Built | State |
 |-------|-------|
 | Domain map and single-source-of-truth register | Done, and rendered in the app under Admin so it can be checked rather than trusted |
-| Identity, Places, Assignment, Forms, Documents, Work, Scheduler, Events, Access — types and rules | Done as typed modules with the real logic; no database yet |
+| Identity, Places, Assignment, Forms, Documents, Work, Scheduler, Events, Access — types and rules | Done as typed modules with the real logic |
+| The database schema for all of it, with its constraints tested | Done — see `prisma/`. Not yet wired to the application |
 | BS 7858 rule layer, Leon's policy layer, service levels | Done and in use |
 | Sign-in with name + active role | Done |
 | Command centre dashboard spanning all departments | Done |
@@ -35,11 +36,19 @@ and a review-ready front end running on demonstration data.
 **Exit condition:** the process and the domain boundaries are signed off, and E1–E3 in
 [document 04](04-decisions-needed.md) are answered.
 
-## R1 — HR, for real
+## R1 — HR, for real *(started)*
 
 A database, real authentication and the recruitment and vetting domains in live use.
 
-- Prisma schema for the engines and the HR domains; company sign-on; server-side permissions.
+**Done:** the schema (`prisma/schema.prisma`) for the engines and every domain, with the rules that
+cannot be expressed in it written as database constraints (`prisma/constraints.sql`) and tested —
+separation of duties on a screening file, no double-booked officer, an append-only event log, no
+retained copy where the document type forbids one, and the standard's four-week extension limit.
+Twenty-four assertions prove each one rejects what it should.
+
+**Remaining:**
+
+- Wire the application to the database; company sign-on; server-side permissions.
 - Requirements → candidates → interviews → offer → onboarding, with the duplicate check at entry.
 - BS 7858 screening files: checks, evidence, the 12-week clock, the three gates, controller reviews.
 - The document engine with per-candidate checklists validated at upload.

@@ -47,15 +47,21 @@ against demonstration data rather than outlined:
 Plus the HR modules from the earlier phase: requirements, candidates, vetting, onboarding, tasks,
 insight and admin. Modules that are planned rather than built say so and show what they will sit on.
 
-**All data in the application is demonstration data.** No integration is connected. The database,
-real authentication and the first live use arrive in R1 — see
-[`docs/platform/03`](docs/platform/03-release-plan.md).
+**Release R1 has started: the database schema is written and proved.**
+[`prisma/schema.prisma`](prisma/schema.prisma) covers the engines and the domains — 61 models and
+enums — with the eight rules Prisma cannot express in
+[`prisma/constraints.sql`](prisma/constraints.sql) and 24 assertions proving each one rejects the
+case it exists to reject (`npm run db:test`). The application is not wired to it yet.
+
+**All data in the running application is still demonstration data.** No integration is connected.
 
 ```bash
 npm install
-npm run dev        # http://localhost:3000
-npm run build      # production build
-npm run typecheck  # tsc --noEmit
+npm run dev          # http://localhost:3000
+npm run build        # production build
+npm run typecheck    # tsc --noEmit
+npm run db:validate  # check the schema
+npm run db:test      # apply the migration to a throwaway database and test the constraints
 ```
 
 **Sign in with your name and the role you are working as.** People hold more than one role and move
@@ -77,7 +83,7 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 | Gate 2 (deployment to site) — our own policy, stricter than the standard | `lib/policy.ts` — `evaluateDeploymentGate` |
 | **Deployability, derived from the screening file and the expiry dates** | `lib/core/deployability.ts` — `evaluateDeployability`, `canPublishAssignment` |
 | **Book-on windows, late and no-show detection** | `lib/core/ops.ts` — `attendance` |
-| **Check calls and the three-step escalation ladder** — hourly, triggering at the hour, ending with the operational team attending site | `lib/core/ops.ts` — `checkCallStatus`, `ESCALATION_LADDER` |
+| **Check calls and the three-step escalation ladder** — hourly, triggering the instant the hour is crossed, advancing on failed contact attempts rather than on timers, ending with the operational team attending site | `lib/core/ops.ts` — `checkCallStatus`, `ESCALATION_LADDER` |
 | Separation of duties: no self-screening, controller ≠ administrator, controllers screened by higher management | `lib/roles.ts` — `validateFileAssignment` |
 | A screening role cannot be granted without own screening, NDA and in-date training (6.1, 6.2) | `lib/roles.ts` — `canGrantRole` |
 | Interview before any offer (7.3.4), for every stage the client requires | `lib/bs7858.ts` — `evaluateGate1` |
@@ -86,6 +92,7 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 | Expiry warnings at 90 / 60 / 30 days, one engine for every document type | `lib/core/documents.ts`, `lib/sla.ts` |
 | Service levels, chaser ladders, task severity | `lib/sla.ts` — ours and configurable, deliberately separate from the standard's rules |
 | **The platform map, the engine list and the ownership register** | `lib/core/domains.ts` — rendered at `/platform` |
+| **The database schema, and the constraints that make its rules true** | `prisma/schema.prisma`, `prisma/constraints.sql` — 24 assertions in `prisma/constraints.test.sql` |
 | Sign-in with name and active role, and who is working on what | `components/layout/SessionContext.tsx`, `components/dashboard/ActiveNow.tsx` |
 | Role-based, department-grouped navigation | `components/layout/nav.ts` |
 
@@ -128,6 +135,10 @@ lib/
   sla.ts                 Service levels and chaser rhythms
   roles.ts types.ts labels.ts format.ts
   mock/                  Demonstration data — data.ts (HR) and ops.ts (operational)
+prisma/
+  schema.prisma          The R1 database. Engines first, then the domains on them
+  constraints.sql        The eight rules Prisma cannot express. Not optional
+  constraints.test.sql   24 assertions that each rule rejects what it should
 docs/platform/           The platform plan — read this first
 docs/proposal/           The HR detail: process review, BS 7858 mapping, decisions
 ```
@@ -178,6 +189,7 @@ never the only channel. Light and dark are each validated against their own surf
 | [Platform 02 Shared engines](docs/platform/02-shared-engines.md) | The nine engines, what would have been built twice, and the single-source-of-truth register |
 | [Platform 03 Release plan](docs/platform/03-release-plan.md) | What is built in which order, and what we are deliberately not building |
 | [Platform 04 Decisions needed](docs/platform/04-decisions-needed.md) | The E-series questions this scope creates, and which releases they block |
+| [Platform 05 Control discovery](docs/platform/05-control-discovery.md) | 43 questions for the session with Control, before any rostering estimate |
 
 **[`docs/proposal/README.md`](docs/proposal/README.md)** — the HR detail, unchanged and still
 authoritative for recruitment and vetting. Documents 01–07 cover the process review, the BS 7858

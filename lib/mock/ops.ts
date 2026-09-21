@@ -14,6 +14,7 @@ import type {
   Assignment,
   BookOn,
   CheckCall,
+  ContactAttempt,
   DepartmentId,
   DocumentRecord,
   EventRecord,
@@ -143,6 +144,22 @@ export const checkCalls: CheckCall[] = [
   { id: "cc5", assignmentId: "a7", at: at(-30), channel: "app", allWell: true, note: null },
   { id: "cc6", assignmentId: "a10", at: at(-62), channel: "phone", allWell: true, note: null },
 ];
+
+/**
+ * What Control has already tried on the calls that have gone missing. These
+ * drive the escalation step — see lib/core/ops.ts. Between them these three
+ * assignments put the board on step 1, step 2 and step 3 at once, which is the
+ * only way to review whether the ladder reads correctly.
+ */
+export const contactAttempts: ContactAttempt[] = [
+  { id: "at1", assignmentId: "a2", at: at(-14), by: "Usman", channel: "phone", reached: false, note: "Mobile rang out twice." },
+  { id: "at2", assignmentId: "a3", at: at(-60), by: "Usman", channel: "phone", reached: false, note: "No answer on the mobile." },
+  { id: "at3", assignmentId: "a3", at: at(-40), by: "Usman", channel: "site_phone", reached: false, note: "Site phone unanswered. No other officer on site to ask." },
+  { id: "at4", assignmentId: "a1", at: hours(-4), by: "Ahmed", channel: "phone", reached: true, note: "Answered — radio had been left in the gatehouse." },
+];
+
+export const attemptsFor = (assignmentId: string) =>
+  contactAttempts.filter((a) => a.assignmentId === assignmentId);
 
 export const incidents: Incident[] = [
   { id: "i1", assignmentId: "a2", at: at(-40), severity: "notable", summary: "Shoplifting detained and handed to police at the concourse entrance.", reportedBy: "Liam Corrigan", clientNotified: false },
