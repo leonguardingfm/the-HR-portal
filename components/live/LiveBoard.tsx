@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/ui/ActionButton";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatTile } from "@/components/ui/StatTile";
@@ -14,8 +15,23 @@ import {
   checkCallStatus,
   escalationAction,
 } from "@/lib/core/ops";
+import {
+  logContactAttempt,
+  notifyClient,
+  recordBookOn,
+  recordCheckCall,
+} from "@/lib/actions/operations";
 import type { IncidentRow, LiveRow } from "@/lib/db/queries";
 import type { Severity } from "@/lib/types";
+
+/** Which of these buttons this role may press. Decided on the server; repeated
+ *  here only so a refusal is visible before it is attempted. */
+export interface LivePerms {
+  checkCall: string | null;
+  attempt: string | null;
+  bookOn: string | null;
+  notify: string | null;
+}
 
 /**
  * The board Control watches.
@@ -44,9 +60,11 @@ const SEVERITY_RANK: Record<Severity, number> = {
 export function LiveBoard({
   rows: input,
   incidents,
+  perms,
 }: {
   rows: LiveRow[];
   incidents: IncidentRow[];
+  perms: LivePerms;
 }) {
   const now = useNow(30_000);
 
@@ -89,6 +107,23 @@ export function LiveBoard({
           : "Ring the officer to confirm they are on their way.",
       step: r.att.state === "no_show" ? 2 : 1,
       tried: [] as string[],
+      buttons: (
+        <>
+          <ActionButton
+            action={recordBookOn.bind(null, r.assignment.id)}
+            fields={{ channel: "site_phone" }}
+            label="Book on now"
+            variant="primary"
+            denied={perms.bookOn}
+          />
+          <ActionButton
+            action={logContactAttempt.bind(null, r.assignment.id)}
+            fields={{ channel: "phone", note: "No answer on the mobile" }}
+            label="Log a failed call"
+            denied={perms.attempt}
+          />
+        </>
+      ),
     })),
     ...callProblems.map((r) => ({
       key: `call-${r.assignment.id}`,
@@ -106,6 +141,26 @@ export function LiveBoard({
       tried: r.attempts
         .filter((a) => !a.reached)
         .map((a) => `${CHANNEL_EVIDENCE[a.channel].label} — ${a.note ?? "no answer"}`),
+      buttons: (
+        <>
+          <ActionButton
+            action={recordCheckCall.bind(null, r.assignment.id)}
+            fields={{ channel: "phone" }}
+            label="Check call received"
+            variant="primary"
+            denied={perms.checkCall}
+          />
+          <ActionButton
+            action={logContactAttempt.bind(null, r.assignment.id)}
+            fields={{
+              channel: r.call.escalation === 1 ? "phone" : "site_phone",
+              note: r.call.escalation === 1 ? "Mobile rang out" : "Site phone unanswered",
+            }}
+            label="Log a failed attempt"
+            denied={perms.attempt}
+          />
+        </>
+      ),
     })),
     ...openIncidents.map((i) => ({
       key: `inc-${i.id}`,
@@ -116,6 +171,14 @@ export function LiveBoard({
       action: "Notify the client contact and record the time it was done.",
       step: 1,
       tried: [] as string[],
+      buttons: (
+        <ActionButton
+          action={notifyClient.bind(null, i.id)}
+          label="Client notified"
+          variant="primary"
+          denied={perms.notify}
+        />
+      ),
     })),
   ].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
 
@@ -208,6 +271,7 @@ export function LiveBoard({
                       ))}
                     </ul>
                   )}
+                  <div className="mt-2 flex flex-wrap items-start gap-2">{a.buttons}</div>
                 </div>
                 <StatusPill severity={a.severity} />
               </li>
@@ -230,6 +294,7 @@ export function LiveBoard({
                 <th className="px-1 pb-2 font-medium">Attendance</th>
                 <th className="px-1 pb-2 font-medium">Check call</th>
                 <th className="px-1 pb-2 font-medium">Evidence</th>
+                <th className="px-1 pb-2 font-medium">Do</th>
               </tr>
             </thead>
             <tbody>
@@ -285,6 +350,26 @@ export function LiveBoard({
                         <span style={{ color: "var(--text-muted)" }}>—</span>
                       )}
                     </td>
+                    <td className="px-1 py-2.5">
+                      <div className="flex flex-wrap items-start gap-1.5">
+                        {r.post.checkCallsRequired && r.bookOn && (
+                          <ActionButton
+                            action={recordCheckCall.bind(null, r.assignment.id)}
+                            fields={{ channel: "phone" }}
+                            label="Check call"
+                            denied={perms.checkCall}
+                          />
+                        )}
+                        {!r.bookOn && r.assignment.state !== "draft" && (
+                          <ActionButton
+                            action={recordBookOn.bind(null, r.assignment.id)}
+                            fields={{ channel: "site_phone" }}
+                            label="Book on"
+                            denied={perms.bookOn}
+                          />
+                        )}
+                      </div>
+                    </td>
                   </tr>
                 );
               })}
@@ -336,6 +421,15 @@ export function LiveBoard({
                     {i.siteName ? ` · ${i.siteName}` : ""} ·{" "}
                     {i.clientNotified ? "Client notified" : "Client not yet notified"}
                   </p>
+                  {!i.clientNotified && (
+                    <div className="mt-1.5">
+                      <ActionButton
+                        action={notifyClient.bind(null, i.id)}
+                        label="Client notified"
+                        denied={perms.notify}
+                      />
+                    </div>
+                  )}
                 </li>
               ))}
             </ul>

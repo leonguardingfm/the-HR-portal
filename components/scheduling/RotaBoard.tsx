@@ -1,10 +1,12 @@
 "use client";
 
+import { ActionButton } from "@/components/ui/ActionButton";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatTile } from "@/components/ui/StatTile";
 import { ClauseRef, StatusPill, Tag } from "@/components/ui/StatusPill";
 import { formatDate, formatShiftWindow } from "@/lib/format";
+import { publishAssignment } from "@/lib/actions/operations";
 import type { PublicationCheck, RotaRow } from "@/lib/db/queries";
 
 /**
@@ -23,9 +25,11 @@ import type { PublicationCheck, RotaRow } from "@/lib/db/queries";
 export function RotaBoard({
   rows,
   checks,
+  publishDenied,
 }: {
   rows: RotaRow[];
   checks: PublicationCheck[];
+  publishDenied: string | null;
 }) {
   const blocked = checks.filter((c) => !c.allowed);
   const amended = rows.filter((r) => r.assignment.amendments.length > 0);
@@ -93,10 +97,18 @@ export function RotaBoard({
                       {formatShiftWindow(c.startsAt, c.endsAt)}
                     </p>
                   </div>
-                  <StatusPill
-                    severity={c.allowed ? "good" : "critical"}
-                    label={c.allowed ? "Can be published" : "Blocked"}
-                  />
+                  <div className="flex flex-wrap items-start gap-2">
+                    <StatusPill
+                      severity={c.allowed ? "good" : "critical"}
+                      label={c.allowed ? "Can be published" : "Blocked"}
+                    />
+                    <ActionButton
+                      action={publishAssignment.bind(null, c.assignmentId)}
+                      label="Publish"
+                      variant={c.allowed ? "primary" : "quiet"}
+                      denied={publishDenied}
+                    />
+                  </div>
                 </div>
                 {!c.allowed && (
                   <ul className="mt-1.5 space-y-1">

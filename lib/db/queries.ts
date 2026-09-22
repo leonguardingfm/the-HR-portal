@@ -28,7 +28,7 @@ import type {
   Post,
 } from "../core/types";
 import type { DeployabilityInput } from "../core/deployability";
-import type { Check, ScreeningFile, ScreeningPeriodYears } from "../types";
+import type { Check, Role, ScreeningFile, ScreeningPeriodYears } from "../types";
 import { db } from "./client";
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
@@ -643,4 +643,51 @@ export async function getWorkforceDeployability(now = new Date()): Promise<Workf
       deployability: evaluateDeployability(v.input, now),
     }))
     .sort((a, b) => a.personName.localeCompare(b.personName));
+}
+
+// ---------------------------------------------------------------------------
+// Presence — who is signed in, and what they are working as
+// ---------------------------------------------------------------------------
+
+export interface PresenceRow {
+  id: string;
+  userId: string;
+  name: string;
+  activeRole: Role;
+  signedInAt: string;
+  lastSeenAt: string;
+  openTasks: number;
+}
+
+/**
+ * Open work sessions.
+ *
+ * A record rather than an inference: opened at sign-in, closed at sign-out,
+ * moved when someone changes the role they are working as. Sessions stale for
+ * more than twelve hours are treated as gone — a browser closed without signing
+ * out should not haunt the board.
+ */
+export async function getPresence(now = new Date()): Promise<PresenceRow[]> {
+  const rows = await db.workSession.findMany({
+    where: { signedOutAt: null, lastSeenAt: { gte: new Date(now.getTime() - 12 * 3_600_000) } },
+    orderBy: { lastSeenAt: "desc" },
+    include: { user: true },
+  });
+
+  const counts = await db.workItem.groupBy({
+    by: ["ownerUserId"],
+    where: { state: { in: ["open", "blocked"] } },
+    _count: { _all: true },
+  });
+  const byUser = new Map(counts.map((c) => [c.ownerUserId, c._count._all]));
+
+  return rows.map((r) => ({
+    id: r.id,
+    userId: r.userId,
+    name: r.user.displayName,
+    activeRole: r.activeRole as Role,
+    signedInAt: isoRequired(r.signedInAt),
+    lastSeenAt: isoRequired(r.lastSeenAt),
+    openTasks: byUser.get(r.userId) ?? 0,
+  }));
 }

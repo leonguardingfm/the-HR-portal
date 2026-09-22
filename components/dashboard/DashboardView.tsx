@@ -1,15 +1,13 @@
-"use client";
-
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { FunnelChart } from "@/components/charts/FunnelChart";
 import { StageSlaChart } from "@/components/charts/StageSlaChart";
 import { WorkloadChart } from "@/components/charts/WorkloadChart";
-import { useSession } from "@/components/layout/SessionContext";
 import { ROLE_LABELS } from "@/lib/labels";
 import { funnel, stageCycleTimes, workload } from "@/lib/mock/data";
-import type { DashboardCounts, LiveRow } from "@/lib/db/queries";
+import type { DashboardCounts, LiveRow, PresenceRow } from "@/lib/db/queries";
 import type { EventRecord } from "@/lib/core/types";
+import type { Role } from "@/lib/types";
 import { ActiveNow } from "./ActiveNow";
 import { ActivityFeed } from "./ActivityFeed";
 import { DepartmentKpis } from "./DepartmentKpis";
@@ -36,14 +34,19 @@ export function DashboardView({
   liveRows,
   events,
   counts,
+  presence,
+  role,
+  name,
+  userId,
 }: {
   liveRows: LiveRow[];
   events: EventRecord[];
   counts: DashboardCounts;
+  presence: PresenceRow[];
+  role: Role;
+  name: string;
+  userId: string;
 }) {
-  const { session } = useSession();
-  const role = session?.activeRole ?? "recruitment";
-  const name = session?.name ?? "";
 
   const operational = role === "control" || role === "operations_manager";
   const management =
@@ -83,7 +86,7 @@ export function DashboardView({
       {management && <DepartmentKpis counts={counts} />}
 
       <div className="grid gap-5 xl:grid-cols-2">
-        <ActiveNow />
+        <ActiveNow rows={presence} youUserId={userId} />
         <ActivityFeed events={events} />
       </div>
 

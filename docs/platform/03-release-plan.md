@@ -52,11 +52,19 @@ the rule modules already take — so `evaluateDeployability`, `checkCallStatus` 
 run unchanged against database rows. The retention queue is derived from when each application was
 withdrawn and each employment ceased, rather than maintained as a list.
 
+**Also done:** sessions, permissions and writes. A signed http-only cookie carries who you are
+and the role you are working as; middleware turns away every unauthenticated request before it
+reaches a query; and every write goes through a server action that checks the role **on the
+server** before it touches the database, then writes the event in the same transaction.
+Presence is now a record — a work session opened at sign-in, closed at sign-out, moved when the
+role changes — so "who is doing what right now" is a query.
+
 **Remaining:**
 
 - The HR screens (requirements, candidates, vetting, onboarding), Insight and Admin on the database.
-- Company sign-on, and permissions enforced server-side rather than by hiding navigation.
-- Writes: at the moment every screen is read-only.
+- Company sign-on itself. The seam is built and the development sign-in refuses to run in
+  production; what is left is the identity provider and mapping its subject onto `User.ssoSubject`.
+- The rest of the writes: candidates, onboarding, tasks.
 - Requirements → candidates → interviews → offer → onboarding, with the duplicate check at entry.
 - BS 7858 screening files: checks, evidence, the 12-week clock, the three gates, controller reviews.
 - The document engine with per-candidate checklists validated at upload.

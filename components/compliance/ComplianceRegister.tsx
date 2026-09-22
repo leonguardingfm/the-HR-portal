@@ -1,5 +1,6 @@
 "use client";
 
+import { ActionButton } from "@/components/ui/ActionButton";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatTile } from "@/components/ui/StatTile";
@@ -9,6 +10,7 @@ import { RETENTION } from "@/lib/bs7858";
 import { daysUntil, expirySeverity } from "@/lib/core/deployability";
 import { formatDate } from "@/lib/format";
 import { EXPIRY_WARNING_DAYS } from "@/lib/sla";
+import { renewDocument } from "@/lib/actions/operations";
 import type {
   ExpiringDocument,
   RetentionItemRow,
@@ -50,11 +52,13 @@ export function ComplianceRegister({
   workforce,
   retention,
   disposals,
+  renewDenied,
 }: {
   documents: ExpiringDocument[];
   workforce: WorkforceDeployability[];
   retention: RetentionItemRow[];
   disposals: DisposalRow[];
+  renewDenied: string | null;
 }) {
   const now = useNow();
 
@@ -266,6 +270,7 @@ export function ComplianceRegister({
                 <th className="px-1 pb-2 font-medium">Expires</th>
                 <th className="px-1 pb-2 font-medium">Remaining</th>
                 <th className="px-1 pb-2 font-medium">Status</th>
+                <th className="px-1 pb-2 font-medium">Do</th>
               </tr>
             </thead>
             <tbody>
@@ -307,6 +312,16 @@ export function ComplianceRegister({
                               : "In date"
                       }
                     />
+                  </td>
+                  <td className="px-1 py-2.5">
+                    {days <= 90 && (
+                      <ActionButton
+                        action={renewDocument.bind(null, doc.id)}
+                        label="Renew"
+                        variant={days < 0 ? "primary" : "quiet"}
+                        denied={renewDenied}
+                      />
+                    )}
                   </td>
                 </tr>
               ))}

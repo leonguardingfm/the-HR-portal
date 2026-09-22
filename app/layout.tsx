@@ -14,6 +14,8 @@ export default function RootLayout({
   return (
     <html lang="en-GB" suppressHydrationWarning>
       <body>
+        {/* AppShell reads the signed session on the server. The sign-in page
+            renders bare, because there is no session to build a shell from. */}
         <AppShell>{children}</AppShell>
       </body>
     </html>

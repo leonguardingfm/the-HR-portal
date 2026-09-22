@@ -67,11 +67,15 @@ cp .env.example .env
 Copy-Item .env.example .env
 ```
 
-Open `.env` in Notepad or any editor and put your password in:
+Open `.env` in Notepad or any editor and put your password in, and a secret of your own:
 
 ```
 DATABASE_URL="postgresql://postgres:YOUR_PASSWORD@localhost:5432/leon"
+AUTH_SECRET="any-long-random-string-at-least-16-characters"
 ```
+
+`AUTH_SECRET` signs the session cookie. Any long random string will do for now; it must be
+set, and the app refuses to start in production without it.
 
 ## Step 5 — build the tables and put data in
 
@@ -96,8 +100,15 @@ Leave that terminal open — it is the server. Open a browser at:
 
 **<http://localhost:3000>**
 
-Sign in with your name and pick a role. **Control** or **Operations Manager** opens on the live
-board; **Higher Management** sees everything.
+You will land on a sign-in page listing the seeded users. Pick one, choose the role you want
+to work as, and sign in. **Control Alpha desk** opens on the live board; **Farhan** holds
+Higher Management, HR Manager and Screening Administrator, so you can switch between them from
+the top bar and watch the surface change.
+
+> **The sign-in is not authentication yet.** It checks the person exists and holds the role;
+> it proves nothing about who is at the keyboard. That is why `npm run start` (production mode)
+> refuses it: company sign-on replaces it, and nothing else changes when it does. For now, use
+> `npm run dev`.
 
 To stop it, click the terminal and press `Ctrl+C`.
 

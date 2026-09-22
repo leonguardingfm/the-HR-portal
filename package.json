@@ -14,7 +14,8 @@
     "db:validate": "prisma validate",
     "db:test": "bash scripts/test-constraints.sh",
     "db:seed": "tsx prisma/seed.ts",
-    "db:reset": "prisma migrate reset --force --skip-generate && npm run db:seed"
+    "db:reset": "prisma migrate reset --force --skip-generate && npm run db:seed",
+    "test:permissions": "tsx scripts/test-permissions.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

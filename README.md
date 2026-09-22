@@ -47,7 +47,14 @@ against demonstration data rather than outlined:
 Plus the HR modules from the earlier phase: requirements, candidates, vetting, onboarding, tasks,
 insight and admin. Modules that are planned rather than built say so and show what they will sit on.
 
-**Release R1: the database is live and four screens read from it.**
+**Release R1: signed in, permission-checked, and writing.**
+There is a real session (a signed, http-only cookie), middleware that turns away every
+unauthenticated request before it reaches a query, and server actions that check the role
+**on the server** before they touch the database. Control can record a check call; Higher
+Management gets the same button greyed with the reason. 24 assertions cover the matrix, and
+one of them fails the build if a new action forgets to guard.
+
+**The database is live and four screens read from it.**
 Dashboard, Live board, Scheduling and Compliance are server-rendered from PostgreSQL — no mock data
 behind them. Expire a licence with a SQL `UPDATE` and the officer appears under "Cannot be rostered"
 on the next page load, with the reason. The remaining screens (the HR pipeline, Insight, Admin) are
@@ -75,6 +82,7 @@ npm run typecheck    # tsc --noEmit
 npm run db:validate  # check the schema
 npm run db:test      # apply the migration to a throwaway database and test the constraints
 npm run db:reset     # drop, migrate, seed
+npm run test:permissions  # assert the role matrix, and that every action guards
 ```
 
 **Sign in with your name and the role you are working as.** People hold more than one role and move
@@ -105,6 +113,9 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 | Expiry warnings at 90 / 60 / 30 days, one engine for every document type | `lib/core/documents.ts`, `lib/sla.ts` |
 | Service levels, chaser ladders, task severity | `lib/sla.ts` — ours and configurable, deliberately separate from the standard's rules |
 | **The platform map, the engine list and the ownership register** | `lib/core/domains.ts` — rendered at `/platform` |
+| **A real session, and a middleware gate no request gets past** | `lib/auth/session.ts`, `middleware.ts` — signed cookie, verified with Web Crypto so the same code runs at the edge and on the server |
+| **Permissions enforced server-side, not by hiding buttons** | `lib/auth/permissions.ts`, `lib/actions/operations.ts` — every action guards before it reads its arguments |
+| **Presence as a record rather than a guess** | `WorkSession` opened at sign-in, closed at sign-out, moved when the role changes |
 | **The database schema, and the constraints that make its rules true** | `prisma/schema.prisma`, `prisma/constraints.sql` — 30 assertions in `prisma/constraints.test.sql` |
 | **The read layer: queries that return the domain types the rules already understand** | `lib/db/queries.ts` — so `evaluateDeployability` runs unchanged against database rows |
 | **Retention: 12 months, 7 years, and an append-only disposal log** | `lib/bs7858.ts` — `RETENTION`; `prisma/schema.prisma` — `DisposalRecord` |
@@ -113,7 +124,8 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 
 | Stub | Note |
 |------|------|
-| Records on the HR screens | Still `lib/mock/data.ts`. Dashboard, Live board, Scheduling and Compliance now read the database; the rest follow. |
+| Records on the HR screens | Still `lib/mock/data.ts`. Dashboard, Live board, Scheduling and Compliance read and write the database; the rest follow. |
+| Authentication itself | The sign-in page is the **SSO seam**, not authentication: it checks a person exists and holds the role, and refuses to run in production unless deliberately enabled. Company sign-on replaces it and nothing downstream changes. |
 | The asserted dashboard KPIs | Marked **asserted** on screen. The derivable ones are real queries. |
 | Presence of other users | A browser cannot see another person's session. The shape is what the R1 API will return; the current viewer's own row is real. |
 | Department KPIs | Marked **asserted** on screen where the prototype has no event history behind them yet. The derivable ones are computed. |
@@ -139,6 +151,12 @@ components/
   charts/                Funnel, stage-vs-SLA, workload — inline, no chart library
   dashboard/ live/ scheduling/ compliance/ platform/
 lib/
+  auth/
+    session.ts           The signed cookie. Web Crypto, so middleware can verify it too
+    server.ts            getSession / requireSession / switchRole
+    permissions.ts       Who may DO what. The enforcement point
+  actions/
+    operations.ts        Every write. Guard, re-read state, write, write the event
   db/
     client.ts            One Prisma client per process
     queries.ts           The read layer. Returns domain types, not database rows
