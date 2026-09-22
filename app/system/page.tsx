@@ -13,6 +13,12 @@ import { canGrantRole, isScreeningRole, ROLE_OPTIONS } from "@/lib/roles";
 import { ROLE_LABELS } from "@/lib/labels";
 import { formatDate } from "@/lib/format";
 import { users } from "@/lib/mock/data";
+import { Delegations } from "@/components/admin/Delegations";
+import { requireSession } from "@/lib/auth/server";
+import { deniedReason } from "@/lib/auth/ui";
+import { db } from "@/lib/db/client";
+import { getActiveDelegations, getPastDelegations } from "@/lib/db/roles";
+import type { Role } from "@/lib/types";
 
 /**
  * System.
@@ -27,7 +33,20 @@ import { users } from "@/lib/mock/data";
  * fixed, while our own service levels are editable. A local preference should
  * never be mistaken for a regulatory requirement.
  */
-export default function SystemPage() {
+export const dynamic = "force-dynamic";
+
+export default async function SystemPage() {
+  const session = await requireSession();
+  const [active, past, userRows] = await Promise.all([
+    getActiveDelegations(),
+    getPastDelegations(),
+    db.user.findMany({
+      where: { active: true },
+      orderBy: { displayName: "asc" },
+      include: { roles: { where: { revokedAt: null } } },
+    }),
+  ]);
+
   return (
     <div className="space-y-5">
       <PageHeader
@@ -206,6 +225,17 @@ export default function SystemPage() {
           ))}
         </ul>
       </Card>
+
+      <Delegations
+        active={active}
+        past={past}
+        users={userRows.map((u) => ({
+          id: u.id,
+          name: u.displayName,
+          roles: u.roles.map((r) => r.role as Role),
+        }))}
+        denied={deniedReason(session.activeRole, "role.delegate")}
+      />
 
       <ModuleOutline
         note="The vetting team competence register is easy to overlook and is explicitly required: screening staff must themselves be screened, must not screen themselves, must have signed confidentiality agreements, and their training must be reviewed at least annually."

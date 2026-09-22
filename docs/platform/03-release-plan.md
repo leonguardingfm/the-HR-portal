@@ -44,7 +44,7 @@ A database, real authentication and the recruitment and vetting domains in live 
 cannot be expressed in it written as database constraints (`prisma/constraints.sql`) and tested —
 separation of duties on a screening file, no double-booked officer, an append-only event log, no
 retained copy where the document type forbids one, and the standard's four-week extension limit.
-Sixty-three assertions prove each one rejects what it should — including the ones that must
+Seventy-four assertions prove each one rejects what it should — including the ones that must
 *succeed*, because a constraint that rejects everything is not a constraint, it is an outage.
 
 **Also done:** the application reads the database. Dashboard, Live board, Scheduling and Compliance
@@ -67,6 +67,14 @@ is on the database end to end — six categories, the two-track workflow, the ap
 three enforcement layers, and twelve KPIs computed from the items and the event log. It needed no new
 engine, which is the clearest evidence so far that document 02 was right. See
 [06](06-admin-department.md).
+
+**Also done:** delegated roles (E15). A role can be lent to a named person for a named period, with
+an end date that cannot be left off and a 90-day ceiling — `RoleDelegation`, the rules in
+`lib/auth/delegation.ts`, the screen on `/system`. The property that made it worth building properly:
+a delegation relaxes no separation rule, so somebody holding higher management in their own right and
+Finance Officer by delegation can sign the Finance rung of a large payment and still cannot sign the
+higher-management rung after it. Roles are resolved at the moment of acting rather than from the
+session cookie, because a delegation can start or expire in the middle of a working day.
 
 **Remaining:**
 
@@ -110,6 +118,17 @@ Book-ons, check calls, welfare checks, incidents, and the live site board.
 fallback for book-ons during an outage (E2). How officers interact with it is settled: their own
 phones, plus the site phone where a post has one (E3).
 
+**Messaging joins this release** (domain 13, from E5). It belongs here rather than later because it
+is operational contact, and because `ContactChannel.app` already exists in the escalation ladder —
+an officer's message can be the check-call evidence, rated above SMS, instead of a second system
+beside it. Two things have to be true before it is built: the answers to E16 (does it replace the
+WhatsApp groups, is a message a check call, what is the helpdesk, how long are messages kept), and a
+decision on offline behaviour from E10. If any site has no signal, messages and book-ons both have to
+queue and send later, and that is a materially different build.
+
+The rule it must not break: an unanswered message is not a welfare check. The ladder still ends with
+a person attending site.
+
 ## R4 — Quality and clients
 
 Inspections, operational reports, corrective actions, client feedback and satisfaction.
@@ -120,10 +139,21 @@ Inspections, operational reports, corrective actions, client feedback and satisf
 
 **Nearly free by now:** it is the Forms, Work and Events engines with new definitions.
 
+**The client portal joins this release** (domain 14, from E7), because it is mostly a view over what
+R4 produces. It owns nothing — a scoped view over Places, Assignment, Live operations and Quality —
+so the work is almost entirely in the scoping, not in the screens.
+
+**It cannot start before the E6 data-protection review and E17.** Showing a third party a named
+individual's data needs a lawful basis, and "their own sites, systems, inspections and everything"
+needs a line drawn around "everything" first. The recommendation on the record: name and SIA number
+where the contract requires it, nothing else — never screening contents, never the person record,
+never another client's anything. A client raises a *request*; Control turns it into a requirement, so
+the pool check and the timestamped handover to HR are not bypassed.
+
 ## R5 — Equipment, and the KPI layer completed
 
 - Uniform measurements, issues and returns; radios, keys, PPE; who holds what.
-- Department KPI sets finished across all thirteen domains.
+- Department KPI sets finished across all fifteen domains.
 
 **The KPIs are cheap here precisely because nothing counted anything of its own** — R5 is writing
 queries over an event log that has been filling since R1.

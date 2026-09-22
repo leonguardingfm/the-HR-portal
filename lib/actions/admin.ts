@@ -18,6 +18,8 @@ import {
   type AdminPriority,
   type AdminRequestKind,
 } from "@/lib/core/admin";
+import { actingNote } from "@/lib/auth/delegation";
+import { getEffectiveRoles } from "@/lib/db/roles";
 import { refused, ok, type ActionResult } from "./types";
 import type { Role } from "@/lib/types";
 
@@ -423,21 +425,18 @@ export async function approveAdminRequest(
   const step = nextStep(chain, satisfied);
   if (!step) return refused(`${item.reference} is already fully approved.`);
 
-  const me = await db.user.findUnique({
-    where: { id: session.userId },
-    include: { roles: { where: { revokedAt: null } } },
-  });
+  // Resolved now, not read from the cookie: a role lent to cover somebody's
+  // leave counts, and one that expired this morning does not.
+  const me = await getEffectiveRoles(session.userId);
   if (!me) return refused("Your user record could not be read.");
 
   // The rung rules: the right role, not the requester, not the subject, and
-  // not somebody who has already signed a different rung of this chain.
+  // not somebody who has already signed a different rung of this chain. A
+  // delegation changes none of them — the deputy is a different person, which
+  // is exactly why "one person, one rung" keeps working.
   const check = canApproveStep({
     requirement: step,
-    approver: {
-      userId: me.id,
-      personId: me.personId,
-      roles: me.roles.map((r) => r.role as Role),
-    },
+    approver: { userId: me.userId, personId: me.personId, roles: me.all },
     requestedByUserId: item.requestedByUserId,
     aboutPersonId: item.aboutPersonId,
     alreadyApprovedByUserIds: item.approvals
@@ -463,6 +462,7 @@ export async function approveAdminRequest(
   }
 
   const nowFullyApproved = isFullyApproved(chain, [...satisfied, step.step]);
+  const borrowed = actingNote(session.activeRole, me.delegated);
 
   await db.$transaction(async (tx) => {
     await tx.adminApproval.update({
@@ -495,7 +495,11 @@ export async function approveAdminRequest(
         adminItemId: item.id,
         personId: item.aboutPersonId,
         detail:
-          `${item.reference} step ${step.step} of ${chain.length} approved as ${session.activeRole}.` +
+          `${item.reference} step ${step.step} of ${chain.length} approved as ${session.activeRole}` +
+          // "Approved as Finance Officer" is not the whole truth when the role
+          // was borrowed. The log says whose it was and until when.
+          (borrowed ? ` (${borrowed})` : "") +
+          "." +
           (item.amountPence ? ` ${formatPence(item.amountPence)}.` : "") +
           (grounds ? ` Grounds: ${grounds}` : ""),
       },
@@ -539,19 +543,12 @@ export async function rejectAdminRequest(
   const step = nextStep(chain, satisfied);
   if (!step) return refused(`${item.reference} is fully approved; there is nothing left to reject.`);
 
-  const me = await db.user.findUnique({
-    where: { id: session.userId },
-    include: { roles: { where: { revokedAt: null } } },
-  });
+  const me = await getEffectiveRoles(session.userId);
   if (!me) return refused("Your user record could not be read.");
 
   const check = canApproveStep({
     requirement: step,
-    approver: {
-      userId: me.id,
-      personId: me.personId,
-      roles: me.roles.map((r) => r.role as Role),
-    },
+    approver: { userId: me.userId, personId: me.personId, roles: me.all },
     requestedByUserId: item.requestedByUserId,
     aboutPersonId: item.aboutPersonId,
     alreadyApprovedByUserIds: item.approvals
@@ -593,7 +590,12 @@ export async function rejectAdminRequest(
         department: ADMIN_DEPARTMENT,
         adminItemId: item.id,
         personId: item.aboutPersonId,
-        detail: `${item.reference} rejected at step ${step.step}. Grounds: ${grounds}`,
+        detail:
+          `${item.reference} rejected at step ${step.step}` +
+          (actingNote(session.activeRole, me.delegated)
+            ? ` (${actingNote(session.activeRole, me.delegated)})`
+            : "") +
+          `. Grounds: ${grounds}`,
       },
     }),
   ]);
@@ -861,7 +863,7 @@ export async function decideHoliday(
     return refused(`That request was already ${request.decision}.`);
   }
 
-  const me = await db.user.findUnique({ where: { id: session.userId } });
+  const me = await getEffectiveRoles(session.userId);
   if (me?.personId === request.personId) {
     return refused("You cannot decide your own holiday request.");
   }

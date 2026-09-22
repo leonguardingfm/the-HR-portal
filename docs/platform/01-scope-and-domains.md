@@ -19,7 +19,7 @@ Two constraints shape every design decision that follows:
    on *doing the work*, so they belong in the path of the work — blocking a rota assignment — not in
    a compliance section someone remembers to visit.
 
-## 2. The thirteen domains
+## 2. The fifteen domains
 
 Each domain is a **view plus its own rules** over the shared engines in
 [document 02](02-shared-engines.md). None of them owns a database of its own.
@@ -38,7 +38,9 @@ Each domain is a **view plus its own rules** over the shared engines in
 | 10 | **Equipment** | Uniform measurements, issues and returns; radios, keys, PPE | Identity, Forms, Documents, Work |
 | 11 | **Work** | Departmental task definitions, recurring workflows, ownership | Work, Scheduler, Access |
 | 12 | **Administration** | Suppliers and recurring payments with their agreed amounts; the premises asset register and its service schedule; holiday entitlement and requests; external authority matters and suspensions; fines, penalties and vouchers; uniform stock levels and movements; accreditations, renewal dates and evidence links | Identity, Forms, Documents, Work, Scheduler, Events, Access |
-| 13 | **Insight** | Nothing. Every number is derived | Events (only) |
+| 13 | **Messaging** | Conversations and their messages; delivery and read state; which conversation a message belongs to | Identity, Places, Documents (attachments), Scheduler, Events |
+| 14 | **Client access** | Nothing. A scoped view, nothing more | Places, Assignment, Live operations, Quality, Access |
+| 15 | **Insight** | Nothing. Every number is derived | Events (only) |
 
 Domain 12 is the one added last, in September 2026, and it is worth noting what it did **not** need:
 no engine of its own, and no second task list, form renderer, reminder clock or audit log. Its
@@ -47,12 +49,26 @@ nothing looks like. Its structure and workflow are [document 06](06-admin-depart
 that "who holds what uniform" stays with Equipment (domain 10) — Administration owns the *stock*, not
 the issues, and the two meet on the same item record.
 
-Domain 13 owning nothing is the point: **management reporting cannot drift from operations if it has
+Domains 13 and 14 were added in September 2026 from the answers to E5 and E7.
+
+**Messaging** exists because a WhatsApp message is not a record: it lives on two handsets, leaves when
+the officer leaves, and cannot be produced for an audit or a tribunal — and it sits outside the
+retention rules the platform is otherwise held to. It is also the one new domain that genuinely owns
+facts, because a message is a fact nobody else holds. What it must not do is replace the phone in the
+welfare ladder: an unanswered message is not a welfare check, and the ladder still ends with somebody
+attending site.
+
+**Client access owns nothing at all**, and that is the whole design. A client portal is a *scoped
+view* over Places, Assignment, Live operations and Quality. The moment it keeps its own record of a
+site or an inspection, two systems are describing the same site and one of them is stale. It is the
+second domain after Insight to own nothing, and for the same reason.
+
+Domains 14 and 15 owning nothing is the point: **management reporting cannot drift from operations if it has
 no numbers of its own.**
 
 ## 3. Where the boundaries sit
 
-Scope is defined as much by what stays out. These are the four edges that would otherwise creep.
+Scope is defined as much by what stays out. These are the six edges that would otherwise creep.
 
 | Edge | In scope | Out of scope | Why |
 |------|----------|--------------|-----|
@@ -60,6 +76,8 @@ Scope is defined as much by what stays out. These are the four edges that would 
 | **Money** | Billable hours per site per period, ready to invoice | Invoicing, credit control, ledger | Accounts software already does this |
 | **Sales** | Client contract terms the operation depends on | Pipeline, quotes, tenders | A CRM problem, not an operations one |
 | **Training** | That a licence or a training record exists and when it expires | Delivering or marking courses | An LMS problem. We own the expiry, not the content |
+| **Messaging** | Operational contact with officers, and a helpdesk — because those are records | Being a general chat product: threads about anything, social features, voice and video calls | The edge that will creep hardest. A message that is a record of operational contact earns its retention rule; a conversation about the football does not, and mixing them makes the retention rule unenforceable |
+| **Client access** | A client seeing their own sites, cover, inspections and reports | A client seeing the person record, screening contents, or anything about another client | The first is a commercial feature. The second is a data-protection incident |
 
 ## 4. INDEL
 

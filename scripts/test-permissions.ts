@@ -27,6 +27,7 @@ import {
   kpiVerdict,
   ADMIN_KPIS,
 } from "../lib/core/admin";
+import { MAX_DELEGATION_DAYS, effectiveRoles, actingNote, validateDelegation } from "../lib/auth/delegation";
 import type { Role } from "../lib/types";
 
 let failures = 0;
@@ -53,7 +54,7 @@ const EXPECTED: Record<string, ActionId[]> = {
   finance_officer: ["admin_item.approve", "admin_item.reject", "payment.record", ...STAFF_BASELINE],
   vetting_admin: ["document.verify", "document.renew", ...STAFF_BASELINE],
   vetting_controller: ["document.verify", "document.renew", "disposal.run", "accreditation.evidence", ...STAFF_BASELINE],
-  top_management: ["disposal.run", "admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "holiday.decide", "accreditation.evidence", "authority_matter.respond", "threshold.change", ...STAFF_BASELINE],
+  top_management: ["disposal.run", "admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "holiday.decide", "accreditation.evidence", "authority_matter.respond", "threshold.change", "role.delegate", "role.revoke_delegation", ...STAFF_BASELINE],
   auditor: [],
 };
 
@@ -180,6 +181,92 @@ check("a large payment cannot be signed twice by the same person wearing two hat
       alreadyApprovedByUserIds: ["u-imran"],
     }).permitted);
 
+// --- 1b2. delegation ------------------------------------------------------
+// Cover for an absence. Each of these is a delegation that would look fine and
+// quietly would not be.
+const person = (userId: string, roles: Role[], ok = true) => ({
+  userId,
+  personId: `p-${userId}`,
+  roles,
+  ownScreeningComplete: ok,
+  confidentialityAgreementOnFile: ok,
+  trainingReviewedAt: ok ? new Date().toISOString() : null,
+  active: true,
+});
+
+const imran = person("u-imran", ["finance_officer", "top_management"]);
+const shahzad = person("u-shahzad", ["top_management"]);
+const day = 86_400_000;
+const delegate = (over: Partial<Parameters<typeof validateDelegation>[0]> = {}) =>
+  validateDelegation({
+    role: "finance_officer",
+    from: imran,
+    to: shahzad,
+    grantedBy: imran,
+    startsAt: new Date(),
+    endsAt: new Date(Date.now() + 14 * day),
+    existingActive: [],
+    ...over,
+  });
+
+check("a role can be lent for two weeks", delegate().permitted, delegate().reason ?? "");
+const tanveer = person("u-tanveer", ["operations_manager"]);
+const notTheirs = delegate({ from: tanveer, grantedBy: tanveer });
+check("a role cannot be lent by somebody who does not hold it",
+  !notTheirs.permitted && /does not hold it/.test(notTheirs.reason ?? ""),
+  notTheirs.reason ?? "");
+check("a role cannot be lent to somebody who already holds it",
+  !delegate({ to: person("u-x", ["finance_officer"]) }).permitted);
+const ownCover = delegate({ grantedBy: shahzad });
+check("nobody may arrange their own cover",
+  !ownCover.permitted && /own cover/.test(ownCover.reason ?? ""), ownCover.reason ?? "");
+check("a delegation cannot run longer than the maximum",
+  !delegate({ endsAt: new Date(Date.now() + (MAX_DELEGATION_DAYS + 1) * day) }).permitted);
+check(`${MAX_DELEGATION_DAYS} days exactly is allowed`,
+  delegate({ endsAt: new Date(Date.now() + MAX_DELEGATION_DAYS * day) }).permitted);
+check("a delegation cannot end before it starts",
+  !delegate({ endsAt: new Date(Date.now() - day) }).permitted);
+check("a second live delegation of the same role to the same person is refused",
+  !delegate({
+    existingActive: [{ role: "finance_officer", toUserId: "u-shahzad", endsAt: new Date(Date.now() + day) }],
+  }).permitted);
+// A lent screening role carries the same 6.1/6.2 obligations as a granted one.
+check("a screening role cannot be lent to somebody who is not screened themselves",
+  !delegate({
+    role: "vetting_controller",
+    from: person("u-anas", ["vetting_controller"]),
+    to: person("u-untrained", [], false),
+    grantedBy: person("u-anas", ["vetting_controller"]),
+  }).permitted);
+check("an inactive user cannot be lent anything",
+  !delegate({ to: { ...shahzad, active: false } }).permitted);
+
+const lent = [{ role: "finance_officer" as Role, fromUserId: "u-imran", fromName: "Imran", endsAt: "2026-10-31T00:00:00.000Z" }];
+check("a lent role joins the roles a person may act as",
+  effectiveRoles(["top_management"], lent).sort().join() === "finance_officer,top_management");
+check("a lent role that duplicates a held one does not appear twice",
+  effectiveRoles(["finance_officer"], lent).length === 1);
+check("the audit trail says a role was borrowed, and whose it was",
+  (actingNote("finance_officer", lent) ?? "").includes("Imran"),
+  actingNote("finance_officer", lent) ?? "none");
+check("a role held in its own right carries no borrowing note",
+  actingNote("top_management", lent) === null);
+
+// The point of the whole exercise: lending the role does NOT let one person
+// sign both rungs of a large payment. The rung rule is on the approver.
+check("a deputy holding finance by delegation still cannot sign both rungs",
+  canApproveStep({
+    requirement: high[0],
+    approver: { userId: "u-shahzad", personId: "p-shahzad", roles: ["top_management", "finance_officer"] },
+    requestedByUserId: "u-a",
+  }).permitted &&
+    !canApproveStep({
+      requirement: high[1],
+      approver: { userId: "u-shahzad", personId: "p-shahzad", roles: ["top_management", "finance_officer"] },
+      requestedByUserId: "u-a",
+      alreadyApprovedByUserIds: ["u-shahzad"],
+    }).permitted);
+
 // --- 1c. the workflow -----------------------------------------------------
 check("a task cannot jump from raised to completed", !canTransition("task", "raised", "completed"));
 check("a request cannot jump from reviewed to completed", !canTransition("request", "reviewed", "completed"));
@@ -201,7 +288,7 @@ check("a missing figure reads neutral, never good",
 
 // --- 2. every action guards ------------------------------------------------
 let actionCount = 0;
-for (const file of ["operations", "admin"]) {
+for (const file of ["operations", "admin", "delegation"]) {
   const src = readFileSync(new URL(`../lib/actions/${file}.ts`, import.meta.url), "utf8");
   const exported = [...src.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
   check(`${file}.ts has server actions to check`, exported.length > 0, `${exported.length} found`);

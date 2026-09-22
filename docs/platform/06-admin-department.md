@@ -144,8 +144,28 @@ with the Admin Manager.
 
 **Cover when the Finance Officer is away** is a time-boxed delegation to a named
 person, recorded with its start and end — not a silent fallback to "anyone
-senior". An absence should not widen who can spend money. *(Not yet built; see
-§9.)*
+senior". An absence should not widen who can spend money.
+
+**Built** (E15; the deputy is the Portal Owner). `RoleDelegation` in the schema,
+the rules in [`lib/auth/delegation.ts`](../../lib/auth/delegation.ts), the screen
+on `/system`. `endsAt` is not nullable and 90 days is the ceiling, because an
+open-ended delegation is indistinguishable from a permanent grant; renewing
+leaves a second record. Nobody may lend a role they do not hold, and nobody may
+arrange their own cover — both refused in the database as well as the
+application.
+
+The property that matters: **a delegation relaxes no separation rule.** Somebody
+holding higher management in their own right and Finance Officer by delegation
+can sign the Finance rung of a large payment and then cannot sign the
+higher-management rung after it, because `@@unique([itemId, decidedByUserId])`
+indexes the *approver*, not the role. So the absence is covered without
+collapsing the two-signature control. Anything approved while a delegation was
+in force stays on the record with the delegation named in the event, which is
+why a delegation is revoked rather than deleted.
+
+Roles are resolved at the moment of acting rather than read from the session
+cookie, since a delegation can start, expire or be revoked in the middle of
+somebody's working day.
 
 ---
 
@@ -248,7 +268,7 @@ Honest list, so nobody plans around it:
 - **The scheduler does not run.** The ten reminder rules are configured and the
   screen lists them; nothing sends yet. That is the next release item across the
   whole platform, not an Admin gap.
-- **Finance Officer delegation** during absence (§4) is designed, not built.
+
 - **Escalation stages are computed on read**, not written by a job, so
   `AdminItem.escalatedStage` stays 0 until the scheduler runs. The board is
   right; the column is not yet.
@@ -256,13 +276,13 @@ Honest list, so nobody plans around it:
   no uploader yet — the same gap as everywhere else.
 - **Assigning work** has an action and a permission but no picker on screen.
 
-## 10. Still open
+## 10. Watch item
 
-- **"Department of Work matters"** was read as DWP correspondence — earnings
-  enquiries, benefit verification, and correspondence tied to suspensions. Built
-  as *external authority matters* with the body a fixed list (DWP, HMRC, Home
-  Office, tribunal, local authority, SIA, other) and the **kind of matter free
-  text**, so a wrong reading costs a label rather than a migration. To be
-  confirmed.
-- **£250 / £2,000** are the agreed starting figures, held as settings. To be
-  confirmed against what is actually delegated today.
+Both of the questions this document opened with have been answered (E13, E14):
+the DWP reading is right, and £250 / £2,000 stand and can be raised later
+without a release. What remains is a watch item rather than a question — whoever
+can change a threshold should not also be the person approving just above it.
+Today both are higher management, so the Portal Owner could in principle raise
+the threshold and then approve under it. The event log names both, so it is
+visible rather than silent; if it ever matters, the fix is a second signature on
+a threshold change.

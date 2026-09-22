@@ -10,7 +10,7 @@ worked out in [`docs/proposal`](../proposal/README.md) and is cross-referenced r
 
 | Document | What it settles | Read it when |
 |----------|-----------------|--------------|
-| [01 — Scope and domains](01-scope-and-domains.md) | The thirteen domains, what each one owns, the boundary of each, and the departmental navigation | You want to know where a feature belongs |
+| [01 — Scope and domains](01-scope-and-domains.md) | The fifteen domains, what each one owns, the boundary of each, and the departmental navigation | You want to know where a feature belongs |
 | [02 — Shared engines](02-shared-engines.md) | The nine engines every domain reuses, and the single-source-of-truth register | You are about to build anything |
 | [03 — Release plan](03-release-plan.md) | What gets built in which order, what each release unlocks, and what we are deliberately *not* building | You want to know when something lands |
 | [04 — Decisions needed](04-decisions-needed.md) | The new questions this scope creates (E-series), separate from the HR ones (A–D in proposal/07) | You are the one who has to decide |
@@ -48,7 +48,7 @@ link to it. If it is explained here, the HR docs will be updated to link back ra
 
 ## How the existing work carries over
 
-Nothing built so far is wasted. The HR portal becomes **two of the thirteen domains** (Recruitment and
+Nothing built so far is wasted. The HR portal becomes **two of the fifteen domains** (Recruitment and
 Vetting) plus part of a third (Compliance), sitting on engines that the rest of the platform shares.
 
 | Already built | Becomes |

@@ -47,7 +47,12 @@ export async function clearSession(): Promise<void> {
  */
 export async function switchRole(role: Role): Promise<void> {
   const session = await requireSession();
-  if (!session.roles.includes(role)) {
+  // Resolved from the database, not from the cookie: a role lent to this
+  // person an hour ago should be selectable without signing out and in again,
+  // and one that expired an hour ago should not.
+  const { getEffectiveRoles } = await import("@/lib/db/roles");
+  const effective = await getEffectiveRoles(session.userId);
+  if (!effective?.all.includes(role)) {
     throw new Error(`You do not hold the ${role} role, so you cannot work as it.`);
   }
   const { db } = await import("@/lib/db/client");
@@ -55,7 +60,9 @@ export async function switchRole(role: Role): Promise<void> {
     where: { id: session.workSessionId, signedOutAt: null },
     data: { activeRole: role, lastSeenAt: new Date() },
   });
-  await setSession({ ...session, activeRole: role });
+  // The session's role list is refreshed at the same time, so the switcher
+  // offers what is true now rather than what was true at sign-in.
+  await setSession({ ...session, activeRole: role, roles: effective.all });
 }
 
 /** Called on every shell render, so idle time on the board means something. */

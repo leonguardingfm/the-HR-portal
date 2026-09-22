@@ -123,7 +123,7 @@ These are not part of setup. You will not normally need them.
 | `npm run build` | Builds the production version | Before deploying it to a server |
 | `npm run typecheck` | Checks the code for type errors | After changing code |
 | `npm run db:reset` | **Wipes the database**, rebuilds it, re-seeds | When the demo data gets messy |
-| `npm run db:test` | Creates a throwaway database and proves the safety rules work — 63 checks | To satisfy yourself the compliance rules are real |
+| `npm run db:test` | Creates a throwaway database and proves the safety rules work — 74 checks | To satisfy yourself the compliance rules are real |
 | `npm run test` | Everything above: types, the role and approval rules, and the database rules | Before pushing anything |
 | `npm run db:validate` | Checks the database design is valid | After changing the schema |
 

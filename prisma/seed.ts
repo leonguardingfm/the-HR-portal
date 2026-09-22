@@ -679,6 +679,7 @@ async function main() {
     stockLines: await db.stockItem.count(),
     stockMovements: await db.stockMovement.count(),
     accreditations: await db.accreditation.count(),
+    roleDelegations: await db.roleDelegation.count(),
   };
   console.table(counts);
 }

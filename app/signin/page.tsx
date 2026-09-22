@@ -20,10 +20,20 @@ export default async function SignInPage({
   searchParams: Promise<{ next?: string }>;
 }) {
   const { next } = await searchParams;
+  const now = new Date();
   const users = await db.user.findMany({
     where: { active: true },
     orderBy: { displayName: "asc" },
-    include: { roles: { where: { revokedAt: null } } },
+    include: {
+      roles: { where: { revokedAt: null } },
+      // Roles lent to this person and in force right now. A deputy covering
+      // the Finance Officer's leave has to be able to sign in as Finance
+      // Officer, or the delegation is a row in a table and nothing else.
+      delegationsHeld: {
+        where: { revokedAt: null, startsAt: { lte: now }, endsAt: { gt: now } },
+        include: { from: true },
+      },
+    },
   });
 
   return (
@@ -49,7 +59,11 @@ export default async function SignInPage({
 
         <div className="mt-6 space-y-3">
           {users.map((u) => {
-            const roles = u.roles.map((r) => r.role as Role);
+            const substantive = u.roles.map((r) => r.role as Role);
+            const lent = u.delegationsHeld
+              .map((d) => ({ role: d.role as Role, from: d.from.displayName, endsAt: d.endsAt }))
+              .filter((d) => !substantive.includes(d.role));
+            const roles = [...substantive, ...lent.map((d) => d.role)];
             return (
               <form
                 key={u.id}
@@ -61,7 +75,14 @@ export default async function SignInPage({
                 <input type="hidden" name="next" value={next ?? "/"} />
                 <p className="text-[13px] font-medium">{u.displayName}</p>
                 <p className="mt-0.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  Holds {roles.length} role{roles.length === 1 ? "" : "s"}
+                  Holds {substantive.length} role{substantive.length === 1 ? "" : "s"}
+                  {lent.length > 0 &&
+                    `, plus ${lent.length} lent: ${lent
+                      .map(
+                        (d) =>
+                          `${ROLE_LABELS[d.role]} from ${d.from} until ${d.endsAt.toISOString().slice(0, 10)}`,
+                      )
+                      .join("; ")}`}
                 </p>
                 <div className="mt-2 flex flex-wrap items-center gap-2">
                   <select
@@ -79,6 +100,7 @@ export default async function SignInPage({
                       <option key={r} value={r}>
                         {ROLE_LABELS[r]}
                         {roleOption(r)?.clause ? ` (${roleOption(r)!.clause})` : ""}
+                        {lent.some((d) => d.role === r) ? " — lent" : ""}
                       </option>
                     ))}
                   </select>

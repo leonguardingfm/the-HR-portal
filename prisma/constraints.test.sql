@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- Sixty-three assertions. Each one names a rule the platform claims to
+-- Seventy-four assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -282,3 +282,51 @@ SELECT expect_success('derived evidence that says where to look',
   $$INSERT INTO "AccreditationRequirement"(id,"accreditationId",label,source,"derivedFrom")
     VALUES ('ar2','acc1','Screening records complete','derived_screening',
             'ScreeningFile where status = full_screening_complete, last 12 months')$$);
+
+-- ---------------------------------------------------------------------------
+-- 11. Delegated roles
+-- ---------------------------------------------------------------------------
+-- A delegation covers an absence. Every assertion here is a case that would
+-- otherwise produce a delegation that looks fine and quietly is not.
+
+INSERT INTO "UserRole"(id,"userId",role,"grantedById") VALUES
+  ('ur-fin','u3','finance_officer','u3'),
+  ('ur-top','u1','top_management','u1');
+
+SELECT expect_success('lend a role for two weeks',
+  $$INSERT INTO "RoleDelegation"(id,role,"fromUserId","toUserId","endsAt",reason,"grantedByUserId")
+    VALUES ('dg1','finance_officer','u3','u1',now() + interval '14 days',
+            'Annual leave','u3')$$);
+
+SELECT expect_failure('a delegation with no end date',
+  $$INSERT INTO "RoleDelegation"(id,role,"fromUserId","toUserId",reason,"grantedByUserId")
+    VALUES ('dg2','finance_officer','u3','u1','Open-ended','u3')$$);
+SELECT expect_failure('a delegation that ends before it starts',
+  $$INSERT INTO "RoleDelegation"(id,role,"fromUserId","toUserId","startsAt","endsAt",reason,"grantedByUserId")
+    VALUES ('dg3','top_management','u1','u3',now(),now() - interval '1 day','Backwards','u1')$$);
+SELECT expect_failure('a delegation running longer than 90 days',
+  $$INSERT INTO "RoleDelegation"(id,role,"fromUserId","toUserId","endsAt",reason,"grantedByUserId")
+    VALUES ('dg4','top_management','u1','u3',now() + interval '120 days','Sabbatical','u1')$$);
+SELECT expect_failure('lending a role to yourself',
+  $$INSERT INTO "RoleDelegation"(id,role,"fromUserId","toUserId","endsAt",reason,"grantedByUserId")
+    VALUES ('dg5','top_management','u1','u1',now() + interval '7 days','Mine anyway','u1')$$);
+SELECT expect_failure('arranging your own cover',
+  $$INSERT INTO "RoleDelegation"(id,role,"fromUserId","toUserId","endsAt",reason,"grantedByUserId")
+    VALUES ('dg6','top_management','u1','u3',now() + interval '7 days','I will take it','u3')$$);
+SELECT expect_failure('lending a role nobody holds',
+  $$INSERT INTO "RoleDelegation"(id,role,"fromUserId","toUserId","endsAt",reason,"grantedByUserId")
+    VALUES ('dg7','control','u3','u1',now() + interval '7 days','Not theirs to lend','u3')$$);
+SELECT expect_failure('two live delegations of the same role to the same person',
+  $$INSERT INTO "RoleDelegation"(id,role,"fromUserId","toUserId","endsAt",reason,"grantedByUserId")
+    VALUES ('dg8','finance_officer','u3','u1',now() + interval '20 days','Again','u3')$$);
+SELECT expect_failure('half a revocation — ended with no reason',
+  $$UPDATE "RoleDelegation" SET "revokedAt" = now() WHERE id = 'dg1'$$);
+SELECT expect_success('take a delegation back, whole',
+  $$UPDATE "RoleDelegation"
+    SET "revokedAt" = now(), "revokedByUserId" = 'u3', "revokedReason" = 'Back early'
+    WHERE id = 'dg1'$$);
+-- Once the first is revoked the same role may be lent again, which is what
+-- makes the partial index right rather than merely strict.
+SELECT expect_success('lend it again once the first is taken back',
+  $$INSERT INTO "RoleDelegation"(id,role,"fromUserId","toUserId","endsAt",reason,"grantedByUserId")
+    VALUES ('dg9','finance_officer','u3','u1',now() + interval '10 days','Leave again','u3')$$);

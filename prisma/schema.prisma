@@ -177,8 +177,12 @@ model User {
   roles      UserRole[]
   sessions   WorkSession[]
   grantsMade UserRole[]    @relation("RoleGrantedBy")
-  workItems  WorkItem[]    @relation("WorkItemOwner")
-  events     Event[]
+
+  delegationsLent    RoleDelegation[] @relation("DelegationFrom")
+  delegationsHeld    RoleDelegation[] @relation("DelegationTo")
+  delegationsGranted RoleDelegation[] @relation("DelegationGrantedBy")
+  workItems          WorkItem[]       @relation("WorkItemOwner")
+  events             Event[]
 }
 
 /// Role holdings, as data. A new starter or an internal transfer is a row, not
@@ -200,6 +204,48 @@ model UserRole {
 
   @@unique([userId, role])
   @@index([role])
+}
+
+/// A role lent to somebody for a fixed period.
+///
+/// `endsAt` is NOT nullable, and that is the whole design. An open-ended
+/// delegation is indistinguishable from a permanent grant, and the thing this
+/// table exists to prevent is an absence quietly widening who can approve
+/// spend. The rules are in lib/auth/delegation.ts; the ones the database can
+/// hold are in constraints.sql §10.
+///
+/// Note what a delegation does not do: it does not relax any separation rule.
+/// The deputy is a different person, so "one person may satisfy at most one
+/// rung of an approval chain" keeps working — that index is on the approver,
+/// not on the role.
+model RoleDelegation {
+  id   String @id @default(cuid())
+  role Role
+
+  /// The substantive holder, whose role is being lent.
+  fromUserId String
+  /// The deputy.
+  toUserId   String
+
+  startsAt DateTime @default(now()) @db.Timestamptz(3)
+  endsAt   DateTime @db.Timestamptz(3)
+  reason   String
+
+  grantedByUserId String
+  grantedAt       DateTime @default(now()) @db.Timestamptz(3)
+
+  /// Ended early. Kept rather than deleted, so the period it covered is still
+  /// answerable after the fact.
+  revokedAt       DateTime? @db.Timestamptz(3)
+  revokedByUserId String?
+  revokedReason   String?
+
+  from      User @relation("DelegationFrom", fields: [fromUserId], references: [id], onDelete: Cascade)
+  to        User @relation("DelegationTo", fields: [toUserId], references: [id], onDelete: Cascade)
+  grantedBy User @relation("DelegationGrantedBy", fields: [grantedByUserId], references: [id])
+
+  @@index([toUserId, startsAt, endsAt])
+  @@index([role, endsAt])
 }
 
 /// Who is signed in and what they are working as. The active role is the

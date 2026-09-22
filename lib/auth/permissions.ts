@@ -51,7 +51,9 @@ export type ActionId =
   | "stock.move"
   | "accreditation.evidence"
   | "authority_matter.respond"
-  | "threshold.change";
+  | "threshold.change"
+  | "role.delegate"
+  | "role.revoke_delegation";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -140,6 +142,10 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   // Changing a threshold changes who may approve what, so it belongs with the
   // portal owner rather than with the people it governs.
   "threshold.change": { roles: ["top_management"], owner: "higher management", what: "Changing an approval threshold" },
+  // Lending a role is an access decision, so it sits with higher management
+  // rather than with the department that benefits from the cover.
+  "role.delegate": { roles: ["top_management"], owner: "higher management", what: "Lending a role to cover an absence" },
+  "role.revoke_delegation": { roles: ["top_management"], owner: "higher management", what: "Ending a delegation early" },
 };
 
 export function canDo(role: Role | null | undefined, action: ActionId): boolean {

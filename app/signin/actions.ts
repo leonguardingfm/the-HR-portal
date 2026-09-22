@@ -31,11 +31,16 @@ export async function devSignIn(formData: FormData) {
 
   const user = await db.user.findFirst({
     where: { id: userId, active: true },
-    include: { person: true, roles: { where: { revokedAt: null } } },
+    include: { person: true },
   });
   if (!user) throw new Error("That user does not exist, or is no longer active.");
 
-  const roles = user.roles.map((r) => r.role as Role);
+  // Substantive roles plus anything lent and in force. Resolved here rather
+  // than trusted from the form: the select element is a suggestion, and the
+  // check is the decision.
+  const { getEffectiveRoles } = await import("@/lib/db/roles");
+  const effective = await getEffectiveRoles(user.id);
+  const roles = effective?.all ?? [];
   if (!roles.includes(role)) {
     throw new Error(`${user.displayName} does not hold the ${role} role.`);
   }

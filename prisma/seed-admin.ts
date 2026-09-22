@@ -43,6 +43,7 @@ const daysAhead = (n: number) => new Date(Date.now() + n * day);
  * order is what has to change.
  */
 export const ADMIN_TABLES = [
+  "RoleDelegation",
   "WorkItem",
   "AdminApproval",
   "AdminItem",
@@ -484,6 +485,24 @@ export async function seedAdminDemonstration(
       { accreditationId: "acc-9001", submittedOn: daysAgo(10), submittedByUserId: bilal, outcome: "Surveillance audit booked" },
       { accreditationId: "acc-acs", submittedOn: daysAgo(400), submittedByUserId: farhan, outcome: "Renewed", newExpiresOn: daysAhead(75) },
     ],
+  });
+
+  // --- Cover for an absence ------------------------------------------------
+  //
+  // The Finance Officer is away, so their role is lent. This one row is what
+  // makes the separation testable: the deputy can sign the Finance rung of a
+  // large payment, and still cannot sign the higher-management rung after it,
+  // because the rule is on the approver and not on the role.
+  await db.roleDelegation.create({
+    data: {
+      role: "finance_officer",
+      fromUserId: imran,
+      toUserId: farhan,
+      startsAt: daysAgo(2),
+      endsAt: daysAhead(12),
+      reason: "Annual leave. Cover for spend approvals only.",
+      grantedByUserId: imran,
+    },
   });
 
   // --- Items on both tracks ------------------------------------------------

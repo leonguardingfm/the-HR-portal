@@ -118,14 +118,15 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 | Service levels, chaser ladders, task severity | `lib/sla.ts` — ours and configurable, deliberately separate from the standard's rules |
 | **The platform map, the engine list and the ownership register** | `lib/core/domains.ts` — rendered at `/platform` |
 | **A real session, and a gate no request gets past** | `lib/auth/session.ts`, `proxy.ts` — signed cookie, verified with Web Crypto so the same code runs at the edge and on the server |
-| **Permissions enforced server-side, not by hiding buttons** | `lib/auth/permissions.ts`, `lib/actions/` — all 23 actions guard before they read their arguments, asserted by `scripts/test-permissions.ts` |
+| **Permissions enforced server-side, not by hiding buttons** | `lib/auth/permissions.ts`, `lib/actions/` — all 25 actions guard before they read their arguments, asserted by `scripts/test-permissions.ts` |
 | **The Admin department: six categories, one two-track workflow** | `lib/core/admin.ts`, `app/admin/` — payments, premises, people admin, penalties, uniform stock, accreditations |
 | **An approval ladder where a role is a job, not a rank** | `lib/core/admin.ts` — `approvalChain`, `canApproveStep`. The Finance Officer sits inside higher management, so the ladder is written in roles; otherwise its top two rungs would be one person |
 | **The requester is never the approver — enforced in the database** | `prisma/constraints.sql` §9 — a trigger for the requester and the subject, a unique index so one person cannot sign two rungs, and a trigger refusing `approved` while a rung is outstanding |
+| **A role can be lent to cover an absence, and cannot quietly become permanent** | `lib/auth/delegation.ts`, `prisma/schema.prisma` — `RoleDelegation.endsAt` is not nullable, 90 days maximum, and a delegation relaxes no separation rule: the deputy still cannot sign two rungs of one chain |
 | **Recurring payments approved once, with a variance check** | `lib/actions/admin.ts` — `recordPayment`; paying anything other than the agreed figure raises a request by itself, sized on the difference |
 | **Accreditation evidence that assembles itself** | `lib/db/admin-queries.ts` — derived requirements name the query that answers them and cannot be ticked by hand |
 | **Presence as a record rather than a guess** | `WorkSession` opened at sign-in, closed at sign-out, moved when the role changes |
-| **The database schema, and the constraints that make its rules true** | `prisma/schema.prisma`, `prisma/constraints.sql` — 63 assertions in `prisma/constraints.test.sql`, including the ones that must *succeed* |
+| **The database schema, and the constraints that make its rules true** | `prisma/schema.prisma`, `prisma/constraints.sql` — 74 assertions in `prisma/constraints.test.sql`, including the ones that must *succeed* |
 | **The read layer: queries that return the domain types the rules already understand** | `lib/db/queries.ts` — so `evaluateDeployability` runs unchanged against database rows |
 | **Retention: 12 months, 7 years, and an append-only disposal log** | `lib/bs7858.ts` — `RETENTION`; `prisma/schema.prisma` — `DisposalRecord` |
 | Sign-in with name and active role, and who is working on what | `app/signin/`, `components/dashboard/ActiveNow.tsx` |

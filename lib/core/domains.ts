@@ -279,6 +279,33 @@ export const DOMAINS: DomainSpec[] = [
     status: "built",
   },
   {
+    id: "messaging",
+    name: "Messaging",
+    href: null,
+    group: "Control Room",
+    owns: [
+      "Conversations and their messages",
+      "Delivery and read state",
+      "Which conversation a message belongs to",
+    ],
+    reuses: ["identity", "places", "documents", "scheduler", "events", "access"],
+    release: "R3",
+    status: "outlined",
+  },
+  {
+    id: "client_access",
+    name: "Client access",
+    href: null,
+    group: "Management",
+    // Nothing. A scoped view over Places, Assignment, Live operations and
+    // Quality — the moment it keeps its own record of a site, two systems are
+    // describing the same site and one of them is stale.
+    owns: [],
+    reuses: ["places", "assignment", "access", "events"],
+    release: "R4",
+    status: "outlined",
+  },
+  {
     id: "system",
     name: "System",
     href: "/system",
@@ -361,6 +388,9 @@ export const OWNERSHIP_REGISTER: {
   { fact: "Uniform stock on hand", owner: "Administration", readBy: "Recruitment, Control", note: "Derived from movements. Who holds what stays with Equipment" },
   { fact: "Accreditation expiry and evidence links", owner: "Administration", readBy: "Management, the auditor", note: "Evidence is a view over Vetting, Quality and training records" },
   { fact: "Approval thresholds", owner: "System (settings)", readBy: "Administration", note: "A number in the database, so changing it is an edit with an event" },
+  { fact: "Who may act as which role, and until when", owner: "System (UserRole and RoleDelegation)", readBy: "Every action", note: "A lent role ends on a date that cannot be left off. Resolved at the moment of acting, not from the session cookie" },
+  { fact: "Message content and its delivery state", owner: "Messaging", readBy: "Live operations (as check-call evidence), the auditor", note: "The reason to build it: a WhatsApp message is not a record and sits outside retention" },
+  { fact: "What a client may see", owner: "Client access (derived from the contract and the sites)", readBy: "The client portal only", note: "Owns nothing itself. A scoped view, never a copy" },
 ];
 
 export const engineById = (id: EngineId) => ENGINES.find((e) => e.id === id)!;
