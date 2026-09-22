@@ -4,7 +4,7 @@ The brief lists fourteen things the system should manage. Built literally, that 
 and they would overlap badly: at least six of them need reminders, five need a form filled in, four
 need documents with expiry dates, and every one of them needs tasks and KPIs.
 
-Built properly, they are **nine engines and twelve thin domains on top of them**.
+Built properly, they are **nine engines and thirteen thin domains on top of them**.
 
 ## 1. Where the duplication would have been
 
@@ -28,9 +28,26 @@ what it actually is.
 | Daily departmental tasks | Work items with a recurrence rule | Work, Scheduler |
 | Rotas and shift changes | Assignments, and their amendment history | Assignment, Events |
 | Live KPIs for every department | Queries over the event log | Events |
+| Office rent and recurring payments | A schedule with an agreed amount + a reminder rule per due date | Scheduler, Work, Events |
+| Appliance maintenance | An asset with a next-service date + the same expiry engine | Scheduler, Work, Documents |
+| Employee holidays | A request needing approval, checked against the rota we already hold | Work, Assignment, Identity |
+| Department of Work matters and suspensions | A matter with correspondence + an approval before anything leaves the building | Documents, Work, Events |
+| Company and employee forms | Form definitions — the same engine as application forms | Forms |
+| Fines, penalties and decision forms | A decision record with an approval chain + a form for the grounds | Work, Forms, Events |
+| Vouchers | The same decision record, with a value and a redemption date | Work, Events |
+| Uniform stock, allocation and returns | Stock as the running total of movements against the item the issues already point at | Identity, Work, Events |
+| Accreditations and supporting evidence | An expiry date + a view over screening, inspection and training records already held | Documents, Scheduler, Events |
+| Approval history for sensitive decisions | The append-only event log, queried | Events, Access |
 
 **Five form definitions replace five separately built forms. One reminder engine replaces six sets of
 reminders. One event log replaces every department's private counters.**
+
+The bottom ten rows are the Admin department, added in September 2026. It is the test of whether the
+claim above was true: a whole department arrived and needed **no new engine** — no second task list,
+no second form renderer, no second reminder clock, no second audit log. Its approval chain hangs off
+the Work engine, and the strongest row in the table is the last but one: most of what an accreditation
+asks for is work the platform already recorded, so the evidence pack is a view over it rather than a
+folder somebody fills each year.
 
 Configuration, not code, is what makes the platform fit Leon — and what lets it keep fitting when the
 process changes.
@@ -156,6 +173,20 @@ may only read it.
 | Client satisfaction score | Clients (a Form response) | Insight | Typed field, so it trends without re-keying |
 | Task ownership and due date | Work | Everything | One queue per person |
 | Every KPI | Nobody — derived from Events | Insight | The reason reporting cannot drift |
+| Supplier, payment terms and account reference | Administration | Insight | One edit, visible as one edit |
+| The agreed amount for a recurring payment | Administration | Administration (the variance check) | Approved once with the contract; only a difference asks again |
+| Premises asset register and next service date | Administration | Insight | Warnings come from the shared Scheduler, not a second rule |
+| Holiday entitlement and balance | Administration | Scheduling, the person | Pro-rata is arithmetic on the employment start date, never re-keyed |
+| Whether the person is rostered on requested dates | Scheduling | Administration — the holiday cover check | A query, not a phone call to Control |
+| Suspension period | Administration | Scheduling (blocks), Compliance | A suspended officer cannot be published to the rota |
+| Fines, penalties and vouchers | Administration | Insight | Two approvals where it is against an employee |
+| Uniform stock on hand | Administration, derived from movements | Recruitment, Control | **Who holds what** stays with Equipment — the two meet on the item |
+| Accreditation expiry and evidence links | Administration | Management, the auditor | Evidence is a view over Vetting, Quality and training records |
+| Approval thresholds | System (a Setting) | Administration | A number in the database, so changing it is an edit with an event |
+
+The register is also rendered in the application at `/platform`, read from
+[`lib/core/domains.ts`](../../lib/core/domains.ts) rather than transcribed from here — so it can be
+checked on a screen instead of trusted in a document.
 
 ## 4. How this maps onto the code
 

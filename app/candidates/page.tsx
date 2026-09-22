@@ -27,20 +27,62 @@ import type { Severity } from "@/lib/types";
  * Recruitment progress and vetting status are shown as two separate columns and
  * never merged into one number, because they answer different questions and are
  * owned by different people.
+ *
+ * "Interviews" in the sidebar arrives here with `?stage=interviews`. It is this
+ * list narrowed to the interview stages, not a screen of its own: the interview
+ * IS a stage of the pipeline, and a second page would be the same rows with a
+ * second chance to disagree about who is where.
  */
-export default function CandidatesPage() {
-  const rows = [...candidates].sort(
-    (a, b) =>
-      RECRUITMENT_STAGE_ORDER.indexOf(b.stage) -
-        RECRUITMENT_STAGE_ORDER.indexOf(a.stage) ||
-      daysSince(b.stageSince) - daysSince(a.stageSince),
-  );
+const INTERVIEW_STAGES = ["first_interview", "second_interview", "additional_interview"] as const;
+
+export default async function CandidatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ stage?: string }>;
+}) {
+  const { stage } = await searchParams;
+  const interviewsOnly = stage === "interviews";
+
+  const rows = [...candidates]
+    .filter((c) => !interviewsOnly || (INTERVIEW_STAGES as readonly string[]).includes(c.stage))
+    .sort(
+      (a, b) =>
+        RECRUITMENT_STAGE_ORDER.indexOf(b.stage) -
+          RECRUITMENT_STAGE_ORDER.indexOf(a.stage) ||
+        daysSince(b.stageSince) - daysSince(a.stageSince),
+    );
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title="Candidates"
-        description="One record per person, created once and carried from first contact to confirmed employment. The Interview Sheet and Recruitment Sheet become views of this, not separate files."
+        title={interviewsOnly ? "Interviews" : "Candidates"}
+        description={
+          interviewsOnly
+            ? "The pipeline narrowed to the interview stages. An interview is required before any offer of employment is made [7.3.4], so this is a gate rather than a courtesy."
+            : "One record per person, created once and carried from first contact to confirmed employment. The Interview Sheet and Recruitment Sheet become views of this, not separate files."
+        }
+        action={
+          <nav aria-label="View" className="flex gap-1">
+            {[
+              { href: "/candidates", label: "Whole pipeline", on: !interviewsOnly },
+              { href: "/candidates?stage=interviews", label: "Interviews", on: interviewsOnly },
+            ].map((v) => (
+              <Link
+                key={v.href}
+                href={v.href}
+                aria-current={v.on ? "true" : undefined}
+                className="rounded px-2 py-1 text-[11px]"
+                style={{
+                  background: v.on ? "var(--wash)" : "transparent",
+                  color: v.on ? "var(--text-primary)" : "var(--text-secondary)",
+                  fontWeight: v.on ? 600 : 400,
+                }}
+              >
+                {v.label}
+              </Link>
+            ))}
+          </nav>
+        }
       />
 
       <Card

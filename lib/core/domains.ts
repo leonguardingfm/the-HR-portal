@@ -1,3 +1,5 @@
+import type { NavGroup } from "@/components/layout/nav";
+
 /**
  * The platform map, as data.
  *
@@ -104,7 +106,12 @@ export interface DomainSpec {
   id: string;
   name: string;
   href: string | null;
-  group: "Operate" | "Grow" | "Assure" | "Run" | "See";
+  /**
+   * The department responsible, using the same names as the sidebar. Keeping
+   * one taxonomy means the platform map and the navigation cannot end up
+   * describing the business differently.
+   */
+  group: NavGroup;
   /** Facts nothing else in the platform may write. */
   owns: string[];
   reuses: EngineId[];
@@ -117,7 +124,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "live",
     name: "Live operations",
     href: "/live",
-    group: "Operate",
+    group: "Control Room",
     owns: ["Book-ons", "Check calls", "Welfare checks", "Incidents", "Live post state"],
     reuses: ["assignment", "forms", "scheduler", "events"],
     release: "R3",
@@ -127,7 +134,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "scheduling",
     name: "Scheduling",
     href: "/scheduling",
-    group: "Operate",
+    group: "Control Room",
     owns: ["Assignments", "Rota publication", "Shift changes", "Availability", "Absence"],
     reuses: ["identity", "places", "assignment", "work", "events"],
     release: "R2",
@@ -137,7 +144,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "places",
     name: "Places",
     href: null,
-    group: "Operate",
+    group: "Control Room",
     owns: ["Clients", "Sites", "Posts", "Site instructions", "PIN/PRN cross-reference"],
     reuses: ["documents", "events"],
     release: "R2",
@@ -147,7 +154,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "requirements",
     name: "Requirements",
     href: "/requirements",
-    group: "Grow",
+    group: "Control Room",
     owns: ["Client staffing requirements", "The pool check", "The timestamped release to HR"],
     reuses: ["places", "work", "events"],
     release: "R1",
@@ -157,7 +164,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "candidates",
     name: "Recruitment",
     href: "/candidates",
-    group: "Grow",
+    group: "HR",
     owns: ["Candidate pipeline stage", "Interviews", "Offers"],
     reuses: ["identity", "forms", "documents", "work", "scheduler"],
     release: "R1",
@@ -167,7 +174,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "vetting",
     name: "Vetting",
     href: "/vetting",
-    group: "Grow",
+    group: "HR",
     owns: ["The BS 7858 screening file", "Checks and evidence", "The clock", "The three gates"],
     reuses: ["identity", "documents", "work", "scheduler", "access"],
     release: "R1",
@@ -177,7 +184,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "onboarding",
     name: "Onboarding",
     href: "/onboarding",
-    group: "Grow",
+    group: "HR",
     owns: ["PIN allocation", "The onboarding checklist", "The handover to operations"],
     reuses: ["identity", "forms", "documents", "work"],
     release: "R1",
@@ -187,7 +194,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "compliance",
     name: "Compliance",
     href: "/compliance",
-    group: "Assure",
+    group: "HR",
     owns: ["Licence, right-to-work and visa status and expiry", "Deployability"],
     reuses: ["documents", "scheduler", "events"],
     release: "R1",
@@ -197,7 +204,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "quality",
     name: "Quality",
     href: "/quality",
-    group: "Assure",
+    group: "Management",
     owns: ["Inspections", "Operational reports", "Corrective actions"],
     reuses: ["forms", "documents", "work", "events"],
     release: "R4",
@@ -207,7 +214,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "clients",
     name: "Clients",
     href: "/clients",
-    group: "Assure",
+    group: "Management",
     owns: ["Contracts", "Service levels", "Feedback", "Satisfaction scores"],
     reuses: ["places", "forms", "events"],
     release: "R4",
@@ -217,7 +224,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "people",
     name: "People",
     href: "/people",
-    group: "Run",
+    group: "HR",
     owns: ["The person record and its lifecycle", "Contact details", "Next of kin", "Payroll reference"],
     reuses: ["identity", "documents", "events"],
     release: "R1",
@@ -227,7 +234,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "equipment",
     name: "Equipment",
     href: "/equipment",
-    group: "Run",
+    group: "Admin",
     owns: ["Uniform measurements, issues and returns", "Radios, keys and PPE"],
     reuses: ["identity", "forms", "documents", "work"],
     release: "R5",
@@ -237,7 +244,7 @@ export const DOMAINS: DomainSpec[] = [
     id: "tasks",
     name: "Tasks",
     href: "/tasks",
-    group: "Run",
+    group: "Dashboard",
     owns: ["Departmental task definitions", "Recurring workflows", "Ownership"],
     reuses: ["work", "scheduler", "access"],
     release: "R1",
@@ -247,18 +254,36 @@ export const DOMAINS: DomainSpec[] = [
     id: "insight",
     name: "Insight",
     href: "/reports",
-    group: "See",
+    group: "Management",
     owns: [],
     reuses: ["events"],
     release: "R5",
     status: "designed",
   },
   {
-    id: "admin",
-    name: "Admin",
+    id: "administration",
+    name: "Administration",
     href: "/admin",
-    group: "See",
-    owns: ["Users and roles", "Configurable rules", "The platform map", "The audit log"],
+    group: "Admin",
+    owns: [
+      "Suppliers, recurring payments and their agreed amounts",
+      "Premises asset register and service schedule",
+      "Holiday entitlement and requests",
+      "External authority matters and suspensions",
+      "Fines, penalties and vouchers",
+      "Uniform stock levels and movements",
+      "Accreditations, renewal dates and evidence links",
+    ],
+    reuses: ["identity", "forms", "documents", "work", "scheduler", "events", "access"],
+    release: "R2",
+    status: "built",
+  },
+  {
+    id: "system",
+    name: "System",
+    href: "/system",
+    group: "System",
+    owns: ["Users and roles", "Configurable rules and thresholds", "The platform map", "The audit log"],
     reuses: ["access", "scheduler", "events"],
     release: "R1",
     status: "designed",
@@ -292,6 +317,16 @@ export const COLLAPSED_FEATURES: {
   { asked: "Daily departmental tasks", actually: "Work items with a recurrence rule", engines: ["work", "scheduler"] },
   { asked: "Rotas and shift changes", actually: "Assignments, and their amendment history", engines: ["assignment", "events"] },
   { asked: "Live KPIs for every department", actually: "Queries over the event log", engines: ["events"] },
+  { asked: "Office rent and recurring payments", actually: "A schedule with an agreed amount, and a reminder rule per due date", engines: ["scheduler", "work", "events"] },
+  { asked: "Appliance maintenance", actually: "An asset with a next-service date, and the same expiry engine", engines: ["scheduler", "work", "documents"] },
+  { asked: "Employee holidays", actually: "A request needing approval, checked against the rota we already hold", engines: ["work", "assignment", "identity"] },
+  { asked: "Department of Work matters and suspensions", actually: "A matter with correspondence attached, and an approval before anything leaves the building", engines: ["documents", "work", "events"] },
+  { asked: "Company and employee forms", actually: "Form definitions — the same engine as application forms and welcome packs", engines: ["forms"] },
+  { asked: "Fines, penalties and decision forms", actually: "A decision record with an approval chain, and a form for the grounds", engines: ["work", "forms", "events"] },
+  { asked: "Vouchers", actually: "The same decision record, with a value and a redemption date", engines: ["work", "events"] },
+  { asked: "Uniform stock, allocation and returns", actually: "Stock as the running total of movements against the item the issues already point at", engines: ["identity", "work", "events"] },
+  { asked: "Accreditations and supporting evidence", actually: "An expiry date, and a view over screening, inspection and training records already held", engines: ["documents", "scheduler", "events"] },
+  { asked: "Approval history for sensitive decisions", actually: "The append-only event log, queried", engines: ["events", "access"] },
 ];
 
 /** The single-source-of-truth register. Every fact, and its one owner. */
@@ -316,6 +351,16 @@ export const OWNERSHIP_REGISTER: {
   { fact: "Client satisfaction score", owner: "Clients", readBy: "Insight", note: "A typed field, so it trends without re-keying" },
   { fact: "Task ownership and due date", owner: "Work", readBy: "Everything", note: "One queue per person" },
   { fact: "Every KPI", owner: "Nobody — derived from Events", readBy: "Insight", note: "The reason reporting cannot drift" },
+  { fact: "Supplier, payment terms and bank details", owner: "Administration", readBy: "Insight", note: "One edit, visible as one edit" },
+  { fact: "The agreed amount for a recurring payment", owner: "Administration", readBy: "Administration (variance check)", note: "Approved once with the contract; only a difference asks again" },
+  { fact: "Premises asset register and next service date", owner: "Administration", readBy: "Insight", note: "Expiry warnings come from the shared scheduler, not a second rule" },
+  { fact: "Holiday entitlement and balance", owner: "Administration", readBy: "Scheduling, the person", note: "Pro-rata is arithmetic on the employment start date, never re-keyed" },
+  { fact: "Whether the person is rostered on requested dates", owner: "Scheduling", readBy: "Administration (holiday cover check)", note: "A query, not a phone call to Control" },
+  { fact: "Suspension period", owner: "Administration", readBy: "Scheduling (blocks), Compliance", note: "A suspended officer cannot be published to the rota" },
+  { fact: "Fines, penalties and vouchers", owner: "Administration", readBy: "Insight", note: "Two approvals where it is against an employee" },
+  { fact: "Uniform stock on hand", owner: "Administration", readBy: "Recruitment, Control", note: "Derived from movements. Who holds what stays with Equipment" },
+  { fact: "Accreditation expiry and evidence links", owner: "Administration", readBy: "Management, the auditor", note: "Evidence is a view over Vetting, Quality and training records" },
+  { fact: "Approval thresholds", owner: "System (settings)", readBy: "Administration", note: "A number in the database, so changing it is an edit with an event" },
 ];
 
 export const engineById = (id: EngineId) => ENGINES.find((e) => e.id === id)!;

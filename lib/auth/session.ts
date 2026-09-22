@@ -3,7 +3,7 @@
  *
  * A signed, http-only cookie carrying the user id and the role they are
  * working as. Signed with Web Crypto rather than node:crypto so the same code
- * verifies in middleware (edge runtime) and in server components.
+ * verifies in proxy.ts (edge runtime) and in server components.
  *
  * THIS IS THE SSO SEAM. `createSession` is called today by a development
  * sign-in that checks a person exists and holds the role. In R1 it is called

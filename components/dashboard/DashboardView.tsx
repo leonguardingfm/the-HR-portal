@@ -78,20 +78,20 @@ export function DashboardView({
 
       <RequirementBoard />
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <TaskDigest limit={7} />
         <ExceptionsQueue />
       </div>
 
       {management && <DepartmentKpis counts={counts} />}
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <ActiveNow rows={presence} youUserId={userId} />
         <ActivityFeed events={events} />
       </div>
 
       {seesFlow && (
-        <div className="grid gap-5 xl:grid-cols-2">
+        <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
           <Card
             title="Pipeline funnel"
             subtitle="Where candidates are lost between one stage and the next."

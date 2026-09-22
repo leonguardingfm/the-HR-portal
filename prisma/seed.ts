@@ -47,6 +47,11 @@ import {
   posts,
   workItemDefinitions,
 } from "../lib/mock/ops";
+import {
+  ADMIN_TABLES,
+  seedAdminConfiguration,
+  seedAdminDemonstration,
+} from "./seed-admin";
 
 const db = new PrismaClient();
 
@@ -81,6 +86,8 @@ async function reset() {
     // refused.
     for (const table of [
       "Event", "DisposalRecord",
+      // Admin first, because its rows point at WorkItem, Setting and Person.
+      ...ADMIN_TABLES,
       "FormAnswer", "FormResponse", "FormField", "FormDefinition",
       "ContactAttempt", "CheckCall", "BookOff", "BookOn", "Incident",
       "AssignmentAmendment", "Assignment",
@@ -629,6 +636,23 @@ async function main() {
   await seedRetentionSubjects();
   await seedOperations();
   await seedWork();
+  await seedAdminConfiguration(db);
+  await seedAdminDemonstration(
+    db,
+    (name) => {
+      const id = userId(name);
+      if (!id) throw new Error(`Seed expects a user called ${name}`);
+      return id;
+    },
+    (name) => {
+      const user = users.find((u) => u.name.toLowerCase() === name.toLowerCase());
+      if (user) return user.personId;
+      const officer = officers.find(
+        (o) => o.siaBadgeName.toLowerCase() === name.toLowerCase(),
+      );
+      return officer ? officer.personId : null;
+    },
+  );
   await seedEventsAndDisposals();
 
   const counts = {
@@ -646,6 +670,15 @@ async function main() {
     disposals: await db.disposalRecord.count(),
     settings: await db.setting.count(),
     dueForDisposal: await db.candidacy.count({ where: { stage: "withdrawn" } }),
+    adminItems: await db.adminItem.count(),
+    adminApprovals: await db.adminApproval.count(),
+    suppliers: await db.supplier.count(),
+    paymentInstances: await db.paymentInstance.count(),
+    assets: await db.asset.count(),
+    holidayRequests: await db.holidayRequest.count(),
+    stockLines: await db.stockItem.count(),
+    stockMovements: await db.stockMovement.count(),
+    accreditations: await db.accreditation.count(),
   };
   console.table(counts);
 }

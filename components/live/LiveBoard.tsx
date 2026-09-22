@@ -24,6 +24,16 @@ import {
 import type { IncidentRow, LiveRow } from "@/lib/db/queries";
 import type { Severity } from "@/lib/types";
 
+/**
+ * Which slice of the board to show.
+ *
+ * Book-ons and check calls are entry points into this one board rather than
+ * screens of their own. They are the same rows answering a different question,
+ * so a second page could only ever be the same data with a second chance to
+ * disagree with itself.
+ */
+export type LiveFocus = "all" | "book_ons" | "check_calls";
+
 /** Which of these buttons this role may press. Decided on the server; repeated
  *  here only so a refusal is visible before it is attempted. */
 export interface LivePerms {
@@ -57,14 +67,43 @@ const SEVERITY_RANK: Record<Severity, number> = {
   neutral: 4,
 };
 
+const FOCUS_META: Record<
+  LiveFocus,
+  { label: string; href: string; title: string; subtitle: string }
+> = {
+  all: {
+    label: "Everything",
+    href: "/live",
+    title: "All posts in the window",
+    subtitle:
+      "Attendance and contact as two separate columns. Evidence shows how the record was made, which is what decides what it is worth.",
+  },
+  book_ons: {
+    label: "Book-ons",
+    href: "/live?view=book-ons",
+    title: "Posts still expecting a book-on",
+    subtitle:
+      "Shifts where the officer has not confirmed arrival. Anyone already on post has dropped off this list, so what is left is the work.",
+  },
+  check_calls: {
+    label: "Check calls",
+    href: "/live?view=check-calls",
+    title: "Posts where check calls apply",
+    subtitle:
+      "Hourly contact, per the client's instructions for the post. Posts with no check-call requirement are not shown, rather than shown as compliant.",
+  },
+};
+
 export function LiveBoard({
   rows: input,
   incidents,
   perms,
+  focus = "all",
 }: {
   rows: LiveRow[];
   incidents: IncidentRow[];
   perms: LivePerms;
+  focus?: LiveFocus;
 }) {
   const now = useNow(30_000);
 
@@ -92,6 +131,18 @@ export function LiveBoard({
   const callProblems = rows.filter((r) => r.call.escalation > 0);
   const welfare = rows.filter((r) => r.call.escalation === 3);
   const openIncidents = incidents.filter((i) => !i.clientNotified && i.severity !== "log_only");
+
+  // The focused slice. The tiles above stay whole-board on purpose: narrowing
+  // the table is a way of working, and a tile that silently changed meaning
+  // with the filter would make the numbers uncomparable between views.
+  const visible =
+    focus === "book_ons"
+      ? rows.filter((r) =>
+          ["not_due", "awaiting_book_on", "late", "no_show"].includes(r.att.state),
+        )
+      : focus === "check_calls"
+        ? rows.filter((r) => r.call.state !== "not_required")
+        : rows;
 
   /** Anything with a named next action, worst first. This is the work. */
   const actions = [
@@ -281,8 +332,27 @@ export function LiveBoard({
       </Card>
 
       <Card
-        title="All posts in the window"
-        subtitle="Attendance and contact as two separate columns. Evidence shows how the record was made, which is what decides what it is worth."
+        title={FOCUS_META[focus].title}
+        subtitle={FOCUS_META[focus].subtitle}
+        action={
+          <nav aria-label="Board view" className="flex flex-wrap gap-1">
+            {(Object.keys(FOCUS_META) as LiveFocus[]).map((f) => (
+              <a
+                key={f}
+                href={FOCUS_META[f].href}
+                aria-current={f === focus ? "true" : undefined}
+                className="rounded px-2 py-1 text-[11px]"
+                style={{
+                  background: f === focus ? "var(--wash)" : "transparent",
+                  color: f === focus ? "var(--text-primary)" : "var(--text-secondary)",
+                  fontWeight: f === focus ? 600 : 400,
+                }}
+              >
+                {FOCUS_META[f].label}
+              </a>
+            ))}
+          </nav>
+        }
       >
         <div className="-mx-1 overflow-x-auto">
           <table className="w-full min-w-[46rem] border-collapse text-[12px]">
@@ -298,7 +368,7 @@ export function LiveBoard({
               </tr>
             </thead>
             <tbody>
-              {rows.map((r) => {
+              {visible.map((r) => {
                 const evidence = r.bookOn ? CHANNEL_EVIDENCE[r.bookOn.channel] : null;
                 return (
                   <tr
@@ -373,12 +443,23 @@ export function LiveBoard({
                   </tr>
                 );
               })}
+              {visible.length === 0 && (
+                <tr className="border-t" style={{ borderColor: "var(--hairline)" }}>
+                  <td colSpan={7} className="px-1 py-6 text-center text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                    {focus === "book_ons"
+                      ? "Every post in the window has booked on."
+                      : focus === "check_calls"
+                        ? "No post in the window has a check-call requirement."
+                        : "No shifts in the window."}
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
       </Card>
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card
           title="Incidents"
           subtitle="Reported from site. Severity decides whether the client is notified and how fast."

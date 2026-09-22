@@ -2,7 +2,7 @@
 
 > **Scope note, 21 September 2026.** The brief has widened from an HR portal to an all-in-one
 > workforce and operations platform. **These documents are unchanged and still authoritative for
-> Recruitment and Vetting** — they are the detail behind two of the platform's twelve domains. The
+> Recruitment and Vetting** — they are the detail behind two of the platform's thirteen domains. The
 > platform-level plan is in [`docs/platform`](../platform/README.md), which cross-references this
 > folder rather than repeating it. The one exception is document 08, which is about INDEL — a
 > question now **parked**; see [Platform 01 §4](../platform/01-scope-and-domains.md#4-a-note-on-indel).

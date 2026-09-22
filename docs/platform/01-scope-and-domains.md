@@ -19,7 +19,7 @@ Two constraints shape every design decision that follows:
    on *doing the work*, so they belong in the path of the work — blocking a rota assignment — not in
    a compliance section someone remembers to visit.
 
-## 2. The twelve domains
+## 2. The thirteen domains
 
 Each domain is a **view plus its own rules** over the shared engines in
 [document 02](02-shared-engines.md). None of them owns a database of its own.
@@ -37,9 +37,17 @@ Each domain is a **view plus its own rules** over the shared engines in
 | 9 | **Clients** | Contracts, service levels, feedback, satisfaction scores, reviews | Places, Forms, Events |
 | 10 | **Equipment** | Uniform measurements, issues and returns; radios, keys, PPE | Identity, Forms, Documents, Work |
 | 11 | **Work** | Departmental task definitions, recurring workflows, ownership | Work, Scheduler, Access |
-| 12 | **Insight** | Nothing. Every number is derived | Events (only) |
+| 12 | **Administration** | Suppliers and recurring payments with their agreed amounts; the premises asset register and its service schedule; holiday entitlement and requests; external authority matters and suspensions; fines, penalties and vouchers; uniform stock levels and movements; accreditations, renewal dates and evidence links | Identity, Forms, Documents, Work, Scheduler, Events, Access |
+| 13 | **Insight** | Nothing. Every number is derived | Events (only) |
 
-Domain 12 owning nothing is the point: **management reporting cannot drift from operations if it has
+Domain 12 is the one added last, in September 2026, and it is worth noting what it did **not** need:
+no engine of its own, and no second task list, form renderer, reminder clock or audit log. Its
+approval chain hangs off the existing Work engine, which is what a thirteenth domain costing almost
+nothing looks like. Its structure and workflow are [document 06](06-admin-department.md). Note also
+that "who holds what uniform" stays with Equipment (domain 10) — Administration owns the *stock*, not
+the issues, and the two meet on the same item record.
+
+Domain 13 owning nothing is the point: **management reporting cannot drift from operations if it has
 no numbers of its own.**
 
 ## 3. Where the boundaries sit
@@ -87,17 +95,37 @@ Two things follow from the scope itself rather than from INDEL, and they hold re
 The platform is navigated the way the business is organised, so that "the whole of my job is on one
 screen" is true for each team rather than only for management.
 
+The groups are **departments**, in the order the day runs. Approved 22 September 2026, replacing
+the earlier Operate / Grow / Assure / Run / See grouping, which described what a module was for
+rather than who was responsible for it.
+
 | Group | Modules | Whose day it is |
 |-------|---------|-----------------|
-| **Operate** | Live board, Scheduling, Places | Control, every hour |
-| **Grow** | Requirements, Candidates, Vetting, Onboarding | HR — recruitment and vetting |
-| **Assure** | Compliance, Quality, Clients | HR compliance, Operations managers, account management |
-| **Run** | People, Equipment, Tasks | Administration and department heads |
-| **See** | Dashboard, Insight, Admin | Management |
+| **Dashboard** | Dashboard, My tasks | Everyone, first thing |
+| **Control Room** | Live board, Book-ons, Check calls, Scheduling & shift changes, Client requirements, Officers, Control Room tasks | Control and the Operations Manager, every hour |
+| **HR** | Recruitment & candidates, Interviews, Forms & packs, Vetting (BS 7858), Right to work & SIA, Onboarding, Officer & employee records, HR tasks | Recruitment, screening and the HR Manager |
+| **Admin** | Admin overview, Requests & approvals, Payments & contracts, Premises & equipment, People admin, Penalties & decisions, Uniform & stock, Accreditations, Admin tasks | The Admin team, the Finance Officer — see [06](06-admin-department.md) |
+| **Management** | Department board, Clients & contracts, Quality & inspections | Management, and account management |
+| **System** | Users, roles & rules, Permissions, Platform map | The portal owner, and the auditor |
+
+Three things about that table are deliberate:
+
+- **Management is no longer at the top.** The day's work comes first; oversight follows it.
+- **There is no Operations group.** Everything it held is under Control Room, because that is who
+  does it.
+- **Headings collapse**, and which are open is remembered per person — Control and an Admin Officer
+  want opposite things from the same sidebar.
+
+Where the business names several things that are one screen, the navigation links to the **view**,
+not to a copy. Book-ons and check calls are `?view=` links into the live board; Interviews is the
+candidate pipeline narrowed to the interview stages; the departmental task lists are the one queue,
+filtered. A second page would only be the same data with a second chance to disagree with itself.
 
 A role sees only the groups it works in ([`docs/proposal/06`](../proposal/06-access-permissions.md)
 governs this, extended with the operational roles). Control's day starts on the live board; a
-recruiter's on their task queue; a director's on the dashboard.
+recruiter's on their task queue; a director's on the dashboard. What a role may *do* on a screen it
+can see is separate, and is [`lib/auth/permissions.ts`](../../lib/auth/permissions.ts) — both
+matrices are rendered at `/system/permissions`.
 
 ## 6. What this is not a copy of
 

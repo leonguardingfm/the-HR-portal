@@ -14,7 +14,7 @@ export default function ReportsPage() {
         description="KPIs, delay analysis, source effectiveness and audit extracts. The monthly compliance pack keeps a fixed shape, because it is also the pack handed to an auditor or insurer."
       />
 
-      <div className="grid gap-5 xl:grid-cols-2">
+      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Card title="Pipeline funnel" subtitle="Where candidates are lost between stages.">
           <FunnelChart data={funnel} />
         </Card>

@@ -17,7 +17,13 @@ cleanup() { dropdb --if-exists "$DB" >/dev/null 2>&1 || true; }
 trap cleanup EXIT
 
 createdb "$DB"
-psql -d "$DB" -v ON_ERROR_STOP=1 -q -f prisma/migrations/20260921120000_init/migration.sql
+
+# Every migration, in order, so a constraint added in a later one is tested
+# too. Naming one file meant the Admin rules were silently untested the day
+# they were written.
+for m in $(ls -d prisma/migrations/*/ | sort); do
+  psql -d "$DB" -v ON_ERROR_STOP=1 -q -f "$m/migration.sql"
+done
 OUT=$(psql -d "$DB" -q -f prisma/constraints.test.sql 2>&1)
 
 echo "$OUT" | grep -oE "PASS  .*" || true

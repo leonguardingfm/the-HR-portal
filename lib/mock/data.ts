@@ -51,6 +51,15 @@ export const users: User[] = [
   { id: "u5", personId: "hr5", name: "Farhan", roles: ["top_management", "recruitment_manager", "vetting_admin"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(60) },
   { id: "u6", personId: "ct1", name: "Control Alpha desk", roles: ["control"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(300) },
   { id: "u7", personId: "ct2", name: "Control Bravo desk", roles: ["control"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(300) },
+  // The Admin department. Demonstration people, like everyone above — who
+  // actually holds which role is set up in the portal, not fixed here.
+  { id: "u8", personId: "hr6", name: "Sana", roles: ["admin_officer"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(80) },
+  { id: "u9", personId: "hr7", name: "Bilal", roles: ["admin_manager", "admin_officer"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(45) },
+  // The case the approval ladder is built around: the Finance Officer also sits
+  // in higher management. Because the ladder is written in terms of ROLES, the
+  // rung above the Finance Officer still needs a different person — so this row
+  // is what makes the separation testable rather than theoretical.
+  { id: "u10", personId: "hr8", name: "Imran", roles: ["finance_officer", "top_management"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(30) },
 ];
 
 export const userById = (id: string) => users.find((u) => u.id === id);
@@ -395,7 +404,7 @@ export const tasks: Task[] = [
   { id: "t7", kind: "record_check", title: "SIA public register check — blocks deployment", subjectName: "Ify Nwachukwu", subjectHref: "/vetting", owner: "Anas", dueAt: daysAhead(1), slaDays: 3, createdAt: daysAgo(2), blocked: false, blockedReason: null },
   { id: "t8", kind: "onboarding_step", title: "Hire in Casper from submitted application", subjectName: "Elena Petrova", subjectHref: "/onboarding", owner: "Ahmed", dueAt: daysAhead(1), slaDays: 2, createdAt: daysAgo(1), blocked: false, blockedReason: null },
   { id: "t9", kind: "chase_signatures", title: "Restrictive covenant unsigned", subjectName: "Amara Sesay", subjectHref: "/candidates", owner: "Ahmed", dueAt: daysAgo(3), slaDays: 5, createdAt: daysAgo(8), blocked: false, blockedReason: null },
-  { id: "t10", kind: "disposal", title: "Secure disposal due — unsuccessful at preliminary (12 months)", subjectName: "4 records", subjectHref: "/admin", owner: "Anas", dueAt: daysAhead(5), slaDays: 5, createdAt: daysAgo(2), blocked: false, blockedReason: null },
+  { id: "t10", kind: "disposal", title: "Secure disposal due — unsuccessful at preliminary (12 months)", subjectName: "4 records", subjectHref: "/system", owner: "Anas", dueAt: daysAhead(5), slaDays: 5, createdAt: daysAgo(2), blocked: false, blockedReason: null },
   { id: "t11", kind: "record_check", title: "DWP written request — registered unemployment", subjectName: "Marta Kowalczyk", subjectHref: "/vetting", owner: "Anas", dueAt: daysAhead(3), slaDays: 3, createdAt: daysAgo(1), blocked: true, blockedReason: "Awaiting DWP response — no API, written request only" },
   { id: "t12", kind: "chase_reference", title: "1st request — overseas employer (WR)", subjectName: "Rashid Karim", subjectHref: "/vetting", owner: "Talha", dueAt: daysAhead(4), slaDays: 3, createdAt: daysAgo(1), blocked: false, blockedReason: null },
 ];

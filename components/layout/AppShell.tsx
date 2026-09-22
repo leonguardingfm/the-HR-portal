@@ -1,3 +1,4 @@
+import { Suspense } from "react";
 import { getSession, touchSession } from "@/lib/auth/server";
 import { MobileNav } from "./MobileNav";
 import { Sidebar } from "./Sidebar";
@@ -8,7 +9,7 @@ import { Topbar } from "./Topbar";
  *
  * A server component, so the role that decides the navigation comes from the
  * signed session cookie rather than from anything the browser can set. An
- * unauthenticated request never reaches here — the middleware redirects it —
+ * unauthenticated request never reaches here — proxy.ts redirects it —
  * but if one did, it renders the page bare rather than a shell with no user.
  */
 export async function AppShell({ children }: { children: React.ReactNode }) {
@@ -23,7 +24,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         style={{ borderColor: "var(--hairline)" }}
       >
         <div className="sticky top-0 h-screen overflow-y-auto">
-          <Sidebar role={session.activeRole} />
+          {/* Both navigations read the query string, which is how a "?view="
+              item knows it is the current one. Wrapped so the shell can still
+              be rendered ahead of the request's search params being known. */}
+          <Suspense fallback={null}>
+            <Sidebar role={session.activeRole} userId={session.userId} />
+          </Suspense>
         </div>
       </aside>
 
@@ -34,10 +40,12 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           roles={session.roles}
         />
         <div
-          className="overflow-x-auto border-b px-4 py-2 lg:hidden"
+          className="border-b px-4 py-2 lg:hidden"
           style={{ borderColor: "var(--hairline)" }}
         >
-          <MobileNav role={session.activeRole} />
+          <Suspense fallback={null}>
+            <MobileNav role={session.activeRole} />
+          </Suspense>
         </div>
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">{children}</main>
       </div>

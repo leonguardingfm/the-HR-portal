@@ -123,6 +123,35 @@ design. This supersedes D5.
 ### E12 — What is it called?
 "HR Portal" no longer describes it. Worth naming before people start referring to it by module.
 
+### E13 — What exactly are "Department of Work matters"?
+Read as **DWP correspondence** — earnings enquiries, benefit verification, and correspondence tied to
+suspensions — and built that way in [06](06-admin-department.md).
+
+Deliberately built so a wrong reading is cheap: the **body** is a fixed list (DWP, HMRC, Home Office,
+tribunal, local authority, SIA, other) and the **kind of matter is free text**, so an enquiry we have
+not seen before is a row rather than a migration. If it turns out to mean something else entirely, it
+costs a label and not the workflow.
+
+Confirm: is that the right reading, and is there a kind of matter the list above cannot hold?
+
+### E14 — Are £250 and £2,000 the right approval thresholds?
+The agreed starting figures, held as settings (`admin.approval.low_threshold_pence`,
+`admin.approval.high_threshold_pence`) rather than constants, so changing them is an edit with an
+event against it and no release. Only higher management may change them, and requests already raised
+keep the chain they were raised with.
+
+Confirm against what is actually delegated today. The shape matters more than the numbers: the point
+of the second figure is that above it a **different person** has to sign, and that separation only
+works while the two figures are far enough apart to mean different things.
+
+### E15 — Cover when the Finance Officer is away
+Designed, not built: a **time-boxed delegation to a named person**, recorded with its start and end
+date. The alternative — a silent fallback to "anyone in higher management" — would widen who can
+spend money every time somebody takes leave, which is the opposite of the control.
+
+Confirm: who is the standing deputy, and is a delegation allowed to be open-ended? (Recommendation:
+no. An open-ended delegation is indistinguishable from a permanent grant.)
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

@@ -8,8 +8,16 @@ import { SESSION_COOKIE, verify } from "@/lib/auth/session";
  * reaches a database query. It is the outer gate; lib/auth/server.ts's
  * requireSession is the backstop, and lib/auth/permissions.ts decides what the
  * authenticated user may actually do.
+ *
+ * The outer gate is deliberately only a gate. The framework's own guidance is
+ * that this layer is an optimistic check and not a session-management or
+ * authorisation solution, which is exactly how it is used here: it redirects,
+ * and every page and every action verifies the session again for itself.
+ *
+ * Called `proxy` rather than `middleware` because Next renamed the convention
+ * in 16 — same functionality, and `next dev` warns on the old name.
  */
-export async function middleware(req: NextRequest) {
+export async function proxy(req: NextRequest) {
   const session = await verify(req.cookies.get(SESSION_COOKIE)?.value);
   const { pathname } = req.nextUrl;
 

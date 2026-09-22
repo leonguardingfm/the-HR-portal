@@ -13,7 +13,7 @@ export async function getSession(): Promise<Session | null> {
  * The session, or a redirect to sign-in.
  *
  * Used by every page and every action, so an unauthenticated request never
- * reaches a query. The middleware redirects too; this is the backstop for
+ * reaches a query. proxy.ts redirects too; this is the backstop for
  * anything the matcher misses.
  */
 export async function requireSession(): Promise<Session> {

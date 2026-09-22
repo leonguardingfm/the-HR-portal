@@ -54,6 +54,24 @@ export const ROLE_OPTIONS: RoleOption[] = [
       "All of Recruitment, plus the second interview and workload, reassignment and escalations.",
   },
   {
+    id: "admin_officer",
+    label: "Admin Officer",
+    description:
+      "Raise and complete Admin tasks: payments, premises, forms, uniform stock, holiday records and accreditation evidence.",
+  },
+  {
+    id: "admin_manager",
+    label: "Admin Manager",
+    description:
+      "All of Admin Officer, plus assigning Admin work and approving spend up to the low threshold.",
+  },
+  {
+    id: "finance_officer",
+    label: "Finance Officer",
+    description:
+      "Approve spend above the low threshold and see every cost. Holds no HR powers: not holidays, suspensions or authority matters.",
+  },
+  {
     id: "vetting_admin",
     label: "Screening Administrator",
     description:

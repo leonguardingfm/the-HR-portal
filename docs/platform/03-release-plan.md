@@ -44,7 +44,8 @@ A database, real authentication and the recruitment and vetting domains in live 
 cannot be expressed in it written as database constraints (`prisma/constraints.sql`) and tested —
 separation of duties on a screening file, no double-booked officer, an append-only event log, no
 retained copy where the document type forbids one, and the standard's four-week extension limit.
-Twenty-four assertions prove each one rejects what it should.
+Sixty-three assertions prove each one rejects what it should — including the ones that must
+*succeed*, because a constraint that rejects everything is not a constraint, it is an outage.
 
 **Also done:** the application reads the database. Dashboard, Live board, Scheduling and Compliance
 are server-rendered from PostgreSQL through `lib/db/queries.ts`, which returns the same domain types
@@ -53,15 +54,23 @@ run unchanged against database rows. The retention queue is derived from when ea
 withdrawn and each employment ceased, rather than maintained as a list.
 
 **Also done:** sessions, permissions and writes. A signed http-only cookie carries who you are
-and the role you are working as; middleware turns away every unauthenticated request before it
+and the role you are working as; the proxy gate turns away every unauthenticated request before it
 reaches a query; and every write goes through a server action that checks the role **on the
 server** before it touches the database, then writes the event in the same transaction.
 Presence is now a record — a work session opened at sign-in, closed at sign-out, moved when the
 role changes — so "who is doing what right now" is a query.
 
+**Also done:** the departmental navigation and the Admin department. The sidebar is grouped by the
+department responsible, with collapsible headings remembered per person; system configuration moved
+from `/admin` to `/system` so the Admin department could take that path. The Admin department itself
+is on the database end to end — six categories, the two-track workflow, the approval ladder with its
+three enforcement layers, and twelve KPIs computed from the items and the event log. It needed no new
+engine, which is the clearest evidence so far that document 02 was right. See
+[06](06-admin-department.md).
+
 **Remaining:**
 
-- The HR screens (requirements, candidates, vetting, onboarding), Insight and Admin on the database.
+- The HR screens (requirements, candidates, vetting, onboarding) and Insight on the database.
 - Company sign-on itself. The seam is built and the development sign-in refuses to run in
   production; what is left is the identity provider and mapping its subject onto `User.ssoSubject`.
 - The rest of the writes: candidates, onboarding, tasks.
@@ -114,7 +123,7 @@ Inspections, operational reports, corrective actions, client feedback and satisf
 ## R5 — Equipment, and the KPI layer completed
 
 - Uniform measurements, issues and returns; radios, keys, PPE; who holds what.
-- Department KPI sets finished across all twelve domains.
+- Department KPI sets finished across all thirteen domains.
 
 **The KPIs are cheap here precisely because nothing counted anything of its own** — R5 is writing
 queries over an event log that has been filling since R1.

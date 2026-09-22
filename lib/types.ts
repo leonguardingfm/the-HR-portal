@@ -298,11 +298,23 @@ export interface Task {
   blockedReason: string | null;
 }
 
+/**
+ * The roles a person can sign in as.
+ *
+ * A role is a job, not a rank. `finance_officer` is the case that proves it:
+ * the person who holds it also sits in higher management, but payment approval
+ * follows the role and not the seniority. That separation is the whole point —
+ * without it, the second signature on a large payment would be the same person
+ * who gave the first, and the approval ladder would only look like a ladder.
+ */
 export type Role =
   | "control"
   | "operations_manager"
   | "recruitment"
   | "recruitment_manager"
+  | "admin_officer"
+  | "admin_manager"
+  | "finance_officer"
   | "vetting_admin"
   | "vetting_controller"
   | "top_management"

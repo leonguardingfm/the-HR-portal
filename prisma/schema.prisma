@@ -81,6 +81,13 @@ model Person {
   equipment     EquipmentIssue[]
   formResponses FormResponse[]
 
+  holidayEntitlements HolidayEntitlement[]
+  holidayRequests     HolidayRequest[]
+  authorityMatters    AuthorityMatter[]
+  suspensions         Suspension[]
+  penalties           Penalty[]
+  vouchers            Voucher[]
+
   @@index([fullName])
   @@index([lifecycle])
 }
@@ -117,11 +124,20 @@ model PersonIdentityKey {
 
 /// Fixed, because these come from BS 7858's own vocabulary plus our own
 /// operational split. WHO holds them is data; the vocabulary is not.
+/// A role is a job, not a rank.
+///
+/// `finance_officer` is the case that proves it: the person who holds it also
+/// sits in higher management, but payment approval follows the role. Written in
+/// terms of seniority instead, the ladder's top two rungs would be the same
+/// person and the second signature on a large payment would be worth nothing.
 enum Role {
   control
   operations_manager
   recruitment
   recruitment_manager
+  admin_officer
+  admin_manager
+  finance_officer
   vetting_admin
   vetting_controller
   top_management
@@ -588,6 +604,7 @@ model WorkItem {
   assignmentId    String?
   documentId      String?
   formResponseId  String?
+  adminItemId     String?
 
   ownerUserId String?
   ownerRole   Role?
@@ -606,6 +623,7 @@ model WorkItem {
   owner         User?               @relation("WorkItemOwner", fields: [ownerUserId], references: [id])
   screeningFile ScreeningFile?      @relation(fields: [screeningFileId], references: [id])
   requirement   Requirement?        @relation(fields: [requirementId], references: [id])
+  adminItem     AdminItem?          @relation(fields: [adminItemId], references: [id])
 
   @@index([ownerUserId, state, dueAt])
   @@index([state, dueAt])
@@ -691,13 +709,15 @@ model Event {
   requirementId   String?
   documentId      String?
   siteId          String?
+  adminItemId     String?
 
   detail  String?
   /// Before/after for changes. Read-only; nothing queries into it for a KPI,
   /// because a KPI that depends on JSON shape is a KPI that breaks quietly.
   payload Json?
 
-  actor User? @relation(fields: [actorUserId], references: [id])
+  actor     User?      @relation(fields: [actorUserId], references: [id])
+  adminItem AdminItem? @relation(fields: [adminItemId], references: [id])
 
   @@index([at])
   @@index([type, at])
@@ -1165,6 +1185,9 @@ model EquipmentItem {
   returnable Boolean @default(true)
 
   issues EquipmentIssue[]
+  /// One row per size. Stock levels live against the same item the issues and
+  /// returns already point at, rather than in a list beside it.
+  stock  StockItem[]
 }
 
 model EquipmentIssue {
@@ -1268,4 +1291,665 @@ model DisposalRecord {
 
   @@index([at])
   @@index([rule, at])
+}
+
+// ===========================================================================
+// DOMAIN — Administration
+// ===========================================================================
+//
+// The Admin department adds no engine. Its work items are WorkItems, its
+// documents are DocumentRecords, its reminders are ReminderRules, its audit
+// trail is the Event log and its thresholds are Settings. What it adds is six
+// categories of fact nobody else owned, and one workflow over them.
+//
+// Read lib/core/admin.ts alongside this: the states, the priorities and the
+// approval ladder are there, in one place, and these tables are shaped to
+// them.
+
+/// A task needs DOING. A request needs DECIDING and then doing. Two tracks of
+/// one thing, so "order a new kettle" and "approve £400 for a kettle" are the
+/// same item at different points rather than two items in two modules.
+enum AdminTrack {
+  task
+  request
+}
+
+enum AdminCategory {
+  payments
+  premises
+  people_admin
+  decisions
+  uniform
+  accreditations
+}
+
+/// Escalation is a multiple of the item's own target, not a fixed clock, so one
+/// rule covers a four-hour job and a ten-day one.
+enum AdminPriority {
+  P1
+  P2
+  P3
+  P4
+}
+
+enum AdminItemState {
+  raised
+  assigned
+  in_progress
+  reviewed
+  approved
+  rejected
+  completed
+  cancelled
+}
+
+enum AdminRequestKind {
+  payment
+  purchase
+  voucher
+  penalty
+  suspension
+  holiday
+  authority_response
+  write_off
+}
+
+/// One Admin item, on one of the two tracks.
+///
+/// `dueAt` is stored rather than derived from the priority on read, because it
+/// is the deadline that was promised when the item was raised. Re-deriving it
+/// would let a later change to the priority table quietly rewrite whether past
+/// work was on time.
+model AdminItem {
+  id        String            @id @default(cuid())
+  reference String            @unique
+  track     AdminTrack
+  category  AdminCategory
+  /// Set on the request track only; a task is not asking for anything.
+  kind      AdminRequestKind?
+
+  title    String
+  detail   String?
+  priority AdminPriority  @default(P3)
+  state    AdminItemState @default(raised)
+
+  /// Integer pence. Never a float: money that rounds differently on two
+  /// screens is worse than money that is missing from one.
+  amountPence   Int?
+  /// Set where the request is a decision about a member of staff, which is
+  /// what pulls the HR Manager and higher management onto the chain.
+  aboutPersonId String?
+
+  /// The subject, as real foreign keys rather than a generic pair. At most one
+  /// is set; which one is allowed depends on the category, checked in
+  /// constraints.sql.
+  supplierId         String?
+  recurringPaymentId String?
+  assetId            String?
+  holidayRequestId   String?
+  penaltyId          String?
+  voucherId          String?
+  accreditationId    String?
+  authorityMatterId  String?
+  stockItemId        String?
+
+  requestedByUserId String
+  assignedToUserId  String?
+  assignedToRole    Role?
+
+  raisedAt       DateTime  @default(now()) @db.Timestamptz(3)
+  dueAt          DateTime  @db.Timestamptz(3)
+  startedAt      DateTime? @db.Timestamptz(3)
+  reviewedAt     DateTime? @db.Timestamptz(3)
+  decidedAt      DateTime? @db.Timestamptz(3)
+  completedAt    DateTime? @db.Timestamptz(3)
+  cancelledAt    DateTime? @db.Timestamptz(3)
+  /// 0 while inside target; 1, 2, 3 as the ladder fires. Written by the
+  /// scheduler, so the board and the reminder agree about where it has got to.
+  escalatedStage Int       @default(0)
+
+  /// The entry in the one work queue. Admin does not keep a second to-do list;
+  /// the link is held on WorkItem, the same way every other subject is.
+  workItems WorkItem[]
+
+  approvals AdminApproval[]
+  events    Event[]
+
+  supplier         Supplier?         @relation(fields: [supplierId], references: [id])
+  recurringPayment RecurringPayment? @relation(fields: [recurringPaymentId], references: [id])
+  asset            Asset?            @relation(fields: [assetId], references: [id])
+  holidayRequest   HolidayRequest?   @relation(fields: [holidayRequestId], references: [id])
+  penalty          Penalty?          @relation(fields: [penaltyId], references: [id])
+  voucher          Voucher?          @relation(fields: [voucherId], references: [id])
+  accreditation    Accreditation?    @relation(fields: [accreditationId], references: [id])
+  authorityMatter  AuthorityMatter?  @relation(fields: [authorityMatterId], references: [id])
+  stockItem        StockItem?        @relation(fields: [stockItemId], references: [id])
+
+  @@index([state, dueAt])
+  @@index([category, state])
+  @@index([assignedToUserId, state, dueAt])
+  @@index([requestedByUserId])
+}
+
+/// One rung of an approval chain.
+///
+/// The chain is written out when the request is raised, so the approvals it
+/// needed are a record rather than a recalculation. If the thresholds change
+/// next year, last year's requests still show the ladder they actually climbed.
+model AdminApproval {
+  id     String @id @default(cuid())
+  itemId String
+  step   Int
+
+  /// Any one of these satisfies the rung. Stored per approval, for the reason
+  /// above.
+  requiredRoles Role[]
+  reason        String
+
+  /// Null while the rung is outstanding. Nothing ever sets this automatically:
+  /// the chase ladder puts the request in front of a person, it does not decide.
+  decision            String?
+  decidedByUserId     String?
+  decidedByRole       Role?
+  decidedAt           DateTime? @db.Timestamptz(3)
+  /// Why. Required on a rejection, and on any approval over the high threshold.
+  grounds             String?
+  /// What was actually approved, where it differs from what was asked for.
+  amountApprovedPence Int?
+
+  item AdminItem @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@unique([itemId, step])
+  /// One person may satisfy at most one rung of a chain. This is the database
+  /// half of "a second approval means a second person" — Postgres treats NULLs
+  /// as distinct, so outstanding rungs are unaffected.
+  @@unique([itemId, decidedByUserId])
+  @@index([decision, decidedAt])
+}
+
+// --- Payments & contracts --------------------------------------------------
+
+model Supplier {
+  id               String   @id @default(cuid())
+  name             String   @unique
+  category         String
+  contactName      String?
+  email            String?
+  phone            String?
+  /// Our account reference with them, not their bank details: those change,
+  /// and a change should be one visible edit on the contract.
+  accountRef       String?
+  paymentTermsDays Int      @default(30)
+  active           Boolean  @default(true)
+  createdAt        DateTime @default(now()) @db.Timestamptz(3)
+
+  contracts         SupplierContract[]
+  recurringPayments RecurringPayment[]
+  assets            Asset[]
+  maintenanceJobs   MaintenanceJob[]
+  adminItems        AdminItem[]
+}
+
+model SupplierContract {
+  id         String @id @default(cuid())
+  supplierId String
+  reference  String
+
+  startsOn          DateTime  @db.Timestamptz(3)
+  endsOn            DateTime? @db.Timestamptz(3)
+  noticePeriodDays  Int       @default(30)
+  /// The figure the contract commits us to. A payment that differs from this
+  /// is what raises a variance, rather than a person noticing.
+  agreedAmountPence Int?
+  notes             String?
+
+  supplier Supplier @relation(fields: [supplierId], references: [id], onDelete: Cascade)
+
+  @@unique([supplierId, reference])
+  @@index([endsOn])
+}
+
+enum PaymentFrequency {
+  weekly
+  monthly
+  quarterly
+  annually
+}
+
+/// A standing commitment — rent, utilities, a service contract.
+///
+/// Approved once, with its agreed amount. Only a variance, a new payee or a
+/// renewal asks for a decision again: approving an unchanged rent figure twelve
+/// times a year teaches people to approve without looking, which is the
+/// opposite of a control.
+model RecurringPayment {
+  id         String @id @default(cuid())
+  supplierId String
+  label      String
+
+  agreedAmountPence Int
+  frequency         PaymentFrequency
+  /// For monthly and quarterly schedules. Null on weekly.
+  dayOfMonth        Int?
+  firstDueOn        DateTime         @db.Timestamptz(3)
+  endsOn            DateTime?        @db.Timestamptz(3)
+  active            Boolean          @default(true)
+
+  supplier   Supplier          @relation(fields: [supplierId], references: [id])
+  instances  PaymentInstance[]
+  adminItems AdminItem[]
+
+  @@index([active, firstDueOn])
+}
+
+model PaymentInstance {
+  id                 String @id @default(cuid())
+  recurringPaymentId String
+
+  dueOn                    DateTime  @db.Timestamptz(3)
+  amountDuePence           Int
+  paidOn                   DateTime? @db.Timestamptz(3)
+  amountPaidPence          Int?
+  reference                String?
+  /// Set where the amount differs from the agreed figure and that difference
+  /// has been through the approval chain.
+  varianceApprovedByUserId String?
+  varianceApprovedAt       DateTime? @db.Timestamptz(3)
+
+  recurringPayment RecurringPayment @relation(fields: [recurringPaymentId], references: [id], onDelete: Cascade)
+
+  @@unique([recurringPaymentId, dueOn])
+  @@index([dueOn, paidOn])
+}
+
+// --- Premises & equipment --------------------------------------------------
+
+enum AssetCondition {
+  in_service
+  needs_attention
+  out_of_service
+  disposed
+}
+
+/// The office asset register. Deliberately separate from EquipmentItem, which
+/// is what officers are issued: a boiler and a pair of gloves need different
+/// questions asked of them, and one table for both would answer neither well.
+model Asset {
+  id       String @id @default(cuid())
+  tag      String @unique
+  label    String
+  category String
+  location String
+
+  supplierId        String?
+  purchasedOn       DateTime? @db.Timestamptz(3)
+  purchaseCostPence Int?
+  warrantyEndsOn    DateTime? @db.Timestamptz(3)
+
+  serviceIntervalMonths Int?
+  lastServicedOn        DateTime? @db.Timestamptz(3)
+  /// Watched by the shared expiry engine, not by a rule of its own.
+  nextServiceOn         DateTime? @db.Timestamptz(3)
+
+  condition AssetCondition @default(in_service)
+
+  supplier   Supplier?        @relation(fields: [supplierId], references: [id])
+  jobs       MaintenanceJob[]
+  adminItems AdminItem[]
+
+  @@index([nextServiceOn])
+  @@index([condition])
+}
+
+enum MaintenanceKind {
+  service
+  repair
+  inspection
+  replacement
+}
+
+model MaintenanceJob {
+  id      String          @id @default(cuid())
+  assetId String
+  kind    MaintenanceKind
+
+  reportedAt       DateTime @default(now()) @db.Timestamptz(3)
+  reportedByUserId String?
+  description      String
+
+  supplierId  String?
+  costPence   Int?
+  completedAt DateTime? @db.Timestamptz(3)
+  outcome     String?
+
+  asset    Asset     @relation(fields: [assetId], references: [id], onDelete: Cascade)
+  supplier Supplier? @relation(fields: [supplierId], references: [id])
+
+  @@index([assetId, reportedAt])
+  @@index([completedAt])
+}
+
+// --- People admin ----------------------------------------------------------
+
+/// Entitlement in HOURS, not days.
+///
+/// A shift is eight hours or twelve depending on the post, so a day of leave is
+/// not a fixed quantity. Holding days and converting later is how a balance
+/// comes to be wrong by a shift and a half.
+model HolidayEntitlement {
+  id       String @id @default(cuid())
+  personId String
+
+  leaveYearStart DateTime @db.Timestamptz(3)
+  leaveYearEnd   DateTime @db.Timestamptz(3)
+
+  entitlementHours Int
+  carriedOverHours Int     @default(0)
+  /// Why the figure is what it is — statutory, contractual, pro-rata from a
+  /// mid-year start. Captured at the time, so a later change to the rule does
+  /// not rewrite what someone was told they had.
+  basis            String?
+
+  person   Person           @relation(fields: [personId], references: [id], onDelete: Cascade)
+  requests HolidayRequest[]
+
+  @@unique([personId, leaveYearStart])
+}
+
+enum HolidayDecision {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+model HolidayRequest {
+  id            String  @id @default(cuid())
+  personId      String
+  entitlementId String?
+
+  startsOn       DateTime @db.Timestamptz(3)
+  endsOn         DateTime @db.Timestamptz(3)
+  hoursRequested Int
+
+  decision        HolidayDecision @default(pending)
+  raisedAt        DateTime        @default(now()) @db.Timestamptz(3)
+  decidedAt       DateTime?       @db.Timestamptz(3)
+  decidedByUserId String?
+  note            String?
+  /// The shifts the person was rostered on across those dates, as counted when
+  /// the decision was made. The rota is the source; this is the evidence that
+  /// cover was considered, which is the thing an argument later turns on.
+  shiftsAffected  Int?
+
+  person      Person              @relation(fields: [personId], references: [id], onDelete: Cascade)
+  entitlement HolidayEntitlement? @relation(fields: [entitlementId], references: [id])
+  adminItems  AdminItem[]
+
+  @@index([personId, startsOn])
+  @@index([decision, raisedAt])
+}
+
+/// The external bodies we correspond with. Kept as an enum of bodies plus a
+/// free-text matter type, so a kind of enquiry we have not seen before is data
+/// rather than a migration.
+enum AuthorityBody {
+  dwp
+  hmrc
+  home_office
+  tribunal
+  local_authority
+  sia
+  other
+}
+
+enum AuthorityMatterState {
+  open
+  awaiting_response
+  responded
+  closed
+}
+
+model AuthorityMatter {
+  id         String        @id @default(cuid())
+  reference  String        @unique
+  body       AuthorityBody
+  /// e.g. "Earnings enquiry", "Benefit verification", "Tribunal directions".
+  matterType String
+
+  personId    String?
+  receivedOn  DateTime             @db.Timestamptz(3)
+  dueOn       DateTime?            @db.Timestamptz(3)
+  state       AuthorityMatterState @default(open)
+  summary     String
+  respondedOn DateTime?            @db.Timestamptz(3)
+  closedOn    DateTime?            @db.Timestamptz(3)
+
+  person     Person?     @relation(fields: [personId], references: [id])
+  adminItems AdminItem[]
+
+  @@index([state, dueOn])
+  @@index([personId])
+}
+
+model Suspension {
+  id       String @id @default(cuid())
+  personId String
+
+  startsOn DateTime  @db.Timestamptz(3)
+  endsOn   DateTime? @db.Timestamptz(3)
+  reason   String
+  paid     Boolean   @default(true)
+
+  decidedByUserId String?
+  /// Set when it is lifted early. A suspension with no end date and no lift is
+  /// the one that gets forgotten, so both are queryable.
+  liftedOn        DateTime? @db.Timestamptz(3)
+
+  person Person @relation(fields: [personId], references: [id], onDelete: Cascade)
+
+  @@index([personId, startsOn])
+  @@index([endsOn])
+}
+
+// --- Penalties & decisions -------------------------------------------------
+
+enum PenaltyKind {
+  fine
+  penalty
+  deduction
+  recharge
+}
+
+enum PenaltyState {
+  raised
+  approved
+  rejected
+  recovered
+  written_off
+}
+
+/// Anything charged to a member of staff. Two approvals, always: the HR
+/// Manager and higher management, plus the money rung on top where there is a
+/// value attached. They are answering different questions.
+model Penalty {
+  id        String      @id @default(cuid())
+  reference String      @unique
+  personId  String
+  kind      PenaltyKind
+
+  amountPence Int
+  grounds     String
+  state       PenaltyState @default(raised)
+
+  raisedAt         DateTime  @default(now()) @db.Timestamptz(3)
+  recoveredOn      DateTime? @db.Timestamptz(3)
+  writtenOffOn     DateTime? @db.Timestamptz(3)
+  writtenOffReason String?
+
+  person     Person      @relation(fields: [personId], references: [id])
+  adminItems AdminItem[]
+
+  @@index([state, raisedAt])
+  @@index([personId])
+}
+
+enum VoucherState {
+  issued
+  redeemed
+  expired
+  cancelled
+}
+
+model Voucher {
+  id        String  @id @default(cuid())
+  reference String  @unique
+  /// Null where the voucher is issued to a client contact rather than staff.
+  personId  String?
+
+  valuePence Int
+  purpose    String
+  issuedOn   DateTime     @db.Timestamptz(3)
+  expiresOn  DateTime     @db.Timestamptz(3)
+  state      VoucherState @default(issued)
+  redeemedOn DateTime?    @db.Timestamptz(3)
+
+  person     Person?     @relation(fields: [personId], references: [id])
+  adminItems AdminItem[]
+
+  @@index([state, expiresOn])
+}
+
+// --- Uniform & stock -------------------------------------------------------
+
+/// Stock sits against the same EquipmentItem the issues and returns already
+/// point at, one row per size. A spreadsheet beside it could only ever be a
+/// second, staler answer to the same question.
+///
+/// There is no `onHand` column on purpose. The quantity in stock is the running
+/// total of movements, derived on read — the same reason no KPI is stored.
+model StockItem {
+  id              String  @id @default(cuid())
+  equipmentItemId String
+  size            String?
+
+  reorderLevel Int     @default(0)
+  /// Where the physical stock is kept, so a count can be done against it.
+  location     String?
+
+  equipmentItem EquipmentItem   @relation(fields: [equipmentItemId], references: [id], onDelete: Cascade)
+  movements     StockMovement[]
+  adminItems    AdminItem[]
+
+  @@unique([equipmentItemId, size])
+}
+
+enum StockMovementKind {
+  received
+  issued
+  returned
+  written_off
+  adjustment
+}
+
+model StockMovement {
+  id          String            @id @default(cuid())
+  stockItemId String
+  kind        StockMovementKind
+
+  /// Signed: positive into stock, negative out. Stored signed rather than as a
+  /// kind plus a magnitude, so the running total is a sum and cannot be got
+  /// wrong by reading the kind the other way round.
+  quantity         Int
+  at               DateTime @default(now()) @db.Timestamptz(3)
+  byUserId         String?
+  note             String?
+  /// Set where the movement is the other side of an issue to an officer, so
+  /// stock and who-holds-what cannot disagree.
+  equipmentIssueId String?
+
+  stockItem StockItem @relation(fields: [stockItemId], references: [id], onDelete: Cascade)
+
+  @@index([stockItemId, at])
+}
+
+// --- Accreditations --------------------------------------------------------
+
+enum AccreditationState {
+  held
+  applying
+  suspended
+  lapsed
+}
+
+model Accreditation {
+  id    String @id @default(cuid())
+  name  String @unique
+  body  String
+  scope String
+
+  certificateNumber String?
+  firstAwardedOn    DateTime?          @db.Timestamptz(3)
+  expiresOn         DateTime           @db.Timestamptz(3)
+  nextAuditOn       DateTime?          @db.Timestamptz(3)
+  state             AccreditationState @default(held)
+  /// The role accountable for it, never a named person.
+  ownerRole         Role?
+
+  requirements AccreditationRequirement[]
+  submissions  AccreditationSubmission[]
+  adminItems   AdminItem[]
+
+  @@index([state, expiresOn])
+}
+
+/// Where the evidence comes from.
+///
+/// `derived` is the point of the exercise: the evidence an accreditation asks
+/// for is usually work the platform already recorded, so the pack is a view
+/// over it rather than a folder somebody fills each year.
+enum EvidenceSource {
+  derived_screening
+  derived_quality
+  derived_training
+  document
+  manual
+}
+
+model AccreditationRequirement {
+  id              String @id @default(cuid())
+  accreditationId String
+
+  /// The clause or criterion in the scheme's own numbering.
+  clause String?
+  label  String
+  source EvidenceSource
+
+  /// For a derived requirement, the query that satisfies it, named in words.
+  /// Nothing is copied here; it says where to look.
+  derivedFrom String?
+  documentId  String?
+
+  satisfiedAt       DateTime? @db.Timestamptz(3)
+  satisfiedByUserId String?
+  note              String?
+
+  accreditation Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
+
+  @@index([accreditationId, satisfiedAt])
+}
+
+model AccreditationSubmission {
+  id              String @id @default(cuid())
+  accreditationId String
+
+  submittedOn       DateTime  @db.Timestamptz(3)
+  submittedByUserId String?
+  outcome           String?
+  /// Set once the renewal comes back, which is what cancels the reminder ladder.
+  newExpiresOn      DateTime? @db.Timestamptz(3)
+
+  accreditation Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
+
+  @@index([accreditationId, submittedOn])
 }

@@ -35,7 +35,23 @@ export type ActionId =
   | "document.renew"
   | "disposal.run"
   | "work_item.complete"
-  | "reminder.send";
+  | "reminder.send"
+  // --- Administration ----------------------------------------------------
+  | "admin_item.raise"
+  | "admin_item.assign"
+  | "admin_item.start"
+  | "admin_item.review"
+  | "admin_item.approve"
+  | "admin_item.reject"
+  | "admin_item.complete"
+  | "admin_item.cancel"
+  | "payment.record"
+  | "asset.maintain"
+  | "holiday.decide"
+  | "stock.move"
+  | "accreditation.evidence"
+  | "authority_matter.respond"
+  | "threshold.change";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -51,10 +67,24 @@ const STAFF: Role[] = [
   "operations_manager",
   "recruitment",
   "recruitment_manager",
+  "admin_officer",
+  "admin_manager",
+  "finance_officer",
   "vetting_admin",
   "vetting_controller",
   "top_management",
 ];
+
+/**
+ * The Admin department.
+ *
+ * Note what the Finance Officer does NOT hold. They approve spend and they see
+ * every cost; they cannot decide someone's holiday, respond to an authority on
+ * the company's behalf, or move uniform stock. That is the separation the
+ * approval ladder depends on, and writing it as a role rather than a rank is
+ * what keeps it true when the same person also sits in higher management.
+ */
+const ADMIN_TEAM: Role[] = ["admin_officer", "admin_manager"];
 
 export const ACTIONS: Record<ActionId, ActionSpec> = {
   "check_call.record": { roles: ["control", "operations_manager"], owner: "Control", what: "Recording a check call" },
@@ -74,6 +104,42 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "disposal.run": { roles: ["vetting_controller", "top_management"], owner: "the Screening Controller", what: "Running a retention disposal" },
   "work_item.complete": { roles: STAFF, owner: "the person the task is assigned to", what: "Closing a task" },
   "reminder.send": { roles: STAFF, owner: "anyone but the Auditor", what: "Sending a reminder early" },
+
+  // --- Administration ------------------------------------------------------
+  // Raising is open to every member of staff on purpose: an Admin request that
+  // has to be asked for through Admin is a request that gets asked for by
+  // WhatsApp instead, and then it is not in the platform at all.
+  "admin_item.raise": { roles: STAFF, owner: "anyone but the Auditor", what: "Raising an Admin task or request" },
+  "admin_item.assign": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager", what: "Assigning Admin work" },
+  "admin_item.start": { roles: [...ADMIN_TEAM, "top_management"], owner: "the Admin team", what: "Starting an Admin item" },
+  "admin_item.review": { roles: [...ADMIN_TEAM, "top_management"], owner: "the Admin team", what: "Reviewing and costing a request" },
+  // Approving is not a single role: which role may sign depends on the amount
+  // and on who the request is about. This entry says who may ever hold a pen;
+  // approvalChain and canApproveStep in lib/core/admin.ts decide which rung
+  // this particular person may sign, and the database refuses the rest.
+  "admin_item.approve": {
+    roles: ["admin_manager", "finance_officer", "recruitment_manager", "top_management"],
+    owner: "the approver named on the step",
+    what: "Approving a request",
+  },
+  "admin_item.reject": {
+    roles: ["admin_manager", "finance_officer", "recruitment_manager", "top_management"],
+    owner: "the approver named on the step",
+    what: "Rejecting a request",
+  },
+  "admin_item.complete": { roles: [...ADMIN_TEAM, "top_management"], owner: "the Admin team", what: "Completing an Admin item" },
+  "admin_item.cancel": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager", what: "Cancelling an Admin item" },
+  "payment.record": { roles: [...ADMIN_TEAM, "finance_officer"], owner: "the Admin team or the Finance Officer", what: "Recording a payment" },
+  "asset.maintain": { roles: ADMIN_TEAM, owner: "the Admin team", what: "Recording maintenance on an asset" },
+  // Holiday is a decision about a person, so it sits with Admin and HR — never
+  // with Finance.
+  "holiday.decide": { roles: ["admin_manager", "recruitment_manager", "top_management"], owner: "the Admin Manager or the HR Manager", what: "Deciding a holiday request" },
+  "stock.move": { roles: [...ADMIN_TEAM, "recruitment"], owner: "the Admin team", what: "Recording a stock movement" },
+  "accreditation.evidence": { roles: [...ADMIN_TEAM, "vetting_controller", "top_management"], owner: "the Admin team", what: "Marking accreditation evidence satisfied" },
+  "authority_matter.respond": { roles: ["admin_manager", "recruitment_manager", "top_management"], owner: "the Admin Manager or the HR Manager", what: "Responding to an external authority" },
+  // Changing a threshold changes who may approve what, so it belongs with the
+  // portal owner rather than with the people it governs.
+  "threshold.change": { roles: ["top_management"], owner: "higher management", what: "Changing an approval threshold" },
 };
 
 export function canDo(role: Role | null | undefined, action: ActionId): boolean {
