@@ -12,7 +12,7 @@ press Cmd+Space, type `Terminal`, open it.
 
 | | What | Where | Check it worked |
 |---|------|-------|-----------------|
-| 1 | **Node.js**, version 20 or newer | <https://nodejs.org> — take the "LTS" button | `node --version` → `v20.` or higher |
+| 1 | **Node.js**, version 22.9 or newer | <https://nodejs.org> — take the "LTS" button | `node --version` → `v22.9` or higher |
 | 2 | **PostgreSQL 16** | <https://www.postgresql.org/download/> | `psql --version` → `psql (PostgreSQL) 16.` |
 | 3 | **Git** | <https://git-scm.com/downloads> | `git --version` → any number |
 

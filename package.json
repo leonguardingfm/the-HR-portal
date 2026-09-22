@@ -13,7 +13,7 @@
     "db:migrate": "prisma migrate deploy",
     "db:validate": "prisma validate",
     "db:test": "bash scripts/test-constraints.sh",
-    "db:seed": "tsx prisma/seed.ts",
+    "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
     "db:reset": "prisma migrate reset --force --skip-generate && npm run db:seed",
     "test:permissions": "tsx scripts/test-permissions.ts"
   },
@@ -34,7 +34,10 @@
     "tsx": "^4.23.15",
     "typescript": "^5.9.3"
   },
+  "engines": {
+    "node": ">=22.9"
+  },
   "prisma": {
-    "seed": "tsx prisma/seed.ts"
+    "seed": "tsx --env-file-if-exists=.env prisma/seed.ts"
   }
 }
