@@ -88,7 +88,7 @@ npm run db:seed
 - `db:seed` fills it with the configuration (document types, form definitions, retention rules) and
   the demonstration records.
 
-You should see a table of counts: 29 people, 16 shifts, 136 screening checks, and so on.
+You should see a table of counts: 32 people, 16 shifts, 136 screening checks, 9 Admin items, and so on.
 
 ## Step 6 — start it
 
@@ -111,6 +111,26 @@ the top bar and watch the surface change.
 > `npm run dev`.
 
 To stop it, click the terminal and press `Ctrl+C`.
+
+---
+
+## What to look at first
+
+The screens that read and write the real database, so these are the ones that actually do something:
+
+| Sign in as | Go to | What you are looking at |
+|------------|-------|-------------------------|
+| **Control** | Live board | Every post on now. Two separate columns: did they turn up, and have we heard from them. Try **Book on** and **Check call** — they write to the database and the row changes |
+| **Control** | Live board → the perimeter post | A post with **no mobile signal**. It says the client is holding contact on the site phone rather than showing a missed call every hour. Delete the handover and it becomes work instead |
+| **Admin Officer** | Admin | The department's own front page: urgent work, money due, stock at reorder, and the twelve KPIs at the bottom |
+| **Admin Manager** | Admin → Requests & approvals | Approve something. Then try to approve the second step of the same request — it refuses, because one person cannot sign twice |
+| **Finance Officer** | Admin → People admin | The buttons are disabled with the reason. Approving spend does not come with access to somebody's leave |
+| **Higher Management** | System | Lend a role to cover an absence, and take it back |
+| **anyone** | System → Permissions | Every action and every screen, against every role — read from the code that enforces it, not typed out beside it |
+| **Auditor** | anywhere | Read-only. Every write button is disabled, with whose job it is |
+
+The role switcher is in the top bar, so you can change role without signing out and watch the same
+screen change.
 
 ---
 
