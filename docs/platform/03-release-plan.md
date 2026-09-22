@@ -44,7 +44,7 @@ A database, real authentication and the recruitment and vetting domains in live 
 cannot be expressed in it written as database constraints (`prisma/constraints.sql`) and tested —
 separation of duties on a screening file, no double-booked officer, an append-only event log, no
 retained copy where the document type forbids one, and the standard's four-week extension limit.
-Seventy-four assertions prove each one rejects what it should — including the ones that must
+Eighty-one assertions prove each one rejects what it should — including the ones that must
 *succeed*, because a constraint that rejects everything is not a constraint, it is an outage.
 
 **Also done:** the application reads the database. Dashboard, Live board, Scheduling and Compliance

@@ -108,6 +108,7 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 | Gate 2 (deployment to site) — our own policy, stricter than the standard | `lib/policy.ts` — `evaluateDeploymentGate` |
 | **Deployability, derived from the screening file and the expiry dates** | `lib/core/deployability.ts` — `evaluateDeployability`, `canPublishAssignment` |
 | **Book-on windows, late and no-show detection** | `lib/core/ops.ts` — `attendance` |
+| **Two contact regimes, because some posts have no mobile signal** | `lib/core/ops.ts` — a no-signal post hands contact to the client on the site phone and is watched as a handover, not as hourly calls. Without this the board showed a missed call every hour, all night, against an officer who physically cannot make one |
 | **Check calls and the three-step escalation ladder** — hourly, triggering the instant the hour is crossed, advancing on failed contact attempts rather than on timers, ending with the operational team attending site | `lib/core/ops.ts` — `checkCallStatus`, `ESCALATION_LADDER` |
 | Separation of duties: no self-screening, controller ≠ administrator, controllers screened by higher management | `lib/roles.ts` — `validateFileAssignment` |
 | A screening role cannot be granted without own screening, NDA and in-date training (6.1, 6.2) | `lib/roles.ts` — `canGrantRole` |
@@ -118,7 +119,7 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 | Service levels, chaser ladders, task severity | `lib/sla.ts` — ours and configurable, deliberately separate from the standard's rules |
 | **The platform map, the engine list and the ownership register** | `lib/core/domains.ts` — rendered at `/platform` |
 | **A real session, and a gate no request gets past** | `lib/auth/session.ts`, `proxy.ts` — signed cookie, verified with Web Crypto so the same code runs at the edge and on the server |
-| **Permissions enforced server-side, not by hiding buttons** | `lib/auth/permissions.ts`, `lib/actions/` — all 25 actions guard before they read their arguments, asserted by `scripts/test-permissions.ts` |
+| **Permissions enforced server-side, not by hiding buttons** | `lib/auth/permissions.ts`, `lib/actions/` — all 27 actions guard before they read their arguments, asserted by `scripts/test-permissions.ts` |
 | **The Admin department: six categories, one two-track workflow** | `lib/core/admin.ts`, `app/admin/` — payments, premises, people admin, penalties, uniform stock, accreditations |
 | **An approval ladder where a role is a job, not a rank** | `lib/core/admin.ts` — `approvalChain`, `canApproveStep`. The Finance Officer sits inside higher management, so the ladder is written in roles; otherwise its top two rungs would be one person |
 | **The requester is never the approver — enforced in the database** | `prisma/constraints.sql` §9 — a trigger for the requester and the subject, a unique index so one person cannot sign two rungs, and a trigger refusing `approved` while a rung is outstanding |
@@ -126,7 +127,7 @@ are expressed as conditions on whoever is assigned, so they hold at any team siz
 | **Recurring payments approved once, with a variance check** | `lib/actions/admin.ts` — `recordPayment`; paying anything other than the agreed figure raises a request by itself, sized on the difference |
 | **Accreditation evidence that assembles itself** | `lib/db/admin-queries.ts` — derived requirements name the query that answers them and cannot be ticked by hand |
 | **Presence as a record rather than a guess** | `WorkSession` opened at sign-in, closed at sign-out, moved when the role changes |
-| **The database schema, and the constraints that make its rules true** | `prisma/schema.prisma`, `prisma/constraints.sql` — 74 assertions in `prisma/constraints.test.sql`, including the ones that must *succeed* |
+| **The database schema, and the constraints that make its rules true** | `prisma/schema.prisma`, `prisma/constraints.sql` — 81 assertions in `prisma/constraints.test.sql`, including the ones that must *succeed* |
 | **The read layer: queries that return the domain types the rules already understand** | `lib/db/queries.ts` — so `evaluateDeployability` runs unchanged against database rows |
 | **Retention: 12 months, 7 years, and an append-only disposal log** | `lib/bs7858.ts` — `RETENTION`; `prisma/schema.prisma` — `DisposalRecord` |
 | Sign-in with name and active role, and who is working on what | `app/signin/`, `components/dashboard/ActiveNow.tsx` |

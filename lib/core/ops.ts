@@ -18,6 +18,23 @@
  * The ladder ending with a person attending rather than with a red row on a
  * screen is the point of the whole mechanism. It is a duty of care, not an
  * administrative chase.
+ *
+ * THERE ARE TWO REGIMES, not one with a tolerance (E10):
+ *
+ *   Officer-initiated, on a post with a mobile signal. The officer calls
+ *   hourly; missing one triggers the ladder above.
+ *
+ *   Client-held, on a post with none. The officer books on BEFORE going in —
+ *   the only moment they have a signal to do it with — the helpdesk emails the
+ *   client to say they have arrived and cannot be reached by mobile, and the
+ *   client holds contact on the site phone. If the client cannot reach them,
+ *   they tell us and somebody attends.
+ *
+ * Counting hours against an officer who cannot call is not a stricter reading
+ * of the rule, it is a wrong one: it would put a missed check call on the board
+ * every hour, all night, and a board that is always red is a board nobody
+ * reads. So `mobileSignal: false` selects a different state machine, and what
+ * is watched is the handover rather than the calls.
  */
 
 import type { Severity } from "../types";
@@ -127,7 +144,29 @@ export function attendance(
 // Check calls
 // ---------------------------------------------------------------------------
 
-export type CheckCallState = "not_required" | "ok" | "triggered";
+/**
+ * `client_held` is the no-signal case, and it is a state rather than a variant
+ * of "ok" because the obligation has genuinely moved. Nobody here is waiting
+ * for the officer to call: the client is holding contact on the site phone, and
+ * what we are watching is whether the client has been told and whether they
+ * have come back to say they cannot reach them.
+ */
+export type CheckCallState = "not_required" | "ok" | "triggered" | "client_held";
+
+/**
+ * The no-signal handover, as the rules need to see it.
+ *
+ * Two timestamps that matter, in order: when the helpdesk told the client the
+ * officer was on site without a signal, and — if it happens — when the client
+ * came back to say they had lost contact. The second is what starts the
+ * attend-site step, because on a post with no signal the client noticing is the
+ * only way anyone finds out.
+ */
+export interface NoSignalHandover {
+  assignmentId: string;
+  notifiedAt: string | null;
+  lossReportedAt: string | null;
+}
 
 export interface CheckCallStatus {
   state: CheckCallState;
@@ -179,6 +218,8 @@ export function checkCallStatus(
   bookOn: BookOn | undefined,
   attempts: ContactAttempt[] = [],
   now: Date = new Date(),
+  /** Only read on a post with no mobile signal. */
+  handover?: NoSignalHandover,
 ): CheckCallStatus {
   const idle = (label: string): CheckCallStatus => ({
     state: "not_required",
@@ -198,6 +239,57 @@ export function checkCallStatus(
 
   // Calls are expected only while the officer is actually on post.
   if (!bookOn || t < start || t >= end) return idle("Not on post");
+
+  // --- The no-signal regime ------------------------------------------------
+  //
+  // The officer cannot call, so counting the hours against them is meaningless
+  // and showing it as a missed call is worse than meaningless. What is being
+  // watched instead is the handover: has the client been told, and have they
+  // come back to say they cannot reach the officer.
+  if (!post.mobileSignal) {
+    const minutesOnPost = Math.round((t - new Date(bookOn.at).getTime()) / MS_PER_MIN);
+
+    if (handover?.lossReportedAt) {
+      // The client noticing is the only way anybody finds out on a post like
+      // this, so their report goes straight to the end of the ladder.
+      return {
+        state: "triggered",
+        label: "Client cannot reach the officer — attend site",
+        severity: "critical",
+        minutesSinceLast: minutesOnPost,
+        minutesOver: 0,
+        escalation: 3,
+        attemptsMade: 0,
+      };
+    }
+
+    if (!handover?.notifiedAt) {
+      // Until the client has been told, nobody is holding contact with this
+      // officer at all. That is the gap, and it opens the moment they go in.
+      const late = minutesOnPost > OPS_RULES.bookOnGraceMinutes;
+      return {
+        state: "client_held",
+        label: late
+          ? `Client not yet told the officer is on site with no signal — ${minutesOnPost} min`
+          : "No signal on this post — tell the client the officer has arrived",
+        severity: late ? "serious" : "warning",
+        minutesSinceLast: minutesOnPost,
+        minutesOver: 0,
+        escalation: 0,
+        attemptsMade: 0,
+      };
+    }
+
+    return {
+      state: "client_held",
+      label: "No signal — client holding contact on the site phone",
+      severity: "good",
+      minutesSinceLast: minutesOnPost,
+      minutesOver: 0,
+      escalation: 0,
+      attemptsMade: 0,
+    };
+  }
 
   const mine = calls
     .filter((c) => c.assignmentId === assignment.id)

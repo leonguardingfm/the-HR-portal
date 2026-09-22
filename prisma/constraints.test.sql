@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- Seventy-four assertions. Each one names a rule the platform claims to
+-- Eighty-one assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -330,3 +330,38 @@ SELECT expect_success('take a delegation back, whole',
 SELECT expect_success('lend it again once the first is taken back',
   $$INSERT INTO "RoleDelegation"(id,role,"fromUserId","toUserId","endsAt",reason,"grantedByUserId")
     VALUES ('dg9','finance_officer','u3','u1',now() + interval '10 days','Leave again','u3')$$);
+
+-- ---------------------------------------------------------------------------
+-- 12. The no-signal handover
+-- ---------------------------------------------------------------------------
+-- A transfer of responsibility for a lone officer. Recorded whole, in order,
+-- and only on a post that actually has no signal.
+
+INSERT INTO "Post"(id,"siteId",name,"mobileSignal") VALUES ('post-nosig','s1','Far perimeter',false);
+INSERT INTO "Assignment"(id,"personId","postId","startsAt","endsAt",state) VALUES
+  ('a-nosig','p1','post-nosig',now() - interval '2 hours',now() + interval '10 hours','published'),
+  ('a-signal','p2','post1',now() - interval '2 hours',now() + interval '10 hours','published');
+
+SELECT expect_success('hand a no-signal post over to the client',
+  $$INSERT INTO "NoSignalHandover"(id,"assignmentId","notifiedAt","notifiedContact")
+    VALUES ('ns1','a-nosig',now() - interval '100 minutes','Site duty manager')$$);
+
+SELECT expect_failure('a handover on a post that HAS a signal',
+  $$INSERT INTO "NoSignalHandover"(id,"assignmentId","notifiedAt","notifiedContact")
+    VALUES ('ns2','a-signal',now(),'Someone')$$);
+SELECT expect_failure('notified, but nobody recorded as told',
+  $$UPDATE "NoSignalHandover" SET "notifiedContact" = NULL WHERE id = 'ns1'$$);
+SELECT expect_failure('the client losing contact before they were given it',
+  $$UPDATE "NoSignalHandover"
+    SET "lossReportedAt" = now() - interval '3 hours', "lossReportedBy" = 'Duty manager'
+    WHERE id = 'ns1'$$);
+SELECT expect_failure('a loss report with nobody reporting it',
+  $$UPDATE "NoSignalHandover" SET "lossReportedAt" = now() WHERE id = 'ns1'$$);
+SELECT expect_success('the client reports losing contact, properly recorded',
+  $$UPDATE "NoSignalHandover"
+    SET "lossReportedAt" = now(), "lossReportedBy" = 'Site duty manager',
+        "lossDetail" = 'No answer on the site phone for 40 minutes'
+    WHERE id = 'ns1'$$);
+SELECT expect_failure('two handovers for one shift',
+  $$INSERT INTO "NoSignalHandover"(id,"assignmentId","notifiedAt","notifiedContact")
+    VALUES ('ns3','a-nosig',now(),'Someone else')$$);

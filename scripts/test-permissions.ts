@@ -19,6 +19,7 @@
 
 import { readFileSync } from "node:fs";
 import { ACTIONS, canDo, type ActionId } from "../lib/auth/permissions";
+import { checkCallStatus } from "../lib/core/ops";
 import {
   DEFAULT_THRESHOLDS,
   approvalChain,
@@ -43,8 +44,8 @@ const check = (name: string, pass: boolean, detail = "") => {
 const STAFF_BASELINE: ActionId[] = ["work_item.complete", "reminder.send", "admin_item.raise"];
 
 const EXPECTED: Record<string, ActionId[]> = {
-  control: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", ...STAFF_BASELINE],
-  operations_manager: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", ...STAFF_BASELINE],
+  control: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", ...STAFF_BASELINE],
+  operations_manager: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", ...STAFF_BASELINE],
   recruitment: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "stock.move", ...STAFF_BASELINE],
   recruitment_manager: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "admin_item.approve", "admin_item.reject", "holiday.decide", "authority_matter.respond", ...STAFF_BASELINE],
   admin_officer: ["admin_item.start", "admin_item.review", "admin_item.complete", "payment.record", "asset.maintain", "stock.move", "accreditation.evidence", ...STAFF_BASELINE],
@@ -132,20 +133,20 @@ check("no request ever ends up with an empty chain",
 // The four refusals that make a chain mean something.
 const requirement = high[0];
 const financeAlsoTopManagement: Parameters<typeof canApproveStep>[0]["approver"] = {
-  userId: "u-imran",
-  personId: "p-imran",
+  userId: "u-finance",
+  personId: "p-finance",
   roles: ["finance_officer", "top_management"],
 };
 
 check("the requester cannot approve their own request",
-  !canApproveStep({ requirement, approver: financeAlsoTopManagement, requestedByUserId: "u-imran" }).permitted);
+  !canApproveStep({ requirement, approver: financeAlsoTopManagement, requestedByUserId: "u-finance" }).permitted);
 
 check("the subject of a request cannot decide it",
   !canApproveStep({
     requirement,
     approver: financeAlsoTopManagement,
     requestedByUserId: "u-someone-else",
-    aboutPersonId: "p-imran",
+    aboutPersonId: "p-finance",
   }).permitted);
 
 check("one person cannot satisfy two rungs of the same chain",
@@ -153,7 +154,7 @@ check("one person cannot satisfy two rungs of the same chain",
     requirement: high[1],
     approver: financeAlsoTopManagement,
     requestedByUserId: "u-someone-else",
-    alreadyApprovedByUserIds: ["u-imran"],
+    alreadyApprovedByUserIds: ["u-finance"],
   }).permitted);
 
 check("a role that does not hold the rung is refused",
@@ -178,7 +179,7 @@ check("a large payment cannot be signed twice by the same person wearing two hat
       requirement: high[1],
       approver: financeAlsoTopManagement,
       requestedByUserId: "u-a",
-      alreadyApprovedByUserIds: ["u-imran"],
+      alreadyApprovedByUserIds: ["u-finance"],
     }).permitted);
 
 // --- 1b2. delegation ------------------------------------------------------
@@ -194,15 +195,15 @@ const person = (userId: string, roles: Role[], ok = true) => ({
   active: true,
 });
 
-const imran = person("u-imran", ["finance_officer", "top_management"]);
-const shahzad = person("u-shahzad", ["top_management"]);
+const financeHolder = person("u-finance", ["finance_officer", "top_management"]);
+const deputy = person("u-deputy", ["top_management"]);
 const day = 86_400_000;
 const delegate = (over: Partial<Parameters<typeof validateDelegation>[0]> = {}) =>
   validateDelegation({
     role: "finance_officer",
-    from: imran,
-    to: shahzad,
-    grantedBy: imran,
+    from: financeHolder,
+    to: deputy,
+    grantedBy: financeHolder,
     startsAt: new Date(),
     endsAt: new Date(Date.now() + 14 * day),
     existingActive: [],
@@ -210,14 +211,14 @@ const delegate = (over: Partial<Parameters<typeof validateDelegation>[0]> = {}) 
   });
 
 check("a role can be lent for two weeks", delegate().permitted, delegate().reason ?? "");
-const tanveer = person("u-tanveer", ["operations_manager"]);
-const notTheirs = delegate({ from: tanveer, grantedBy: tanveer });
+const unrelated = person("u-ops", ["operations_manager"]);
+const notTheirs = delegate({ from: unrelated, grantedBy: unrelated });
 check("a role cannot be lent by somebody who does not hold it",
   !notTheirs.permitted && /does not hold it/.test(notTheirs.reason ?? ""),
   notTheirs.reason ?? "");
 check("a role cannot be lent to somebody who already holds it",
   !delegate({ to: person("u-x", ["finance_officer"]) }).permitted);
-const ownCover = delegate({ grantedBy: shahzad });
+const ownCover = delegate({ grantedBy: deputy });
 check("nobody may arrange their own cover",
   !ownCover.permitted && /own cover/.test(ownCover.reason ?? ""), ownCover.reason ?? "");
 check("a delegation cannot run longer than the maximum",
@@ -228,7 +229,7 @@ check("a delegation cannot end before it starts",
   !delegate({ endsAt: new Date(Date.now() - day) }).permitted);
 check("a second live delegation of the same role to the same person is refused",
   !delegate({
-    existingActive: [{ role: "finance_officer", toUserId: "u-shahzad", endsAt: new Date(Date.now() + day) }],
+    existingActive: [{ role: "finance_officer", toUserId: "u-deputy", endsAt: new Date(Date.now() + day) }],
   }).permitted);
 // A lent screening role carries the same 6.1/6.2 obligations as a granted one.
 check("a screening role cannot be lent to somebody who is not screened themselves",
@@ -239,15 +240,15 @@ check("a screening role cannot be lent to somebody who is not screened themselve
     grantedBy: person("u-anas", ["vetting_controller"]),
   }).permitted);
 check("an inactive user cannot be lent anything",
-  !delegate({ to: { ...shahzad, active: false } }).permitted);
+  !delegate({ to: { ...deputy, active: false } }).permitted);
 
-const lent = [{ role: "finance_officer" as Role, fromUserId: "u-imran", fromName: "Imran", endsAt: "2026-10-31T00:00:00.000Z" }];
+const lent = [{ role: "finance_officer" as Role, fromUserId: "u-finance", fromName: "the Finance Officer", endsAt: "2026-10-31T00:00:00.000Z" }];
 check("a lent role joins the roles a person may act as",
   effectiveRoles(["top_management"], lent).sort().join() === "finance_officer,top_management");
 check("a lent role that duplicates a held one does not appear twice",
   effectiveRoles(["finance_officer"], lent).length === 1);
 check("the audit trail says a role was borrowed, and whose it was",
-  (actingNote("finance_officer", lent) ?? "").includes("Imran"),
+  (actingNote("finance_officer", lent) ?? "").includes("Finance Officer"),
   actingNote("finance_officer", lent) ?? "none");
 check("a role held in its own right carries no borrowing note",
   actingNote("top_management", lent) === null);
@@ -257,15 +258,102 @@ check("a role held in its own right carries no borrowing note",
 check("a deputy holding finance by delegation still cannot sign both rungs",
   canApproveStep({
     requirement: high[0],
-    approver: { userId: "u-shahzad", personId: "p-shahzad", roles: ["top_management", "finance_officer"] },
+    approver: { userId: "u-deputy", personId: "p-deputy", roles: ["top_management", "finance_officer"] },
     requestedByUserId: "u-a",
   }).permitted &&
     !canApproveStep({
       requirement: high[1],
-      approver: { userId: "u-shahzad", personId: "p-shahzad", roles: ["top_management", "finance_officer"] },
+      approver: { userId: "u-deputy", personId: "p-deputy", roles: ["top_management", "finance_officer"] },
       requestedByUserId: "u-a",
-      alreadyApprovedByUserIds: ["u-shahzad"],
+      alreadyApprovedByUserIds: ["u-deputy"],
     }).permitted);
+
+// --- 1b3. posts with no mobile signal -------------------------------------
+//
+// The confirmed process: the officer books on before going in, the helpdesk
+// tells the client, the client holds contact on the site phone, and if they
+// cannot reach the officer somebody attends. The bug this fixes is that
+// without it the board shows a missed check call every hour, all night, on a
+// post where the officer physically cannot make one.
+const noSignalPost = {
+  id: "post-ns",
+  siteId: "s1",
+  name: "Far perimeter",
+  pattern: "",
+  requiresSiaLicence: true,
+  screeningPeriodYears: 5 as const,
+  checkCallsRequired: true,
+  loneWorking: true,
+  mobileSignal: false,
+};
+const signalPost = { ...noSignalPost, id: "post-s", mobileSignal: true };
+const shift = {
+  id: "a-ns",
+  personId: "p1",
+  postId: "post-ns",
+  startsAt: new Date(Date.now() - 4 * 3_600_000).toISOString(),
+  endsAt: new Date(Date.now() + 8 * 3_600_000).toISOString(),
+  state: "published" as const,
+  publishedAt: null,
+  amendments: [],
+};
+const bookedOn = {
+  assignmentId: "a-ns",
+  at: new Date(Date.now() - 4.2 * 3_600_000).toISOString(),
+  channel: "app" as const,
+  locationVerified: true,
+};
+
+// Four hours on post with no check call. On a normal post that is three hours
+// overdue and at the top of the ladder.
+const onSignalPost = checkCallStatus(
+  { ...shift, postId: "post-s" },
+  signalPost,
+  [],
+  bookedOn,
+  [],
+);
+check("on a post WITH signal, four hours without a call is escalated",
+  onSignalPost.state === "triggered" && onSignalPost.escalation >= 1,
+  `${onSignalPost.state}, escalation ${onSignalPost.escalation}`);
+
+// The same shift on a no-signal post, with the client told, is fine.
+const handedOver = checkCallStatus(shift, noSignalPost, [], bookedOn, [], new Date(), {
+  assignmentId: "a-ns",
+  notifiedAt: new Date(Date.now() - 4 * 3_600_000).toISOString(),
+  lossReportedAt: null,
+});
+check("on a no-signal post with the client told, nothing is overdue",
+  handedOver.state === "client_held" && handedOver.severity === "good" && handedOver.escalation === 0,
+  `${handedOver.state}, ${handedOver.severity}`);
+
+// Not told yet: that IS the work, because nobody is holding contact at all.
+const notToldYet = checkCallStatus(shift, noSignalPost, [], bookedOn, [], new Date(), {
+  assignmentId: "a-ns",
+  notifiedAt: null,
+  lossReportedAt: null,
+});
+check("on a no-signal post with the client NOT told, it is actionable",
+  notToldYet.state === "client_held" && notToldYet.severity === "serious",
+  `${notToldYet.state}, ${notToldYet.severity}`);
+check("but it is never shown as a missed check call, because there was none to miss",
+  notToldYet.state !== "triggered" && notToldYet.escalation === 0);
+
+// The client reporting lost contact goes straight to attend site: there is no
+// mobile to try, so their report is the failed contact.
+const lost = checkCallStatus(shift, noSignalPost, [], bookedOn, [], new Date(), {
+  assignmentId: "a-ns",
+  notifiedAt: new Date(Date.now() - 4 * 3_600_000).toISOString(),
+  lossReportedAt: new Date(Date.now() - 5 * 60_000).toISOString(),
+});
+check("the client losing contact goes straight to attend site",
+  lost.state === "triggered" && lost.escalation === 3 && lost.severity === "critical",
+  `${lost.label}`);
+
+// And with no handover record at all, it still must not read as a missed call.
+const noRecord = checkCallStatus(shift, noSignalPost, [], bookedOn, []);
+check("a no-signal post with no handover record still never reads as overdue",
+  noRecord.state === "client_held", noRecord.state);
 
 // --- 1c. the workflow -----------------------------------------------------
 check("a task cannot jump from raised to completed", !canTransition("task", "raised", "completed"));

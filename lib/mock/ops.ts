@@ -76,15 +76,17 @@ const rtwExpiry = (personId: string): string | null =>
 // ---------------------------------------------------------------------------
 
 export const posts: Post[] = [
-  { id: "post1", siteId: "s1", name: "Night gatehouse", pattern: "Mon–Sun 1900–0700", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: false },
-  { id: "post2", siteId: "s1", name: "Day patrol", pattern: "Mon–Fri 0700–1900", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: false, loneWorking: false },
-  { id: "post3", siteId: "s2", name: "Gatehouse", pattern: "Mon–Sun 1800–0600", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: true },
-  { id: "post4", siteId: "s3", name: "Concourse, retail hours", pattern: "Mon–Sat 0900–2100", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: false },
-  { id: "post5", siteId: "s3", name: "Concourse, second officer", pattern: "Fri–Sun 1200–2200", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: false },
-  { id: "post6", siteId: "s4", name: "Perimeter, nights", pattern: "Mon–Sun 1900–0700", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: true },
-  { id: "post7", siteId: "s5", name: "Concierge desk", pattern: "Mon–Sun 0700–1900", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: false, loneWorking: true },
-  { id: "post8", siteId: "s6", name: "Vehicle gate", pattern: "Mon–Sun 0600–1800", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: true },
-  { id: "post9", siteId: "s6", name: "Vehicle gate, relief", pattern: "Sat–Sun 0600–1800", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: false },
+  { id: "post1", siteId: "s1", name: "Night gatehouse", pattern: "Mon–Sun 1900–0700", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: false, mobileSignal: true },
+  { id: "post2", siteId: "s1", name: "Day patrol", pattern: "Mon–Fri 0700–1900", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: false, loneWorking: false, mobileSignal: true },
+  { id: "post3", siteId: "s2", name: "Gatehouse", pattern: "Mon–Sun 1800–0600", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: true, mobileSignal: true },
+  { id: "post4", siteId: "s3", name: "Concourse, retail hours", pattern: "Mon–Sat 0900–2100", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: false, mobileSignal: true },
+  { id: "post5", siteId: "s3", name: "Concourse, second officer", pattern: "Fri–Sun 1200–2200", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: false, mobileSignal: true },
+  // No signal, lone working, nights — the hardest case, and the one the
+  // client-held contact model exists for.
+  { id: "post6", siteId: "s4", name: "Perimeter, nights", pattern: "Mon–Sun 1900–0700", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: true, mobileSignal: false },
+  { id: "post7", siteId: "s5", name: "Concierge desk", pattern: "Mon–Sun 0700–1900", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: false, loneWorking: true, mobileSignal: true },
+  { id: "post8", siteId: "s6", name: "Vehicle gate", pattern: "Mon–Sun 0600–1800", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: true, mobileSignal: true },
+  { id: "post9", siteId: "s6", name: "Vehicle gate, relief", pattern: "Sat–Sun 0600–1800", requiresSiaLicence: true, screeningPeriodYears: 5, checkCallsRequired: true, loneWorking: false, mobileSignal: true },
 ];
 
 export const postById = (id: string) => posts.find((p) => p.id === id)!;
@@ -108,7 +110,9 @@ export const assignments: Assignment[] = [
   { id: "a3", personId: "p1", postId: "post8", startsAt: hours(-7), endsAt: hours(5), state: "amended", publishedAt: days(-6), amendments: [
     { at: days(-1), by: "Control Alpha", change: "Officer changed from Elena Petrova to Adebayo Fashola", reason: "Elena moved to cover the relief post at short notice", previousPersonId: "p6" },
   ] },
-  { id: "a4", personId: "p21", postId: "post6", startsAt: at(35), endsAt: hours(12.5), state: "published", publishedAt: days(-5), amendments: [] },
+  // On the no-signal perimeter post. Underway, and booked on BEFORE the start
+  // because that is the only time the officer has a signal to do it with.
+  { id: "a4", personId: "p21", postId: "post6", startsAt: hours(-3), endsAt: hours(9), state: "published", publishedAt: days(-5), amendments: [] },
   { id: "a5", personId: "p2", postId: "post7", startsAt: at(-22), endsAt: hours(11.5), state: "published", publishedAt: days(-5), amendments: [] },
   { id: "a6", personId: "p3", postId: "post3", startsAt: at(-45), endsAt: hours(11), state: "published", publishedAt: days(-5), amendments: [] },
   { id: "a7", personId: "p4", postId: "post5", startsAt: hours(-2), endsAt: hours(8), state: "published", publishedAt: days(-4), amendments: [] },
@@ -134,6 +138,10 @@ export const bookOns: BookOn[] = [
   { assignmentId: "a7", at: hours(-2), channel: "sms", locationVerified: false },
   { assignmentId: "a8", at: hours(-9), channel: "phone", locationVerified: false },
   { assignmentId: "a10", at: hours(-4), channel: "supervisor", locationVerified: false },
+  // Ten minutes before the shift started, from outside the site. On a post with
+  // no mobile signal that is the only moment a book-on is possible, which is
+  // why the process puts it there rather than on arrival at the post.
+  { assignmentId: "a4", at: hours(-3.17), channel: "app", locationVerified: true },
 ];
 
 export const checkCalls: CheckCall[] = [
@@ -152,10 +160,10 @@ export const checkCalls: CheckCall[] = [
  * only way to review whether the ladder reads correctly.
  */
 export const contactAttempts: ContactAttempt[] = [
-  { id: "at1", assignmentId: "a2", at: at(-14), by: "Usman", channel: "phone", reached: false, note: "Mobile rang out twice." },
-  { id: "at2", assignmentId: "a3", at: at(-60), by: "Usman", channel: "phone", reached: false, note: "No answer on the mobile." },
-  { id: "at3", assignmentId: "a3", at: at(-40), by: "Usman", channel: "site_phone", reached: false, note: "Site phone unanswered. No other officer on site to ask." },
-  { id: "at4", assignmentId: "a1", at: hours(-4), by: "Ahmed", channel: "phone", reached: true, note: "Answered — radio had been left in the gatehouse." },
+  { id: "at1", assignmentId: "a2", at: at(-14), by: "Joel", channel: "phone", reached: false, note: "Mobile rang out twice." },
+  { id: "at2", assignmentId: "a3", at: at(-60), by: "Joel", channel: "phone", reached: false, note: "No answer on the mobile." },
+  { id: "at3", assignmentId: "a3", at: at(-40), by: "Joel", channel: "site_phone", reached: false, note: "Site phone unanswered. No other officer on site to ask." },
+  { id: "at4", assignmentId: "a1", at: hours(-4), by: "Priya", channel: "phone", reached: true, note: "Answered — radio had been left in the gatehouse." },
 ];
 
 export const attemptsFor = (assignmentId: string) =>
@@ -268,17 +276,17 @@ export const workItemDefinitions: WorkItemDefinition[] = [
 // ---------------------------------------------------------------------------
 
 export const events: EventRecord[] = [
-  { id: "e1", at: at(-8), type: "check_call.recorded", actorName: "Usman", actorRole: "Control", subjectRef: "a1", subjectName: personName("p20"), department: "control", detail: "All well. Depot 4 night gatehouse." },
+  { id: "e1", at: at(-8), type: "check_call.recorded", actorName: "Joel", actorRole: "Control", subjectRef: "a1", subjectName: personName("p20"), department: "control", detail: "All well. Depot 4 night gatehouse." },
   { id: "e2", at: at(-22), type: "book_on.missed", actorName: "System", actorRole: "Scheduler", subjectRef: "a5", subjectName: personName("p2"), department: "control", detail: "Book-on not received within the grace period at Block A concierge." },
   { id: "e3", at: at(-40), type: "incident.reported", actorName: "Liam Corrigan", actorRole: "Officer", subjectRef: "a2", subjectName: "Northgate — Main concourse", department: "operations", detail: "Shoplifting detained and handed to police. Client notification outstanding." },
   { id: "e4", at: at(-45), type: "book_on.no_show", actorName: "System", actorRole: "Scheduler", subjectRef: "a6", subjectName: personName("p3"), department: "control", detail: "No show at Depot 7 gatehouse. Escalated to Control Alpha." },
   { id: "e5", at: hours(-3), type: "document.expired", actorName: "System", actorRole: "Scheduler", subjectRef: "doc-t1", subjectName: personName("p22"), department: "compliance", detail: "Training certificate expired 9 days ago. Renewal task raised." },
-  { id: "e6", at: hours(-5), type: "assignment.amended", actorName: "Usman", actorRole: "Control", subjectRef: "a3", subjectName: "Clearwater — Manufacturing gate", department: "control", detail: "Officer changed from Elena Petrova to Adebayo Fashola." },
-  { id: "e7", at: hours(-7), type: "screening.check_verified", actorName: "Talha", actorRole: "Screening Administrator", subjectRef: "f4", subjectName: "Shanice Bennett", department: "vetting", detail: "Employment reference verified — Brightwater Security." },
-  { id: "e8", at: hours(-9), type: "gate.passed", actorName: "Anas", actorRole: "Screening Controller", subjectRef: "f6", subjectName: "Elena Petrova", department: "vetting", detail: "Deployment gate cleared. Criminality and right to work complete." },
-  { id: "e9", at: hours(-11), type: "interview.held", actorName: "Farhan", actorRole: "HR Manager", subjectRef: "cand8", subjectName: "Ify Nwachukwu", department: "recruitment", detail: "Second interview held. Outcome: progress." },
-  { id: "e11", at: at(-12), type: "check_call.escalated", actorName: "Usman", actorRole: "Control", subjectRef: "a3", subjectName: personName("p1"), department: "control", detail: "No check call for 2 hours. Mobile and site phone tried. Escalated to step 3 — operational team attending site." },
-  { id: "e10", at: hours(-26), type: "requirement.released", actorName: "Usman", actorRole: "Control", subjectRef: "r7", subjectName: "Riverside — Block A concierge", department: "control", detail: "Released to sourcing after the pool check found no internal cover." },
+  { id: "e6", at: hours(-5), type: "assignment.amended", actorName: "Joel", actorRole: "Control", subjectRef: "a3", subjectName: "Clearwater — Manufacturing gate", department: "control", detail: "Officer changed from Elena Petrova to Adebayo Fashola." },
+  { id: "e7", at: hours(-7), type: "screening.check_verified", actorName: "Ruth", actorRole: "Screening Administrator", subjectRef: "f4", subjectName: "Shanice Bennett", department: "vetting", detail: "Employment reference verified — Brightwater Security." },
+  { id: "e8", at: hours(-9), type: "gate.passed", actorName: "Marcus", actorRole: "Screening Controller", subjectRef: "f6", subjectName: "Elena Petrova", department: "vetting", detail: "Deployment gate cleared. Criminality and right to work complete." },
+  { id: "e9", at: hours(-11), type: "interview.held", actorName: "Eleanor", actorRole: "HR Manager", subjectRef: "cand8", subjectName: "Ify Nwachukwu", department: "recruitment", detail: "Second interview held. Outcome: progress." },
+  { id: "e11", at: at(-12), type: "check_call.escalated", actorName: "Joel", actorRole: "Control", subjectRef: "a3", subjectName: personName("p1"), department: "control", detail: "No check call for 2 hours. Mobile and site phone tried. Escalated to step 3 — operational team attending site." },
+  { id: "e10", at: hours(-26), type: "requirement.released", actorName: "Joel", actorRole: "Control", subjectRef: "r7", subjectName: "Riverside — Block A concierge", department: "control", detail: "Released to sourcing after the pool check found no internal cover." },
 ];
 
 export const recentEvents = (limit = 8) =>

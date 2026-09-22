@@ -145,18 +145,45 @@ because a record loaded wrong is then chased, reminded about and reported on.
 > arbitrates** where the spreadsheets and INDEL disagree about the same officer. That is a person,
 > not a file.
 
-### E10 — Signal at the posts — **partly answered, re-asked narrowly**
-> **"They post themselves."**
+### E10 — Signal at the posts — **answered, and built**
+> **Yes, there are such sites. The officer books on before entering. For check calls, the helpdesk
+> emails the client to say our officer has reached the location and there is no signal; the client
+> then stays in contact with the officer, who uses the site phone. If the client cannot reach the
+> officer, they tell the helpdesk or Control Room and somebody goes to site to check.**
 
-Read as: officers send their own updates, rather than anybody doing it for them — which is E3 again
-and is already how the check-call model works. It does not settle the thing this question was for,
-which is not who sends but whether the handset can.
+This is the most consequential answer in the series so far, because it was not a gap in the plan — it
+was a **bug in code already shipped**. The live board computes a missed check call the moment the hour
+is crossed. On a post with no signal that would have fired every hour, all night, against an officer
+who physically cannot call. A board that is always red is a board nobody reads, which is the exact
+failure this platform has been designed around everywhere else.
 
-So, narrowly, and it is a one-word answer: **is there any site where an officer cannot get a mobile
-signal?** If the answer is no, offline support is a nice-to-have and the in-built messaging of E5 can
-assume a connection. If the answer is yes, even at one site, then messaging and book-ons both need to
-queue and send later, and that is a materially different build. It is cheaper to know now than to
-retrofit.
+What the answer changes, and it is a change of model rather than a tolerance:
+
+- **Signal is a property of the post**, not of the shift. `Post.mobileSignal`, defaulting to true, so
+  the exception is something somebody has to state.
+- **The contact obligation moves to the client.** A new state, `client_held`: nobody is waiting for
+  the officer to call. What is being watched is whether the client has been told, and whether they
+  have come back.
+- **The handover is recorded**, in `NoSignalHandover` — who at the client was told, and when. On an
+  ordinary post the check calls are the trace that somebody was in contact with a lone officer
+  overnight. Here there are none to have, so the handover is the only trace there is, and it is
+  recorded whole or not at all.
+- **The client's report is the failed contact.** There is no mobile to try, so it goes straight to
+  attend site rather than starting at the top of the ladder.
+- **Book-on precedes entry**, which is the only moment the officer has a signal to do it with. The
+  seeded example books on ten minutes before the shift starts, from outside the site.
+
+Two consequences elsewhere:
+
+- **Offline queueing is not needed for book-ons**, because the book-on happens in signal, before
+  going in. That is a real simplification of what E5 looked like it would require.
+- **The in-built messaging of E5 cannot reach these posts at all.** Whatever is built there, the
+  client-held model is the fallback, not a degraded version of messaging.
+
+One thing built on judgement rather than on the answer, and worth confirming: a no-signal post with
+no book-on at the start of the shift is treated as immediately actionable rather than given the usual
+15-minute grace. The grace exists because an officer can book on late; on this post they cannot — once
+they are inside, they have no signal. So the grace would only delay noticing.
 
 ### E11 — Who owns the platform? — **answered**
 > **Portal Owner: Muhammad Shahzad. Operational Lead: Tanveer Mahmood.**
@@ -231,30 +258,49 @@ indexes the approver, not the role. So lending the role covers the absence witho
 two-signature control, which was the whole worry. Anything approved while a delegation was in force
 stays on the record with the delegation named, which is why it is revoked rather than deleted.
 
-### E16 — What is the in-built messaging actually for? *(new, from E5)*
-Needed before any of it is built, because the answers change the shape rather than the styling:
+### E16 — What is the in-built messaging actually for? *(from E5)*
+> **Question 1 answered: it replaces the WhatsApp groups.**
 
-1. **Does it replace the WhatsApp groups, or sit alongside them?** Alongside means two places to look
-   and the platform's copy is the incomplete one — which is worse than not building it. Replacing
-   means the groups are wound down deliberately, on a date, with people told.
-2. **Is a message ever the record of a check call?** `ContactChannel.app` exists and is rated above
+That raises the bar rather than lowering it. If it replaces them, it has to be good enough to be the
+only channel — because the fallback, once the groups are wound down, is the telephone. Two things
+follow that were not true of a messaging feature sitting alongside WhatsApp:
+
+- **It needs a wind-down, not a launch.** A date, the groups archived, and people told. Two channels
+  running in parallel means the platform's copy is the incomplete one.
+- **It cannot reach a no-signal post** (E10). On those posts the client-held model is the answer, and
+  it is not a degraded version of messaging — it is a different mechanism. Wind the groups down
+  knowing that.
+
+Still open, and all four change the build rather than the styling:
+
+1. **Is a message ever the record of a check call?** `ContactChannel.app` exists and is rated above
    SMS, so it can be. If yes, an officer's "all well" message satisfies the hourly call and the
-   escalation ladder stops — which is a real operational change and needs Control's agreement.
-3. **What is the helpdesk?** A queue with a service level and named owners, or a shared inbox? If it
-   is a queue it is Work-engine items and already half-built; if it is an inbox it is something else.
-4. **How long are messages kept?** They will contain welfare and health-adjacent detail. Our own
-   retention rules have to reach them, which means a retention rule per conversation type.
-5. **Group or one-to-one?** A per-site group is the WhatsApp habit; it also means every officer on a
+   ladder stops — a real operational change that needs Control's agreement, not just ours.
+2. **What is the helpdesk?** A queue with a service level and named owners, or a shared inbox? A
+   queue is Work-engine items and already half-built; an inbox is something else. Note the helpdesk
+   already has a job in the E10 process — it is the desk that emails the client — so it exists as a
+   function whether or not it becomes a queue.
+3. **How long are messages kept?** They will carry welfare and health-adjacent detail. Retention has
+   to reach them, which means a rule per conversation type, and it is the main reason building this
+   beats staying on WhatsApp.
+4. **Group or one-to-one?** A per-site group is the WhatsApp habit. It also means every officer on a
    site sees every message about it.
 
-### E17 — What exactly can a client see? *(new, from E7)*
-"Their own sites, systems, inspections and everything" is the intent. "Everything" is where this
-needs a line drawn, and one of these is a data-protection question rather than a product one:
+### E17 — What exactly can a client see? *(from E7)*
+> **Officer identity agreed: name and SIA number where the contract requires it, nothing more.**
 
-1. **Officer identity.** Can a client see an officer's **name**, or only that a licensed and screened
-   officer is on post? Sending a named individual's data to a third party needs a lawful basis and
-   belongs in the E6 review. Recommendation: name and SIA number where the contract requires it,
-   nothing else — never screening contents, and never the person record.
+Recorded as the rule. It still belongs in the E6 data-protection review, because agreeing it and
+having a lawful basis for it are different things — but the scope is now settled, and it is the
+narrowest version that still works commercially.
+
+Note it interacts with E10: on a no-signal post the client is holding contact with a named officer on
+the site phone, so they necessarily know who that officer is. The rule above already permits that,
+which is the right answer, but it means the no-signal process is a live example of officer identity
+reaching a client rather than a hypothetical one.
+
+Still open:
+
+1. ~~**Officer identity**~~ — answered above.
 2. **Inspections: results, or only the report?** Do they see a failed inspection and the corrective
    action still open, or only completed reports? The honest answer is more useful commercially and
    harder to swallow the first time it happens.

@@ -159,7 +159,7 @@ export function evaluateGate1(
     /**
      * The final interview has been held. The standard is direct: interview the
      * individual before any offer of employment is made [7.3.4]. Ours is held
-     * by Farhan; an initial team interview may precede it but does not
+     * by the HR Manager; an initial team interview may precede it but does not
      * substitute for it.
      */
     finalInterviewHeld: boolean;

@@ -451,3 +451,150 @@ export async function completeWorkItem(
   revalidatePath("/");
   return ok("Task closed.");
 }
+
+// ---------------------------------------------------------------------------
+// Posts with no mobile signal
+// ---------------------------------------------------------------------------
+
+/**
+ * The handover, on a post where the officer cannot be reached by mobile.
+ *
+ * Confirmed process: the officer books on before going in, the helpdesk emails
+ * the client to say they have arrived and have no signal, and the client holds
+ * contact on the site phone from then until book-off.
+ *
+ * Recording it matters more here than on an ordinary post, because this is the
+ * only trace that anybody was holding contact with a lone officer overnight. On
+ * a normal post the check calls are that trace; here there are none to have.
+ */
+export async function notifyClientNoSignal(
+  assignmentId: string,
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const { session, error } = await guard("no_signal.notify_client");
+  if (error || !session) return error!;
+
+  const contact = String(formData.get("contact") ?? "").trim();
+  if (!contact) {
+    return refused(
+      "Say who at the client was told. 'Notified' with no name is not evidence that anybody was notified.",
+    );
+  }
+
+  const assignment = await db.assignment.findUnique({
+    where: { id: assignmentId },
+    include: { person: true, post: { include: { site: true } }, bookOn: true, noSignal: true },
+  });
+  if (!assignment) return refused("That shift no longer exists.");
+  if (assignment.post.mobileSignal) {
+    return refused(
+      `${assignment.post.name} is recorded as having a mobile signal, so the officer can make their own check calls. If that is wrong, the post record needs changing rather than this shift.`,
+    );
+  }
+  if (!assignment.bookOn) {
+    return refused(
+      "The officer has not booked on yet. On a post with no signal the book-on happens before they go in, so there is nothing to tell the client yet.",
+    );
+  }
+  if (assignment.noSignal?.notifiedAt) {
+    return refused(
+      `The client was already told at ${assignment.noSignal.notifiedAt.toISOString().slice(11, 16)}.`,
+    );
+  }
+
+  const now = new Date();
+  await db.$transaction([
+    db.noSignalHandover.upsert({
+      where: { assignmentId },
+      create: {
+        assignmentId,
+        notifiedAt: now,
+        notifiedByUserId: session.userId,
+        notifiedContact: contact,
+      },
+      update: { notifiedAt: now, notifiedByUserId: session.userId, notifiedContact: contact },
+    }),
+    db.event.create({
+      data: {
+        type: "no_signal.client_notified",
+        actorUserId: session.userId,
+        actorRole: session.activeRole,
+        department: "control",
+        assignmentId,
+        personId: assignment.personId,
+        siteId: assignment.post.siteId,
+        detail:
+          `${assignment.post.site.name} — ${assignment.post.name}: no mobile signal. ` +
+          `${contact} told that ${assignment.person.fullName} has arrived and is contactable on the site phone.`,
+      },
+    }),
+  ]);
+
+  refreshOps();
+  return ok(
+    `${contact} told. They hold contact on the site phone until book-off; if they cannot reach the officer, they tell us and somebody attends.`,
+  );
+}
+
+/**
+ * The client has come back to say they cannot reach the officer.
+ *
+ * This goes straight to the attend-site step rather than starting at the top of
+ * the ladder. On a post with no signal there is no mobile to try — the client
+ * noticing IS the failed contact, and the confirmed process is that somebody
+ * goes to check.
+ */
+export async function reportClientLostContact(
+  assignmentId: string,
+  _prev: ActionResult | null,
+  formData: FormData,
+): Promise<ActionResult> {
+  const { session, error } = await guard("no_signal.report_loss");
+  if (error || !session) return error!;
+
+  const reportedBy = String(formData.get("reportedBy") ?? "").trim();
+  const detail = String(formData.get("detail") ?? "").trim() || null;
+  if (!reportedBy) return refused("Say who at the client reported it.");
+
+  const assignment = await db.assignment.findUnique({
+    where: { id: assignmentId },
+    include: { person: true, post: { include: { site: true } }, noSignal: true },
+  });
+  if (!assignment) return refused("That shift no longer exists.");
+  if (!assignment.noSignal?.notifiedAt) {
+    return refused(
+      "The client has not been given contact yet, so they cannot have lost it. Tell them the officer is on site first.",
+    );
+  }
+  if (assignment.noSignal.lossReportedAt) {
+    return refused("That has already been recorded, and somebody should already be on their way.");
+  }
+
+  await db.$transaction([
+    db.noSignalHandover.update({
+      where: { assignmentId },
+      data: { lossReportedAt: new Date(), lossReportedBy: reportedBy, lossDetail: detail },
+    }),
+    db.event.create({
+      data: {
+        type: "no_signal.contact_lost",
+        actorUserId: session.userId,
+        actorRole: session.activeRole,
+        department: "control",
+        assignmentId,
+        personId: assignment.personId,
+        siteId: assignment.post.siteId,
+        detail:
+          `${reportedBy} at ${assignment.post.site.name} reports they cannot reach ` +
+          `${assignment.person.fullName} on the site phone. No mobile signal on this post, so ` +
+          `the operational team attends.` + (detail ? ` ${detail}` : ""),
+      },
+    }),
+  ]);
+
+  refreshOps();
+  return ok(
+    `Recorded. The board now shows attend site — there is no mobile to try on this post, so the client's report is the failed contact.`,
+  );
+}

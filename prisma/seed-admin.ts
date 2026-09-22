@@ -124,10 +124,10 @@ export async function seedAdminDemonstration(
   userId: (name: string) => string,
   personIdByName: (name: string) => string | null,
 ) {
-  const sana = userId("Sana");
-  const bilal = userId("Bilal");
-  const imran = userId("Imran");
-  const farhan = userId("Farhan");
+  const sana = userId("Kirsty");
+  const bilal = userId("Douglas");
+  const imran = userId("Vivien");
+  const farhan = userId("Eleanor");
 
   // --- Payments & contracts ------------------------------------------------
 
@@ -226,7 +226,7 @@ export async function seedAdminDemonstration(
   const leaveYearStart = new Date(new Date().getFullYear(), 0, 1);
   const leaveYearEnd = new Date(new Date().getFullYear(), 11, 31);
 
-  const withEntitlement = ["Sana", "Bilal", "Ahmed", "Usman", "Anas"]
+  const withEntitlement = ["Kirsty", "Douglas", "Priya", "Joel", "Marcus"]
     .map((n) => ({ name: n, personId: personIdByName(n) }))
     .filter((p): p is { name: string; personId: string } => p.personId !== null);
 
@@ -355,8 +355,8 @@ export async function seedAdminDemonstration(
 
   await db.voucher.createMany({
     data: [
-      { reference: "VCH-0001", personId: personIdByName("Sana"), valuePence: 5_000, purpose: "Officer of the month", issuedOn: daysAgo(40), expiresOn: daysAhead(20), state: "issued" },
-      { reference: "VCH-0002", personId: personIdByName("Ahmed"), valuePence: 2_500, purpose: "Referral bonus", issuedOn: daysAgo(100), expiresOn: daysAgo(10), state: "redeemed", redeemedOn: daysAgo(30) },
+      { reference: "VCH-0001", personId: personIdByName("Kirsty"), valuePence: 5_000, purpose: "Officer of the month", issuedOn: daysAgo(40), expiresOn: daysAhead(20), state: "issued" },
+      { reference: "VCH-0002", personId: personIdByName("Priya"), valuePence: 2_500, purpose: "Referral bonus", issuedOn: daysAgo(100), expiresOn: daysAgo(10), state: "redeemed", redeemedOn: daysAgo(30) },
       { reference: "VCH-0003", valuePence: 10_000, purpose: "Client goodwill after a cover failure", issuedOn: daysAgo(15), expiresOn: daysAhead(75), state: "issued" },
     ],
   });

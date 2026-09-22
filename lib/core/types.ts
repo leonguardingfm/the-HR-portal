@@ -81,6 +81,22 @@ export interface Post {
   checkCallsRequired: boolean;
   /** Lone working, which raises the welfare obligation. */
   loneWorking: boolean;
+  /**
+   * Whether an officer can get a mobile signal at this post.
+   *
+   * Some sites have none. That changes the whole contact model rather than
+   * degrading it, per the confirmed process: the officer books on BEFORE going
+   * in, the helpdesk emails the client to say the officer has arrived and has
+   * no signal, and the client then holds contact with them on the site phone.
+   * If the client cannot reach the officer, they tell us and somebody attends.
+   *
+   * It is a property of the post and not of the shift, which is why it lives
+   * here. Getting this wrong is not cosmetic: without it the board shows a
+   * missed check call every hour, all night, on a post where the officer
+   * physically cannot make one — and a board that is always red is a board
+   * nobody reads.
+   */
+  mobileSignal: boolean;
 }
 
 // ---------------------------------------------------------------------------

@@ -306,6 +306,7 @@ async function seedPlaces() {
       screeningPeriodYears: p.screeningPeriodYears,
       checkCallsRequired: p.checkCallsRequired,
       loneWorking: p.loneWorking,
+      mobileSignal: p.mobileSignal,
     })),
   });
   await db.siteReference.createMany({
@@ -624,6 +625,37 @@ async function seedEventsAndDisposals() {
   });
 }
 
+/**
+ * The no-signal handover on the post that has no mobile signal.
+ *
+ * Seeded as already-notified, so the board shows the resting state: the client
+ * is holding contact on the site phone and nothing is outstanding. The two
+ * states that matter are what the board has to tell apart — "client holding
+ * contact" is fine, "nobody has told the client" is work, and "client cannot
+ * reach them" sends somebody to site. Deleting this row is how to see the
+ * second; the verification script does exactly that.
+ */
+async function seedNoSignalHandover() {
+  const noSignalPosts = await db.post.findMany({ where: { mobileSignal: false } });
+  if (noSignalPosts.length === 0) return;
+
+  const shifts = await db.assignment.findMany({
+    where: { postId: { in: noSignalPosts.map((p) => p.id) }, bookOn: { isNot: null } },
+    include: { bookOn: true },
+    orderBy: { startsAt: "asc" },
+  });
+
+  for (const shift of shifts) {
+    await db.noSignalHandover.create({
+      data: {
+        assignmentId: shift.id,
+        notifiedAt: new Date(shift.bookOn!.at.getTime() + 6 * 60_000),
+        notifiedContact: "Site duty manager",
+      },
+    });
+  }
+}
+
 async function main() {
   console.log(`Seeding. ${personName("p1")} and friends.`);
   await reset();
@@ -635,6 +667,7 @@ async function main() {
   await seedDocuments();
   await seedRetentionSubjects();
   await seedOperations();
+  await seedNoSignalHandover();
   await seedWork();
   await seedAdminConfiguration(db);
   await seedAdminDemonstration(
@@ -680,6 +713,8 @@ async function main() {
     stockMovements: await db.stockMovement.count(),
     accreditations: await db.accreditation.count(),
     roleDelegations: await db.roleDelegation.count(),
+    noSignalPosts: await db.post.count({ where: { mobileSignal: false } }),
+    noSignalHandovers: await db.noSignalHandover.count(),
   };
   console.table(counts);
 }

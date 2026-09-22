@@ -114,7 +114,7 @@ export function VettingClockBoard() {
         criminality and right to work — was complete before deployment. Where
         the history has not been verified by the date shown, the officer should
         not continue in relevant employment (clause 7.6). A single extension of
-        up to four weeks needs Farhan&rsquo;s approval and evidence that written
+        up to four weeks needs higher management&rsquo;s approval and evidence that written
         requests were made.
       </p>
     </Card>

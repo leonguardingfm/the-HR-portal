@@ -53,7 +53,9 @@ export type ActionId =
   | "authority_matter.respond"
   | "threshold.change"
   | "role.delegate"
-  | "role.revoke_delegation";
+  | "role.revoke_delegation"
+  | "no_signal.notify_client"
+  | "no_signal.report_loss";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -146,6 +148,12 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   // rather than with the department that benefits from the cover.
   "role.delegate": { roles: ["top_management"], owner: "higher management", what: "Lending a role to cover an absence" },
   "role.revoke_delegation": { roles: ["top_management"], owner: "higher management", what: "Ending a delegation early" },
+  // The helpdesk and Control Room are the same desk for this purpose: whoever
+  // is on it tells the client the officer has gone in without a signal.
+  "no_signal.notify_client": { roles: ["control", "operations_manager"], owner: "the Control Room or helpdesk", what: "Telling the client the officer is on site with no signal" },
+  // Recording what a client has told us. The client does not do this; we do,
+  // on their behalf, which is why it is an internal permission.
+  "no_signal.report_loss": { roles: ["control", "operations_manager"], owner: "the Control Room or helpdesk", what: "Recording that the client has lost contact with the officer" },
 };
 
 export function canDo(role: Role | null | undefined, action: ActionId): boolean {

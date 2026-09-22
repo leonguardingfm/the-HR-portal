@@ -32,6 +32,8 @@ export default async function LivePage({
     attempt: deniedReason(session.activeRole, "contact_attempt.log"),
     bookOn: deniedReason(session.activeRole, "book_on.record"),
     notify: deniedReason(session.activeRole, "incident.notify_client"),
+    noSignalNotify: deniedReason(session.activeRole, "no_signal.notify_client"),
+    noSignalLoss: deniedReason(session.activeRole, "no_signal.report_loss"),
   };
 
   return (

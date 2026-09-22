@@ -28,6 +28,7 @@ import type {
   Post,
 } from "../core/types";
 import type { DeployabilityInput } from "../core/deployability";
+import type { NoSignalHandover } from "../core/ops";
 import type { Check, Role, ScreeningFile, ScreeningPeriodYears } from "../types";
 import { db } from "./client";
 
@@ -48,6 +49,8 @@ export interface LiveRow {
   bookOn: BookOn | undefined;
   calls: CheckCall[];
   attempts: ContactAttempt[];
+  /** Only present on a post with no mobile signal. */
+  noSignal: NoSignalHandover | undefined;
 }
 
 /** Shifts that touch now, plus anything starting inside the window. */
@@ -65,6 +68,7 @@ export async function getLiveRows(windowHours = 6, now = new Date()): Promise<Li
       bookOn: true,
       checkCalls: { orderBy: { at: "desc" } },
       attempts: { orderBy: { at: "desc" } },
+      noSignal: true,
     },
   });
 
@@ -88,7 +92,15 @@ export async function getLiveRows(windowHours = 6, now = new Date()): Promise<Li
       screeningPeriodYears: a.post.screeningPeriodYears as ScreeningPeriodYears,
       checkCallsRequired: a.post.checkCallsRequired,
       loneWorking: a.post.loneWorking,
+      mobileSignal: a.post.mobileSignal,
     },
+    noSignal: a.noSignal
+      ? {
+          assignmentId: a.id,
+          notifiedAt: iso(a.noSignal.notifiedAt),
+          lossReportedAt: iso(a.noSignal.lossReportedAt),
+        }
+      : undefined,
     siteName: a.post.site.name,
     clientName: a.post.site.client.name,
     personName: a.person.fullName,
@@ -203,6 +215,7 @@ export async function getRotaRows(days = 7, now = new Date()): Promise<RotaRow[]
       screeningPeriodYears: a.post.screeningPeriodYears as ScreeningPeriodYears,
       checkCallsRequired: a.post.checkCallsRequired,
       loneWorking: a.post.loneWorking,
+      mobileSignal: a.post.mobileSignal,
     },
     siteName: a.post.site.name,
     personName: a.person.fullName,

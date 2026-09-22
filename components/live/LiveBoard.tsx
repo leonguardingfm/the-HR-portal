@@ -18,9 +18,12 @@ import {
 import {
   logContactAttempt,
   notifyClient,
+  notifyClientNoSignal,
   recordBookOn,
   recordCheckCall,
+  reportClientLostContact,
 } from "@/lib/actions/operations";
+import { ActionForm } from "@/components/admin/ActionForm";
 import type { IncidentRow, LiveRow } from "@/lib/db/queries";
 import type { Severity } from "@/lib/types";
 
@@ -41,6 +44,8 @@ export interface LivePerms {
   attempt: string | null;
   bookOn: string | null;
   notify: string | null;
+  noSignalNotify: string | null;
+  noSignalLoss: string | null;
 }
 
 /**
@@ -114,7 +119,15 @@ export function LiveBoard({
   const rows = input
     .map((r) => {
       const att = attendance(r.assignment, r.bookOn, now);
-      const call = checkCallStatus(r.assignment, r.post, r.calls, r.bookOn, r.attempts, now);
+      const call = checkCallStatus(
+        r.assignment,
+        r.post,
+        r.calls,
+        r.bookOn,
+        r.attempts,
+        now,
+        r.noSignal,
+      );
       const worst =
         SEVERITY_RANK[att.severity] <= SEVERITY_RANK[call.severity] ? att.severity : call.severity;
       return { ...r, att, call, worst };
@@ -231,6 +244,51 @@ export function LiveBoard({
         />
       ),
     })),
+    // Posts with no mobile signal. Not a missed check call — the officer
+    // cannot make one — but the handover to the client is work, and until it
+    // is done nobody is holding contact with a lone officer at all.
+    ...rows
+      .filter((r) => r.call.state === "client_held" && !r.noSignal?.notifiedAt)
+      .map((r) => ({
+        key: `nosig-${r.assignment.id}`,
+        severity: r.call.severity,
+        what: "No signal — client not yet told",
+        who: r.personName,
+        where: `${r.siteName} — ${r.post.name}`,
+        action:
+          "Email the client that the officer has arrived and has no mobile signal, so they hold contact on the site phone.",
+        step: 1,
+        tried: [] as string[],
+        buttons: (
+          <ActionForm
+            action={notifyClientNoSignal.bind(null, r.assignment.id)}
+            submitLabel="Client told"
+            variant="primary"
+            denied={perms.noSignalNotify}
+            compact
+            fields={[
+              { name: "contact", label: "Who at the client", required: true, placeholder: "Name" },
+            ]}
+          />
+        ),
+      })),
+    // The client has come back to say they cannot reach the officer. On a post
+    // with no signal that IS the failed contact, so it goes straight to attend
+    // site rather than starting at the top of the ladder.
+    ...rows
+      .filter((r) => r.noSignal?.lossReportedAt)
+      .map((r) => ({
+        key: `nosig-lost-${r.assignment.id}`,
+        severity: "critical" as Severity,
+        what: "Client cannot reach the officer",
+        who: r.personName,
+        where: `${r.siteName} — ${r.post.name}`,
+        action:
+          "No mobile signal on this post, so there is nothing to ring. A member of the operational team attends site.",
+        step: 3,
+        tried: ["Client tried the site phone"] as string[],
+        buttons: <></>,
+      })),
   ].sort((a, b) => SEVERITY_RANK[a.severity] - SEVERITY_RANK[b.severity]);
 
   return (
@@ -428,6 +486,17 @@ export function LiveBoard({
                             fields={{ channel: "phone" }}
                             label="Check call"
                             denied={perms.checkCall}
+                          />
+                        )}
+                        {r.call.state === "client_held" && r.noSignal?.notifiedAt && (
+                          <ActionForm
+                            action={reportClientLostContact.bind(null, r.assignment.id)}
+                            submitLabel="Client lost contact"
+                            denied={perms.noSignalLoss}
+                            compact
+                            fields={[
+                              { name: "reportedBy", label: "Reported by", required: true },
+                            ]}
                           />
                         )}
                         {!r.bookOn && r.assignment.state !== "draft" && (

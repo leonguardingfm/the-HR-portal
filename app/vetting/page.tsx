@@ -96,7 +96,8 @@ export default function VettingPage() {
 
   // Clause 6.1 asks for attention to the division of functions between
   // interviewing, screening and the decision to employ. Our arrangement
-  // satisfies it: Farhan interviews, Anas and Talha control the files.
+  // satisfies it: the HR Manager interviews, the Screening Controllers control
+  // the files. Named by role, never by person — who holds a role is data.
   const independence = reviewIndependence({
     controllerUserId: file.controller ?? null,
     interviewerUserIds: heldInterviews.map((i) => i.interviewer),
@@ -108,7 +109,7 @@ export default function VettingPage() {
     <div className="space-y-5">
       <PageHeader
         title="Vetting"
-        description="BS 7858:2019 screening files. One file per individual, with conditionally employed files flagged separately from other employee files (clause 7.2). Anas and Talha alternate administrator and controller per file, so the same person never signs off their own work."
+        description="BS 7858:2019 screening files. One file per individual, with conditionally employed files flagged separately from other employee files (clause 7.2). The Screening Administrator and Screening Controller alternate per file, so the same person never signs off their own work."
       />
 
       <VettingClockBoard />

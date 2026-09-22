@@ -328,6 +328,16 @@ model Post {
   screeningPeriodYears Int     @default(5)
   checkCallsRequired   Boolean @default(true)
   loneWorking          Boolean @default(false)
+  /// Whether an officer can get a mobile signal here.
+  ///
+  /// False changes the contact model rather than degrading it, per the
+  /// confirmed process: the officer books on BEFORE going in, the helpdesk
+  /// emails the client to say they have arrived with no signal, and the client
+  /// holds contact on the site phone. See lib/core/ops.ts.
+  ///
+  /// Default true, because most posts have a signal and the exception is the
+  /// thing somebody has to state deliberately.
+  mobileSignal         Boolean @default(true)
   active               Boolean @default(true)
 
   site        Site         @relation(fields: [siteId], references: [id])
@@ -1079,6 +1089,7 @@ model Assignment {
   bookOff       BookOff?
   checkCalls    CheckCall[]
   attempts      ContactAttempt[]
+  noSignal      NoSignalHandover?
   incidents     Incident[]
   formResponses FormResponse[]
 
@@ -1175,6 +1186,38 @@ model CheckCall {
 /// not when a timer expires. So this table is not paperwork after the fact — it
 /// is the mechanism, and it is the record showing the duty of care was
 /// discharged.
+/// The no-signal handover.
+///
+/// One row per shift on a post with no mobile signal, because what is being
+/// tracked is not a series of calls but a transfer of responsibility: the
+/// helpdesk tells the client the officer has arrived and cannot be reached by
+/// mobile, and from then until book-off the client holds contact on the site
+/// phone.
+///
+/// `lossReportedAt` is the important column. On a post like this the client
+/// noticing is the only way anybody finds out, so their report is what sends
+/// somebody to site — there is no missed call to detect.
+model NoSignalHandover {
+  id           String @id @default(cuid())
+  assignmentId String @unique
+
+  /// When the helpdesk told the client, and who they told. Null until it has
+  /// been done, which is itself the thing the board watches.
+  notifiedAt       DateTime? @db.Timestamptz(3)
+  notifiedByUserId String?
+  notifiedContact  String?
+
+  /// Set when the client comes back to say they cannot reach the officer.
+  lossReportedAt DateTime? @db.Timestamptz(3)
+  /// Who at the client reported it — a name they gave us, not a user of ours.
+  lossReportedBy String?
+  lossDetail     String?
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([lossReportedAt])
+}
+
 model ContactAttempt {
   id           String @id @default(cuid())
   assignmentId String

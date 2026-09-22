@@ -199,7 +199,7 @@ export default async function CandidatesPage({
           },
           {
             label: "Two-stage interview record",
-            detail: "An optional initial interview by Ahmed or Usman, then the final interview held by Farhan. Interviewer, date, outcome and notes on each. The final interview is mandatory before any offer, so the portal blocks Gate 1 without it rather than just noting its absence.",
+            detail: "An optional initial interview by the recruitment team, then the final interview held by the HR Manager. Interviewer, date, outcome and notes on each. The final interview is mandatory before any offer, so the portal blocks Gate 1 without it rather than just noting its absence.",
             clause: "7.3.4",
             phase: 1,
           },
