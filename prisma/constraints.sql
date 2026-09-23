@@ -650,3 +650,58 @@ ALTER TABLE "ScreeningDecision"
 ALTER TABLE "ScreeningDecision"
   ADD CONSTRAINT decision_has_grounds
   CHECK (length(btrim("rationale")) >= 10);
+
+-- ---------------------------------------------------------------------------
+-- 14. Career and history periods  [7.5.2a, 7.7]
+-- ---------------------------------------------------------------------------
+-- One row per period of the timeline. The file's unverified days are
+-- calculated from these, so a row that lies about itself would make the
+-- calculation lie too.
+
+-- 14a. Dates run forwards, as stated and as confirmed.
+ALTER TABLE "HistoryPeriod"
+  ADD CONSTRAINT history_dates_in_order
+  CHECK (
+    ("statedTo" IS NULL OR "statedFrom" <= "statedTo")
+    AND ("confirmedFrom" IS NULL OR "confirmedTo" IS NULL OR "confirmedFrom" <= "confirmedTo")
+  );
+
+-- 14b. A current period is still going.
+ALTER TABLE "HistoryPeriod"
+  ADD CONSTRAINT history_current_is_open
+  CHECK (NOT "isCurrent" OR "statedTo" IS NULL);
+
+-- 14c. A current employer is not approached without the individual's prior
+-- written permission [7.7b].
+ALTER TABLE "HistoryPeriod"
+  ADD CONSTRAINT history_current_employer_permission
+  CHECK (NOT "isCurrent" OR "firstRequestAt" IS NULL OR "permissionToContact" IS TRUE);
+
+-- 14d. No reference request without a record of how the verifier's contact
+-- detail was established independently [7.5.2a].
+ALTER TABLE "HistoryPeriod"
+  ADD CONSTRAINT history_request_contact_established
+  CHECK ("firstRequestAt" IS NULL OR length(btrim(coalesce("contactVerifiedHow", ''))) > 0);
+
+-- 14e. A second request follows a first.
+ALTER TABLE "HistoryPeriod"
+  ADD CONSTRAINT history_second_after_first
+  CHECK ("secondRequestAt" IS NULL OR ("firstRequestAt" IS NOT NULL AND "secondRequestAt" >= "firstRequestAt"));
+
+-- 14f. Verified is recorded whole: how, when and by whom.
+ALTER TABLE "HistoryPeriod"
+  ADD CONSTRAINT history_verified_whole
+  CHECK (num_nonnulls("method", "verifiedAt", "verifiedById") IN (0, 3));
+
+-- 14g. A reference is only verified once the contact has been established,
+-- and documents are two of different types, one at each end [SV].
+ALTER TABLE "HistoryPeriod"
+  ADD CONSTRAINT history_method_evidence
+  CHECK (
+    ("method" IS DISTINCT FROM 'reference' OR length(btrim(coalesce("contactVerifiedHow", ''))) > 0)
+    AND (
+      "method" IS DISTINCT FROM 'documentary'
+      OR ("documentStart" IS NOT NULL AND "documentEnd" IS NOT NULL
+          AND lower(btrim("documentStart")) <> lower(btrim("documentEnd")))
+    )
+  );

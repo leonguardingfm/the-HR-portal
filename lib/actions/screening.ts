@@ -241,6 +241,10 @@ export async function updateCheck(
   const blocked = administratorRefusal(f, session.userId);
   if (blocked) return blocked;
   if (isSignoff(check)) return refused("Sign-off checks are recorded by the controller's review, not set by hand.");
+  if (check.group === "history" && (check.clause === "7.5.2a" || check.clause === "7.7")) {
+    const rows = await db.historyPeriod.count({ where: { fileId: f.id } });
+    if (rows > 0) return refused("This check is calculated from the career history below. Work the periods there instead.");
+  }
   if (!SETTABLE_STATUSES.includes(status)) return refused("Choose a status.");
   if ((status === "failed" || status === "not_applicable") && !note) {
     return refused(status === "failed" ? "Say what the check found." : "Say why this check does not apply.");
@@ -337,6 +341,9 @@ export async function updateHistoryFigures(
   if (!f) return refused("That file no longer exists.");
   const blocked = administratorRefusal(f, session.userId);
   if (blocked) return blocked;
+  if (await db.historyPeriod.count({ where: { fileId: f.id } })) {
+    return refused("This file has a career history, so these figures are calculated from it, not typed.");
+  }
   if (![unverifiedDays, gapsOver31Days].every((n) => Number.isInteger(n) && n >= 0 && n < 5000)) {
     return refused("Give whole numbers of days and gaps, zero or more.");
   }

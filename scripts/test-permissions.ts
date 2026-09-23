@@ -35,6 +35,7 @@ import { normalisePhone } from "../lib/core/identity";
 import { ONBOARDING_STEPS, doneSteps, normaliseSiaNumber, outstandingFor, signatureChase, waitingOn } from "../lib/core/onboarding";
 import { STANDARD_CHECKS, deriveStatus, fullScreeningBlockers, limitedScreeningBlockers, offerBlockers, onlineChecksOnFile } from "../lib/core/screening";
 import { canSignOff } from "../lib/bs7858";
+import { analyseHistory, chaseState, dateOf, merge, requestProblem, screeningWindow, verifyProblem, workingDaysBetween, type Period } from "../lib/core/history";
 import { declarationProblem, decisionProblem, extensionProblem, fileStatus, isExpiredOnClock, riskFindingProblem } from "../lib/core/screening-exceptions";
 import type { ScreeningFile } from "../lib/types";
 import type { Role } from "../lib/types";
@@ -558,9 +559,75 @@ check("a missing figure reads neutral, never good",
   check("unsuccessful screening blocks deployment", !evaluateDeployability({ ...base, screeningUnsuccessful: true }).deployable);
 }
 
+// --- career and history ----------------------------------------------------
+{
+  const d = (x: string) => new Date(`${x}T00:00:00Z`);
+  const ref = d("2026-09-01");
+  const w = screeningWindow({ reference: ref, dateOfBirth: null, years: 5 });
+  const period = (from: string, to: string | null, verified: boolean, extra: Partial<Period> = {}): Period => ({
+    id: from, kind: "employment", statedFrom: d(from), statedTo: to ? d(to) : null, isCurrent: to === null,
+    permissionToContact: null, firstRequestAt: null, secondRequestAt: null, verifiedAt: verified ? ref : null, ...extra,
+  });
+
+  check("the window is the five years before screening began (3.13)",
+    dateOf(w.from).toISOString().slice(0, 10) === "2021-09-01" && dateOf(w.to).toISOString().slice(0, 10) === "2026-09-01");
+  check("or back only to the 16th birthday, if that is later (3.13)",
+    dateOf(screeningWindow({ reference: ref, dateOfBirth: d("2008-03-15"), years: 5 }).from).toISOString().slice(0, 10) === "2024-03-15");
+  check("overlapping and touching periods merge",
+    JSON.stringify(merge([{ from: 1, to: 5 }, { from: 6, to: 8 }, { from: 3, to: 4 }, { from: 20, to: 22 }])) === JSON.stringify([{ from: 1, to: 8 }, { from: 20, to: 22 }]));
+
+  const whole = [period("2021-01-01", "2023-12-31", true), period("2024-01-01", null, true)];
+  const all = analyseHistory({ periods: whole, window: w, reference: ref });
+  check("a fully verified continuous history is done", all.fullDone && all.limitedDone && all.unverifiedDays === 0 && all.holes.length === 0);
+
+  const shortGap = [period("2021-01-01", "2023-12-31", true), period("2024-01-20", null, true)];
+  const sg = analyseHistory({ periods: shortGap, window: w, reference: ref });
+  check("a gap of 31 days or less is allowed unverified (7.7)", sg.fullDone && sg.unverified.length === 1 && sg.unverifiedDays === 0);
+  check("but it shows as a hole in the stated timeline", sg.holes.length === 1);
+
+  const longGap = [period("2021-01-01", "2023-12-31", true), period("2024-03-01", null, true)];
+  const lg = analyseHistory({ periods: longGap, window: w, reference: ref });
+  check("a gap over 31 days blocks full screening", !lg.fullDone && lg.overLimit.length === 1 && lg.unverifiedDays === 60);
+  check("…and limited screening, when it falls in the last three years (7.5.2a)", !lg.limitedDone);
+
+  const oldGap = [period("2021-01-01", "2021-12-31", true), period("2022-06-01", null, true)];
+  const og = analyseHistory({ periods: oldGap, window: w, reference: ref });
+  check("a gap older than three years blocks full screening but not limited", !og.fullDone && og.limitedDone);
+
+  const unverifiedJob = [period("2021-01-01", "2023-12-31", false), period("2024-01-01", null, true)];
+  check("a stated but unverified period counts as unverified", !analyseHistory({ periods: unverifiedJob, window: w, reference: ref }).fullDone);
+  check("an approved statutory declaration covers its period (7.7i)",
+    analyseHistory({ periods: longGap, window: w, reference: ref, declarations: [{ from: d("2024-01-01"), to: d("2024-02-29") }] }).fullDone);
+  check("confirmed dates win over stated ones",
+    !analyseHistory({ periods: [period("2021-01-01", null, true, { confirmedFrom: d("2023-01-01") })], window: w, reference: ref }).fullDone);
+
+  check("working days skip weekends", workingDaysBetween(d("2026-09-04"), d("2026-09-11")) === 5);
+  const asked = (days: number, second = false) => period("2022-01-01", "2023-01-01", false, {
+    firstRequestAt: new Date(ref.getTime() - days * 86_400_000), secondRequestAt: second ? ref : null,
+  });
+  check("2nd request due at 10 working days", chaseState(asked(15), ref)!.next === "Send the 2nd request");
+  check("documentary route at 20 working days", chaseState(asked(29, true), ref)!.next.startsWith("Switch to the documentary route"));
+  check("escalate at 30 working days", chaseState(asked(43, true), ref)!.severity === "critical");
+
+  check("a current employer is not approached without permission (7.7b)",
+    requestProblem(period("2024-01-01", null, false), "Switchboard from the company website") !== null);
+  check("…and with permission, it can be",
+    requestProblem(period("2024-01-01", null, false, { permissionToContact: true }), "Switchboard from the company website") === null);
+  check("no request without recording how the contact was found (7.5.2a)",
+    requestProblem(period("2022-01-01", "2023-01-01", false), "") !== null);
+  check("a career break is verified from documents, not a reference",
+    requestProblem(period("2022-01-01", "2023-01-01", false, { kind: "career_break" }), "Switchboard from the company website") !== null);
+  check("two documents of the same type are refused",
+    verifyProblem({ period: period("2022-01-01", "2023-01-01", false), method: "documentary", contactVerifiedHow: null, documentStart: "Payslip", documentEnd: "payslip", confirmedFrom: null, confirmedTo: null }) !== null);
+  check("a payslip and a P60 are accepted",
+    verifyProblem({ period: period("2022-01-01", "2023-01-01", false), method: "documentary", contactVerifiedHow: null, documentStart: "Payslip", documentEnd: "P60", confirmedFrom: null, confirmedTo: null }) === null);
+  check("a reference only counts with the contact established",
+    verifyProblem({ period: period("2022-01-01", "2023-01-01", false), method: "reference", contactVerifiedHow: "", documentStart: "", documentEnd: "", confirmedFrom: null, confirmedTo: null }) !== null);
+}
+
 // --- 2. every action guards ------------------------------------------------
 let actionCount = 0;
-for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions"]) {
+for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history"]) {
   const src = readFileSync(new URL(`../lib/actions/${file}.ts`, import.meta.url), "utf8");
   const exported = [...src.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
   check(`${file}.ts has server actions to check`, exported.length > 0, `${exported.length} found`);

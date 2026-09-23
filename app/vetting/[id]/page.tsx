@@ -41,6 +41,8 @@ import {
   RiskFindingForm,
 } from "@/components/vetting/ExceptionForms";
 import { getControllers, getScreeningFile } from "@/lib/db/screening";
+import { CareerHistory, type HistoryRow } from "@/components/vetting/CareerHistory";
+import { analyseHistory, screeningWindow, type HistoryKind, type HistoryMethod } from "@/lib/core/history";
 import { formatDate, formatDays, formatTime } from "@/lib/format";
 import { CHECK_STATUS_LABELS, RECRUITMENT_STAGE_LABELS, VETTING_STATUS_LABELS } from "@/lib/labels";
 import { CONTRACT_CONDITION, evaluateDeploymentGate } from "@/lib/policy";
@@ -121,6 +123,26 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
   const canTake = !fileEnded && !f.controllerUserId && role === "vetting_controller" && controllers.some((c) => c.id === me);
 
   const groups = [...new Set(f.checks.map((c) => c.group))] as CheckGroup[];
+
+  // Career and history: the same calculation the file's figures come from.
+  const hasHistory = f.history.length > 0;
+  const declarations = f.exceptions
+    .filter((e) => e.kind === "statutory_declaration" && e.decision?.outcome === "approved" && e.periodFrom && e.periodTo)
+    .map((e) => ({ from: e.periodFrom!, to: e.periodTo! }));
+  const historyRows: HistoryRow[] = f.history.map((h) => ({
+    ...h,
+    kind: h.kind as HistoryKind,
+    method: h.method as HistoryMethod | null,
+    verifiedByName: h.verifiedById ? (names.get(h.verifiedById) ?? null) : null,
+  }));
+  const analysis = analyseHistory({
+    periods: historyRows,
+    window: screeningWindow({ reference: f.openedAt, dateOfBirth: f.person.dateOfBirth, years: f.screeningPeriodYears }),
+    reference: f.openedAt,
+    declarations,
+  });
+  const derivedCheck = (c: { group: string; clause: string }) =>
+    hasHistory && c.group === "history" && (c.clause === "7.5.2a" || c.clause === "7.7");
 
   // Exceptions: the open cases, who can act on each, and what may be raised.
   const openCases = f.exceptions.filter((e) => e.state !== "decided");
@@ -401,6 +423,16 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
         )}
       </Card>
 
+      {(hasHistory || editable) && (
+        <CareerHistory
+          fileId={f.id}
+          rows={historyRows}
+          analysis={analysis}
+          editable={editable}
+          declarations={declarations}
+        />
+      )}
+
       <Card
         title="Verification progress sheet"
         subtitle={editable ? "Annex A, Form 2. Update each check as it moves; request dates are stamped for you." : "Annex A, Form 2."}
@@ -441,7 +473,14 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
                       </div>
                       <StatusPill severity={CHECK_SEVERITY[c.status as CheckStatus]} label={CHECK_STATUS_LABELS[c.status as CheckStatus]} />
                     </div>
-                    {editable && !isSignoff(c) && <CheckForm key={`${c.id}-${c.status}`} checkId={c.id} status={c.status} />}
+                    {editable && !isSignoff(c) && !derivedCheck(c) && (
+                      <CheckForm key={`${c.id}-${c.status}`} checkId={c.id} status={c.status} />
+                    )}
+                    {derivedCheck(c) && (
+                      <p className="mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                        Calculated from the career history below.
+                      </p>
+                    )}
                   </li>
                 ))}
             </ul>
@@ -453,9 +492,11 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
                   <ClauseRef clause="7.7" />
                 </p>
                 <p className="mt-0.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  Both must be zero before the completed file can be reviewed. Entered here until the per-employer history rows can calculate them.
+                  {hasHistory
+                    ? "Both must be zero before the completed file can be reviewed. Calculated from the career history below — not typed."
+                    : "Both must be zero before the completed file can be reviewed. Entered by hand until the career history is added below, then calculated from it."}
                 </p>
-                {editable && (
+                {editable && !hasHistory && (
                   <div className="mt-2">
                     <HistoryFiguresForm fileId={f.id} unverifiedDays={f.unverifiedDays} gapsOver31Days={f.gapsOver31Days} />
                   </div>

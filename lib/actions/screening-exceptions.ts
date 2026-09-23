@@ -22,6 +22,7 @@ import {
   type ExceptionKind,
 } from "@/lib/core/screening-exceptions";
 import { toCoreScreeningFile } from "@/lib/db/queries";
+import { syncHistoryFigures } from "@/lib/db/history-sync";
 import { settleFileStatus } from "@/lib/db/screening-status";
 import { sweepScreeningClocks } from "@/lib/db/sweeps";
 import type { Role } from "@/lib/types";
@@ -472,6 +473,8 @@ export async function decideException(
       "screening.decided",
       `${EXCEPTION_LABELS[kind]}: ${OUTCOME_LABELS[outcome].toLowerCase()}. ${rationale}${ends ? " Screening unsuccessful." : ""}`,
     );
+    // An approved declaration covers its period, so the timeline's figures move.
+    if (kind === "statutory_declaration" && favourable) await syncHistoryFigures(tx, f.id, now);
     await settleFileStatus(tx, f.id, now);
   });
 

@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- Ninety-five assertions. Each one names a rule the platform claims to
+-- One hundred and six assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -415,3 +415,38 @@ SELECT expect_failure('a decision with no grounds',
 SELECT expect_success('a risk accepted, with grounds',
   $$INSERT INTO "ScreeningDecision"(id,"fileId",kind,"decidedById",rationale,outcome)
     VALUES ('sd3','f4','risk_acceptance','u3','Satisfied in full 18 months ago, unrelated to the role','accepted')$$);
+
+-- ---------------------------------------------------------------------------
+-- 14. Career and history periods
+-- ---------------------------------------------------------------------------
+
+SELECT expect_success('an employment period, as stated',
+  $$INSERT INTO "HistoryPeriod"(id,"fileId",kind,organisation,"statedFrom","statedTo")
+    VALUES ('h1','f4','employment','Brightwater Security','2022-01-01','2024-06-30')$$);
+SELECT expect_failure('a period that ends before it starts',
+  $$INSERT INTO "HistoryPeriod"(id,"fileId",kind,"statedFrom","statedTo")
+    VALUES ('h2','f4','employment','2024-01-01','2023-01-01')$$);
+SELECT expect_failure('a current job with an end date',
+  $$INSERT INTO "HistoryPeriod"(id,"fileId",kind,"statedFrom","statedTo","isCurrent")
+    VALUES ('h3','f4','employment','2024-07-01','2025-01-01',true)$$);
+SELECT expect_success('a current job, still going',
+  $$INSERT INTO "HistoryPeriod"(id,"fileId",kind,organisation,"statedFrom","isCurrent")
+    VALUES ('h4','f4','employment','Apex Facilities','2024-07-01',true)$$);
+SELECT expect_failure('approaching a current employer without permission (7.7b)',
+  $$UPDATE "HistoryPeriod" SET "firstRequestAt" = now(), "contactVerifiedHow" = 'Companies House listing'
+    WHERE id = 'h4'$$);
+SELECT expect_failure('a reference request with no record of how the contact was found (7.5.2a)',
+  $$UPDATE "HistoryPeriod" SET "firstRequestAt" = now() WHERE id = 'h1'$$);
+SELECT expect_success('a reference request, contact established independently',
+  $$UPDATE "HistoryPeriod" SET "firstRequestAt" = now() - interval '14 days',
+      "contactVerifiedHow" = 'Switchboard number from the company website, not the candidate' WHERE id = 'h1'$$);
+SELECT expect_failure('a second request before the first',
+  $$UPDATE "HistoryPeriod" SET "secondRequestAt" = now() - interval '20 days' WHERE id = 'h1'$$);
+SELECT expect_failure('verified with nobody named',
+  $$UPDATE "HistoryPeriod" SET method = 'reference', "verifiedAt" = now() WHERE id = 'h1'$$);
+SELECT expect_failure('documentary evidence that is two of the same document',
+  $$UPDATE "HistoryPeriod" SET method = 'documentary', "verifiedAt" = now(), "verifiedById" = 'u3',
+      "documentStart" = 'Payslip', "documentEnd" = 'payslip' WHERE id = 'h1'$$);
+SELECT expect_success('documentary evidence: a payslip and a P60',
+  $$UPDATE "HistoryPeriod" SET method = 'documentary', "verifiedAt" = now(), "verifiedById" = 'u3',
+      "documentStart" = 'Payslip', "documentEnd" = 'P60' WHERE id = 'h1'$$);

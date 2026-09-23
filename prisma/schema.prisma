@@ -1074,6 +1074,7 @@ model ScreeningFile {
   workItems  WorkItem[]
   decisions  ScreeningDecision[]
   exceptions ScreeningException[]
+  history    HistoryPeriod[]
 
   @@index([status])
   @@index([conditionalEmploymentStart])
@@ -1143,6 +1144,74 @@ model ScreeningDecision {
   exception ScreeningException?
 
   @@index([fileId, kind])
+}
+
+/// What a period of someone's history was [7.7a-g].
+enum HistoryKind {
+  employment
+  self_employment
+  education
+  unemployment
+  career_break
+  residence_abroad
+  gap
+}
+
+/// How a period was verified [7.7].
+enum HistoryMethod {
+  reference
+  documentary
+  government_record
+}
+
+/// One period of the career and history timeline (Annex A, Form 2, one row
+/// per period). The file's unverified days and gaps over 31 days are
+/// calculated from these rows (lib/core/history.ts), not typed.
+model HistoryPeriod {
+  id     String      @id @default(cuid())
+  fileId String
+  kind   HistoryKind
+
+  /// Employer, school, agency or place — whatever the period is "at".
+  organisation String?
+  role         String?
+
+  /// As the individual stated it.
+  statedFrom DateTime  @db.Date
+  /// Null while the period is continuing.
+  statedTo   DateTime? @db.Date
+  /// As the verifier confirmed it, where they differ.
+  confirmedFrom DateTime? @db.Date
+  confirmedTo   DateTime? @db.Date
+
+  /// A current employer is not approached without the individual's prior
+  /// written permission [7.7b]. Null: not asked yet.
+  isCurrent           Boolean  @default(false)
+  permissionToContact Boolean?
+
+  verifierName    String?
+  verifierContact String?
+  /// How the contact detail was established independently. A number the
+  /// individual supplied is not relied upon [7.5.2a, 7.7].
+  contactVerifiedHow String?
+
+  firstRequestAt  DateTime? @db.Timestamptz(3)
+  secondRequestAt DateTime? @db.Timestamptz(3)
+
+  method       HistoryMethod?
+  /// Documentary route: two documents of different types, one dated at the
+  /// start of the period and one at the end [SV].
+  documentStart String?
+  documentEnd   String?
+  verifiedAt   DateTime? @db.Timestamptz(3)
+  verifiedById String?
+
+  notes     String?
+  createdAt DateTime @default(now()) @db.Timestamptz(3)
+
+  file ScreeningFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+
+  @@index([fileId, statedFrom])
 }
 
 enum DecisionOutcome {
