@@ -1,0 +1,14 @@
+node_modules/
+.next/
+out/
+build/
+.env
+.env.local
+.env*.local
+next-env.d.ts
+*.tsbuildinfo
+.DS_Store
+npm-debug.log*
+
+# A separate copy of the project, with its own package.json and node_modules.
+/the-HR-portal/
