@@ -42,6 +42,9 @@ import {
 } from "@/components/vetting/ExceptionForms";
 import { getControllers, getScreeningFile } from "@/lib/db/screening";
 import { CareerHistory, type HistoryRow } from "@/components/vetting/CareerHistory";
+import { ScreeningDocuments, type ScreeningDocumentRow } from "@/components/vetting/ScreeningDocuments";
+import { SCREENING_DOCUMENT_TYPES, typeSpec } from "@/lib/core/screening-documents";
+import { KIND_LABELS } from "@/lib/core/history";
 import { analyseHistory, screeningWindow, type HistoryKind, type HistoryMethod } from "@/lib/core/history";
 import { formatDate, formatDays, formatTime } from "@/lib/format";
 import { CHECK_STATUS_LABELS, RECRUITMENT_STAGE_LABELS, VETTING_STATUS_LABELS } from "@/lib/labels";
@@ -134,6 +137,9 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
     kind: h.kind as HistoryKind,
     method: h.method as HistoryMethod | null,
     verifiedByName: h.verifiedById ? (names.get(h.verifiedById) ?? null) : null,
+    documents: f.documents
+      .filter((d) => d.historyPeriodId === h.id)
+      .map((d) => ({ id: d.id, label: d.fileName ?? d.type.label, hasCopy: Boolean(d.storageKey && d.sha256), verification: d.verification })),
   }));
   const analysis = analyseHistory({
     periods: historyRows,
@@ -141,6 +147,52 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
     reference: f.openedAt,
     declarations,
   });
+  // Documents: what is on the file, and what each is evidence for.
+  const periodLabel = (id: string) => {
+    const h = f.history.find((x) => x.id === id);
+    return h ? `${KIND_LABELS[h.kind as HistoryKind]}${h.organisation ? ` — ${h.organisation}` : ""}` : "a history period";
+  };
+  const documentRows: ScreeningDocumentRow[] = f.documents.map((d) => ({
+    id: d.id,
+    typeLabel: d.type.label,
+    clause: d.type.clause,
+    copyRetained: d.type.copyRetained,
+    verification: d.verification,
+    fileName: d.fileName,
+    sizeBytes: d.sizeBytes,
+    hasCopy: Boolean(d.storageKey && d.sha256 && !d.disposedAt),
+    documentDate: d.documentDate,
+    expiresAt: d.expiresAt,
+    suppliedAt: d.suppliedAt,
+    uploadedBy: d.uploadedById ? (names.get(d.uploadedById) ?? null) : null,
+    uploadedById: d.uploadedById,
+    originalSeenBy: d.originalSeenById ? (names.get(d.originalSeenById) ?? null) : null,
+    verifiedBy: d.verifiedById ? (names.get(d.verifiedById) ?? null) : null,
+    outcome: d.outcome,
+    rejectionReason: d.rejectionReason,
+    note: d.note,
+    evidenceFor: d.checkId
+      ? (f.checks.find((c) => c.id === d.checkId)?.label ?? null)
+      : d.historyPeriodId
+        ? periodLabel(d.historyPeriodId)
+        : null,
+  }));
+  const docsFor = (key: "checkId" | "historyPeriodId", id: string) => f.documents.filter((d) => d[key] === id);
+  const uploadTypes = SCREENING_DOCUMENT_TYPES.map((id) => typeSpec(id)!).map((t) => ({
+    id: t.id,
+    label: t.label,
+    expires: t.expires,
+    copyRetained: t.copyRetained,
+    clause: t.clause,
+  }));
+  const evidenceOptions = [
+    ...f.checks
+      .filter((c) => c.group !== "signoff")
+      .map((c) => ({ value: `check:${c.id}`, label: c.label, group: "A check" })),
+    ...f.history.map((h) => ({ value: `period:${h.id}`, label: periodLabel(h.id), group: "A history period" })),
+  ];
+  const canCheckDocs = canDo(role, "document.verify") && (f.administratorUserId === me || f.controllerUserId === me) && !fileEnded;
+
   const derivedCheck = (c: { group: string; clause: string }) =>
     hasHistory && c.group === "history" && (c.clause === "7.5.2a" || c.clause === "7.7");
 
@@ -372,6 +424,16 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
         </Card>
       )}
 
+      <ScreeningDocuments
+        fileId={f.id}
+        rows={documentRows}
+        canUpload={editable}
+        canCheck={canCheckDocs}
+        me={me}
+        types={uploadTypes}
+        evidence={evidenceOptions}
+      />
+
       {/* The three gates */}
       <div className="grid gap-5 xl:grid-cols-3">
         {(
@@ -479,6 +541,24 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
                     {derivedCheck(c) && (
                       <p className="mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
                         Calculated from the career history below.
+                      </p>
+                    )}
+                    {docsFor("checkId", c.id).length > 0 && (
+                      <p className="mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                        Evidence:{" "}
+                        {docsFor("checkId", c.id).map((d, i) => (
+                          <span key={d.id}>
+                            {i > 0 && ", "}
+                            {d.storageKey && d.sha256 ? (
+                              <a href={`/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--series-1)" }}>
+                                {d.fileName ?? d.type.label}
+                              </a>
+                            ) : (
+                              d.type.label
+                            )}
+                            {d.verification === "verified" ? " ✓" : d.verification === "rejected" ? " (rejected)" : " (to check)"}
+                          </span>
+                        ))}
                       </p>
                     )}
                   </li>

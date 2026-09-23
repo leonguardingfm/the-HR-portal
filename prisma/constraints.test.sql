@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- One hundred and six assertions. Each one names a rule the platform claims to
+-- One hundred and fourteen assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -450,3 +450,31 @@ SELECT expect_failure('documentary evidence that is two of the same document',
 SELECT expect_success('documentary evidence: a payslip and a P60',
   $$UPDATE "HistoryPeriod" SET method = 'documentary', "verifiedAt" = now(), "verifiedById" = 'u3',
       "documentStart" = 'Payslip', "documentEnd" = 'P60' WHERE id = 'h1'$$);
+
+-- ---------------------------------------------------------------------------
+-- 15. Uploaded documents
+-- ---------------------------------------------------------------------------
+
+SELECT expect_success('an SIA licence scan on a screening file',
+  $$INSERT INTO "DocumentRecord"(id,"typeId","screeningFileId",verification,"storageKey","fileName","mimeType","sizeBytes",sha256)
+    VALUES ('up1','sia','f4','supplied','screening/f4/up1.pdf','licence.pdf','application/pdf',48213,'ab12')$$);
+SELECT expect_failure('a copy with no checksum',
+  $$INSERT INTO "DocumentRecord"(id,"typeId","screeningFileId","storageKey","fileName","mimeType","sizeBytes")
+    VALUES ('up2','sia','f4','screening/f4/up2.pdf','licence.pdf','application/pdf',48213)$$);
+SELECT expect_failure('a described copy stored nowhere',
+  $$INSERT INTO "DocumentRecord"(id,"typeId","screeningFileId","fileName","mimeType","sizeBytes",sha256)
+    VALUES ('up3','sia','f4','licence.pdf','application/pdf',48213,'ab12')$$);
+SELECT expect_failure('an executable uploaded as a document',
+  $$INSERT INTO "DocumentRecord"(id,"typeId","screeningFileId","storageKey","fileName","mimeType","sizeBytes",sha256)
+    VALUES ('up4','sia','f4','screening/f4/up4','run.exe','application/x-msdownload',48213,'ab12')$$);
+SELECT expect_failure('a file over 10 MB',
+  $$INSERT INTO "DocumentRecord"(id,"typeId","screeningFileId","storageKey","fileName","mimeType","sizeBytes",sha256)
+    VALUES ('up5','sia','f4','screening/f4/up5.pdf','big.pdf','application/pdf',20000000,'ab12')$$);
+SELECT expect_failure('an original "seen" by nobody',
+  $$UPDATE "DocumentRecord" SET "originalSeenAt" = now() WHERE id = 'up1'$$);
+SELECT expect_failure('a copy of a criminality certificate kept anyway (7.7j)',
+  $$INSERT INTO "DocumentRecord"(id,"typeId","screeningFileId","storageKey","fileName","mimeType","sizeBytes",sha256)
+    VALUES ('up6','crc','f4','screening/f4/up6.pdf','dbs.pdf','application/pdf',48213,'ab12')$$);
+SELECT expect_success('the criminality outcome recorded without a copy',
+  $$INSERT INTO "DocumentRecord"(id,"typeId","screeningFileId",verification,outcome)
+    VALUES ('up7','crc','f4','verified','Basic disclosure: no convictions shown')$$);

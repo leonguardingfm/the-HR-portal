@@ -705,3 +705,34 @@ ALTER TABLE "HistoryPeriod"
           AND lower(btrim("documentStart")) <> lower(btrim("documentEnd")))
     )
   );
+
+-- ---------------------------------------------------------------------------
+-- 15. Uploaded documents  [7.4c, 7.7j]
+-- ---------------------------------------------------------------------------
+-- A stored copy of an identity document is the most sensitive thing the
+-- platform holds. What is kept is described whole, is of a type the platform
+-- can show safely, and says who looked at the original.
+
+-- 15a. The copy is described whole: name, type, size and checksum together.
+ALTER TABLE "DocumentRecord"
+  ADD CONSTRAINT document_file_whole
+  CHECK (num_nonnulls("fileName", "mimeType", "sizeBytes", "sha256") IN (0, 4));
+
+-- 15b. A described copy has somewhere it is stored.
+ALTER TABLE "DocumentRecord"
+  ADD CONSTRAINT document_file_stored
+  CHECK ("sha256" IS NULL OR "storageKey" IS NOT NULL);
+
+-- 15c. PDF, JPEG or PNG, and no larger than 10 MB. Anything else is either not
+-- a scan of a document or not something a browser should be handed back.
+ALTER TABLE "DocumentRecord"
+  ADD CONSTRAINT document_file_kind
+  CHECK (
+    ("mimeType" IS NULL OR "mimeType" IN ('application/pdf', 'image/jpeg', 'image/png'))
+    AND ("sizeBytes" IS NULL OR "sizeBytes" BETWEEN 1 AND 10485760)
+  );
+
+-- 15d. Who examined the original, and when, together [7.4c].
+ALTER TABLE "DocumentRecord"
+  ADD CONSTRAINT document_original_seen_whole
+  CHECK (num_nonnulls("originalSeenById", "originalSeenAt") <> 1);

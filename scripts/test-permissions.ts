@@ -35,6 +35,7 @@ import { normalisePhone } from "../lib/core/identity";
 import { ONBOARDING_STEPS, doneSteps, normaliseSiaNumber, outstandingFor, signatureChase, waitingOn } from "../lib/core/onboarding";
 import { STANDARD_CHECKS, deriveStatus, fullScreeningBlockers, limitedScreeningBlockers, offerBlockers, onlineChecksOnFile } from "../lib/core/screening";
 import { canSignOff } from "../lib/bs7858";
+import { sniffMime, uploadProblem, uploadWarning } from "../lib/core/screening-documents";
 import { analyseHistory, chaseState, dateOf, merge, requestProblem, screeningWindow, verifyProblem, workingDaysBetween, type Period } from "../lib/core/history";
 import { declarationProblem, decisionProblem, extensionProblem, fileStatus, isExpiredOnClock, riskFindingProblem } from "../lib/core/screening-exceptions";
 import type { ScreeningFile } from "../lib/types";
@@ -625,9 +626,41 @@ check("a missing figure reads neutral, never good",
     verifyProblem({ period: period("2022-01-01", "2023-01-01", false), method: "reference", contactVerifiedHow: "", documentStart: "", documentEnd: "", confirmedFrom: null, confirmedTo: null }) !== null);
 }
 
+// --- documents on a screening file --------------------------------------------
+{
+  const bytes = (...b: number[]) => new Uint8Array(b);
+  const pdf = bytes(0x25, 0x50, 0x44, 0x46, 0x2d, 0x31);
+  const jpg = bytes(0xff, 0xd8, 0xff, 0xe0);
+  const png = bytes(0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a);
+  const exe = bytes(0x4d, 0x5a, 0x90, 0x00);
+  check("PDF, JPEG and PNG are recognised from their bytes",
+    sniffMime(pdf) === "application/pdf" && sniffMime(jpg) === "image/jpeg" && sniffMime(png) === "image/png");
+  check("anything else is not, whatever it is called", sniffMime(exe) === null);
+
+  const base = { typeId: "sia_licence", hasFile: true, sizeBytes: 50_000, mime: "application/pdf" as const, outcome: "", documentDate: null, expiresAt: new Date(Date.now() + 400 * 86_400_000), originalSeen: false };
+  check("an SIA licence scan with its expiry is accepted", uploadProblem(base) === null);
+  check("an expiring document needs its expiry", uploadProblem({ ...base, expiresAt: null }) !== null);
+  check("an expired document is refused", uploadProblem({ ...base, expiresAt: new Date(Date.now() - 5 * 86_400_000) }) !== null);
+  check("over 10 MB is refused", uploadProblem({ ...base, sizeBytes: 11 * 1024 * 1024 }) !== null);
+  check("a file that is not really a PDF, JPEG or PNG is refused", uploadProblem({ ...base, mime: null }) !== null);
+  check("photographic identity needs the original examined (7.4c)",
+    uploadProblem({ ...base, typeId: "photo_id" }) !== null && uploadProblem({ ...base, typeId: "photo_id", originalSeen: true }) === null);
+  check("a criminality certificate is never uploaded (7.7j)",
+    uploadProblem({ ...base, typeId: "criminal_record_outcome", outcome: "No convictions shown" }) !== null);
+  check("its outcome is recorded instead",
+    uploadProblem({ ...base, typeId: "criminal_record_outcome", hasFile: false, outcome: "No convictions shown" }) === null);
+  const addr = { ...base, typeId: "address_proof", expiresAt: null };
+  check("proof of address needs its date", uploadProblem({ ...addr, documentDate: null }) !== null);
+  check("proof of address over 12 months old is refused", uploadProblem({ ...addr, documentDate: new Date(Date.now() - 400 * 86_400_000) }) !== null);
+  check("over three months is accepted with a warning about which kinds",
+    uploadProblem({ ...addr, documentDate: new Date(Date.now() - 120 * 86_400_000) }) === null &&
+    uploadWarning("address_proof", new Date(Date.now() - 120 * 86_400_000)) !== null);
+  check("a type that is not a screening document is refused", uploadProblem({ ...base, typeId: "client_contract" }) !== null);
+}
+
 // --- 2. every action guards ------------------------------------------------
 let actionCount = 0;
-for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history"]) {
+for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents"]) {
   const src = readFileSync(new URL(`../lib/actions/${file}.ts`, import.meta.url), "utf8");
   const exported = [...src.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
   check(`${file}.ts has server actions to check`, exported.length > 0, `${exported.length} found`);

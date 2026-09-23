@@ -51,6 +51,7 @@ export async function getScreeningFile(id: string) {
       decisions: { orderBy: { decidedAt: "desc" } },
       exceptions: { orderBy: { raisedAt: "desc" }, include: { decision: true } },
       history: { orderBy: { statedFrom: "desc" } },
+      documents: { orderBy: { suppliedAt: "desc" }, include: { type: true } },
       person: {
         include: {
           employment: true,
@@ -74,6 +75,7 @@ export async function getScreeningFile(id: string) {
       ...f.decisions.map((d) => d.decidedById),
       ...f.exceptions.flatMap((e) => [e.raisedById, e.representationRecordedById]),
       ...f.history.map((h) => h.verifiedById),
+      ...f.documents.flatMap((d) => [d.uploadedById, d.originalSeenById, d.verifiedById]),
     ]),
     db.event.findMany({
       where: { screeningFileId: f.id },

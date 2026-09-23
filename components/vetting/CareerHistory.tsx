@@ -33,6 +33,7 @@ export interface HistoryRow extends Period {
   documentEnd: string | null;
   notes: string | null;
   verifiedByName: string | null;
+  documents?: { id: string; label: string; hasCopy: boolean; verification: string }[];
 }
 
 const fmt = (n: number) => formatDate(dateOf(n));
@@ -203,6 +204,24 @@ export function CareerHistory({
                   {r.notes && (
                     <p className="mt-1 text-[12px] whitespace-pre-line" style={{ color: "var(--text-secondary)" }}>
                       {r.notes}
+                    </p>
+                  )}
+                  {r.documents && r.documents.length > 0 && (
+                    <p className="mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      Evidence:{" "}
+                      {r.documents.map((d, i) => (
+                        <span key={d.id}>
+                          {i > 0 && ", "}
+                          {d.hasCopy ? (
+                            <a href={`/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--series-1)" }}>
+                              {d.label}
+                            </a>
+                          ) : (
+                            d.label
+                          )}
+                          {d.verification === "verified" ? " ✓" : d.verification === "rejected" ? " (rejected)" : " (to check)"}
+                        </span>
+                      ))}
                     </p>
                   )}
                 </div>

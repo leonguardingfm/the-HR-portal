@@ -535,7 +535,32 @@ model DocumentRecord {
   /// the file does not.
   disposedAt   DateTime? @db.Timestamptz(3)
 
+  /// The uploaded copy, described. All four or none; the checksum is how a
+  /// file can be shown to be the one that was uploaded.
+  fileName  String?
+  mimeType  String?
+  sizeBytes Int?
+  sha256    String?
+
+  /// The date printed on the document — what the history and address-age
+  /// rules are judged against, not the day it was uploaded.
+  documentDate DateTime? @db.Date
+  uploadedById String?
+  /// Originals are inspected, and who examined them is recorded [7.4c].
+  originalSeenById String?
+  originalSeenAt   DateTime? @db.Timestamptz(3)
+  /// Outcome-only types (the criminality check): what was found, in place of
+  /// a copy that must not be kept [7.7j].
+  outcome String?
+  note    String?
+
+  /// What this document is evidence for, on a screening file.
+  checkId         String?
+  historyPeriodId String?
+
   type          DocumentType   @relation(fields: [typeId], references: [id])
+  check         ScreeningCheck? @relation(fields: [checkId], references: [id], onDelete: SetNull)
+  historyPeriod HistoryPeriod?  @relation(fields: [historyPeriodId], references: [id], onDelete: SetNull)
   person        Person?        @relation(fields: [personId], references: [id])
   site          Site?          @relation(fields: [siteId], references: [id])
   client        Client?        @relation(fields: [clientId], references: [id])
@@ -1107,7 +1132,8 @@ model ScreeningCheck {
 
   notes String?
 
-  file ScreeningFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  file      ScreeningFile    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  documents DocumentRecord[]
 
   @@index([fileId, group])
   @@index([status])
@@ -1209,7 +1235,8 @@ model HistoryPeriod {
   notes     String?
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
-  file ScreeningFile @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  file      ScreeningFile    @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  documents DocumentRecord[]
 
   @@index([fileId, statedFrom])
 }

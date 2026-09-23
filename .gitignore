@@ -12,3 +12,6 @@ npm-debug.log*
 
 # A separate copy of the project, with its own package.json and node_modules.
 /the-HR-portal/
+
+# Uploaded documents. Identity documents live here in development; never commit them.
+/storage/
