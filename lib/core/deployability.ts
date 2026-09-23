@@ -28,6 +28,8 @@ export interface DeployabilityInput {
   screeningClockExpired: boolean;
   /** Screening ended unsuccessfully: a declined risk or an upheld finding. */
   screeningUnsuccessful?: boolean;
+  /** Why the deployment gate is shut, in the gate's own words. */
+  gateBlockedBy?: string[];
   suspended: boolean;
   postRequiresSiaLicence: boolean;
   siaLicenceExpiry: string | null;
@@ -79,7 +81,9 @@ export function evaluateDeployability(
   if (!input.deploymentGatePassed) {
     blockers.push({
       code: "deployment_gate",
-      label: "Pre-deployment checks not complete",
+      label: input.gateBlockedBy?.length
+        ? `Pre-deployment checks not complete: ${input.gateBlockedBy[0]}`
+        : "Pre-deployment checks not complete",
       severity: "critical",
     });
   }

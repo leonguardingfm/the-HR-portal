@@ -29,7 +29,8 @@ import {
   ADMIN_KPIS,
 } from "../lib/core/admin";
 import { MAX_DELEGATION_DAYS, effectiveRoles, actingNote, validateDelegation } from "../lib/auth/delegation";
-import { canAdvance, canRecordInterview } from "../lib/core/recruitment";
+import { canAdvance, canRecordInterview, deploymentContext } from "../lib/core/recruitment";
+import { evaluateDeployability } from "../lib/core/deployability";
 import { normalisePhone } from "../lib/core/identity";
 import { ONBOARDING_STEPS, doneSteps, normaliseSiaNumber, outstandingFor, signatureChase, waitingOn } from "../lib/core/onboarding";
 import { STANDARD_CHECKS, deriveStatus, fullScreeningBlockers, limitedScreeningBlockers, offerBlockers, onlineChecksOnFile } from "../lib/core/screening";
@@ -535,6 +536,26 @@ check("a missing figure reads neutral, never good",
     fileStatus({ ...mk({ conditionalEmploymentStart: daysAgo(90), extensionWeeks: 4 }, (g) => (g === "history" ? "requested" : "verified")), status: "time_expired" }, []) !== "time_expired");
   check("an unsuccessful file stays unsuccessful", fileStatus({ ...onClock, status: "unsuccessful" }, []) === "unsuccessful");
   check("a finding blocks the offer", offerBlockers({ ...onClock, status: "risk_acceptance_required" }).some((b) => b.includes("7.4f")));
+}
+
+// --- the officer pool -------------------------------------------------------
+{
+  const P = (stage: "first" | "second" | "additional") => ({ stage, outcome: "progress" as const });
+  check("no candidacy, no context: nothing is assumed",
+    Object.values(deploymentContext(null)).every((v) => v === false));
+  check("an officer deployed before the checklist existed is not read as blocked",
+    Object.values(deploymentContext({ stage: "deployed", interviews: [], onboardingSteps: [], requiresAdditional: false })).every(Boolean));
+  check("at the offer: interviews held, risk evaluated once recorded, documents not yet signed", (() => {
+    const c = deploymentContext({ stage: "conditional_offer", interviews: [P("first"), P("second")], onboardingSteps: [{ step: "risk_evaluated" }], requiresAdditional: false });
+    return c.finalInterviewHeld && c.riskEvaluationDocumented && !c.signedDocumentsComplete;
+  })());
+  check("a client's additional interview counts before the offer",
+    !deploymentContext({ stage: "second_interview", interviews: [P("first"), P("second")], onboardingSteps: [], requiresAdditional: true }).finalInterviewHeld);
+  const base = { deploymentGatePassed: true, screeningClockExpired: false, suspended: false, postRequiresSiaLicence: false, siaLicenceExpiry: null, rightToWorkExpiry: null };
+  check("the gate's own reason is the blocker's wording",
+    evaluateDeployability({ ...base, deploymentGatePassed: false, gateBlockedBy: ["No screening file has been opened (7.4a)"] })
+      .blockers[0]!.label.includes("No screening file"));
+  check("unsuccessful screening blocks deployment", !evaluateDeployability({ ...base, screeningUnsuccessful: true }).deployable);
 }
 
 // --- 2. every action guards ------------------------------------------------

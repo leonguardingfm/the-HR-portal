@@ -21,7 +21,7 @@ import {
   limitedScreeningBlockers,
   nextMove,
 } from "@/lib/core/screening";
-import { requiredInterviews } from "@/lib/core/recruitment";
+import { deploymentContext } from "@/lib/core/recruitment";
 import {
   EXCEPTION_CLAUSES,
   EXCEPTION_LABELS,
@@ -42,7 +42,7 @@ import {
 } from "@/components/vetting/ExceptionForms";
 import { getControllers, getScreeningFile } from "@/lib/db/screening";
 import { formatDate, formatDays, formatTime } from "@/lib/format";
-import { CHECK_STATUS_LABELS, RECRUITMENT_STAGE_LABELS, RECRUITMENT_STAGE_ORDER, VETTING_STATUS_LABELS } from "@/lib/labels";
+import { CHECK_STATUS_LABELS, RECRUITMENT_STAGE_LABELS, VETTING_STATUS_LABELS } from "@/lib/labels";
 import { CONTRACT_CONDITION, evaluateDeploymentGate } from "@/lib/policy";
 import type { CheckGroup, CheckStatus, InterviewStage, RecruitmentStage, Severity } from "@/lib/types";
 
@@ -91,14 +91,16 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
 
   // Gate context from the Recruitment side, read rather than assumed.
   const stage = candidacy?.stage as RecruitmentStage | undefined;
-  const requiresAdditional = candidacy?.requirement?.client.requiresAdditionalInterview ?? false;
-  const passed = new Set(
-    (candidacy?.interviews ?? []).filter((i) => i.outcome === "progress").map((i) => i.stage as InterviewStage),
+  const { riskEvaluationDocumented, finalInterviewHeld, signedDocumentsComplete } = deploymentContext(
+    candidacy && stage
+      ? {
+          stage,
+          interviews: candidacy.interviews.map((i) => ({ stage: i.stage as InterviewStage, outcome: i.outcome })),
+          onboardingSteps: candidacy.onboardingSteps,
+          requiresAdditional: candidacy.requirement?.client.requiresAdditionalInterview ?? false,
+        }
+      : null,
   );
-  const finalInterviewHeld = requiredInterviews(requiresAdditional).every((s) => passed.has(s));
-  const riskEvaluationDocumented = (candidacy?.onboardingSteps ?? []).some((s) => s.step === "risk_evaluated");
-  const signedDocumentsComplete =
-    stage !== undefined && RECRUITMENT_STAGE_ORDER.indexOf(stage) >= RECRUITMENT_STAGE_ORDER.indexOf("signed_docs_complete");
 
   const gate1 = evaluateGate1(core, { riskEvaluationDocumented, finalInterviewHeld });
   const deployment = evaluateDeploymentGate(core, { riskEvaluationDocumented, finalInterviewHeld, signedDocumentsComplete });

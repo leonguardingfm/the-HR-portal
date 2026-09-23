@@ -189,3 +189,30 @@ export function stageSeverity(
 export function daysIn(since: Date, now = new Date()): number {
   return Math.max(0, Math.floor((now.getTime() - since.getTime()) / 86_400_000));
 }
+
+/**
+ * What the deployment gate needs from the Recruitment side, read from the
+ * candidacy rather than assumed (lib/policy.ts evaluateDeploymentGate).
+ *
+ * Each is proved by the record or by the stage the person has reached — a
+ * stage the pipeline only lets them reach once it is true. That is what keeps
+ * officers deployed before the checklist existed from reading as blocked.
+ */
+export function deploymentContext(c: {
+  stage: RecruitmentStage;
+  interviews: HeldInterview[];
+  onboardingSteps: { step: string }[];
+  requiresAdditional: boolean;
+} | null): { riskEvaluationDocumented: boolean; finalInterviewHeld: boolean; signedDocumentsComplete: boolean } {
+  if (!c) return { riskEvaluationDocumented: false, finalInterviewHeld: false, signedDocumentsComplete: false };
+  const reached = (s: RecruitmentStage) => STAGE_ORDER.indexOf(c.stage) >= STAGE_ORDER.indexOf(s);
+  return {
+    riskEvaluationDocumented: c.onboardingSteps.some((s) => s.step === "risk_evaluated") || reached("welcome_pack"),
+    finalInterviewHeld:
+      requiredInterviews(c.requiresAdditional).every((s) => passed(c.interviews, s)) || reached("conditional_offer"),
+    signedDocumentsComplete: reached("signed_docs_complete"),
+  };
+}
+
+/** The whole path, deployment and confirmation included, for "has reached". */
+const STAGE_ORDER: RecruitmentStage[] = [...RECRUITMENT_PIPELINE, "deployed", "confirmed_employment"];

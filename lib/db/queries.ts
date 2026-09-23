@@ -18,6 +18,7 @@ import { evaluateDeployability } from "../core/deployability";
 import type { Deployability } from "../core/deployability";
 import { canPublishAssignment } from "../core/deployability";
 import { evaluateDeploymentGate } from "../policy";
+import { deploymentContext } from "../core/recruitment";
 import type {
   Assignment,
   BookOn,
@@ -29,7 +30,7 @@ import type {
 } from "../core/types";
 import type { DeployabilityInput } from "../core/deployability";
 import type { NoSignalHandover } from "../core/ops";
-import type { Check, Role, ScreeningFile, ScreeningPeriodYears } from "../types";
+import type { Check, InterviewStage, RecruitmentStage, Role, ScreeningFile, ScreeningPeriodYears } from "../types";
 import { db } from "./client";
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
@@ -239,14 +240,30 @@ export async function getDeployabilityInputs(): Promise<
 > {
   const people = await db.person.findMany({
     where: {
-      OR: [{ employment: { isNot: null } }, { candidacies: { some: { stage: "deployed" } } }],
+      // Employed and not a leaver, or deployed on a candidacy. A leaver is not
+      // part of the pool at all, rather than a pool member who is blocked.
+      OR: [
+        { employment: { is: { state: { not: "ended" } } } },
+        { candidacies: { some: { stage: "deployed" } } },
+      ],
     },
     include: {
       employment: true,
-      licences: { orderBy: { expiresAt: "asc" } },
+      // The current licence is the one that runs out last; an old expired one
+      // alongside a renewal must not block anybody.
+      licences: { orderBy: { expiresAt: "desc" } },
       documents: { include: { type: true } },
-      screeningFile: { include: { checks: true } },
-      candidacies: { include: { interviews: true } },
+      screeningFile: {
+        where: { disposedAt: null },
+        orderBy: { openedAt: "desc" },
+        take: 1,
+        include: { checks: true },
+      },
+      candidacies: {
+        orderBy: { stageSince: "desc" },
+        take: 1,
+        include: { interviews: true, onboardingSteps: true, requirement: { include: { client: true } } },
+      },
     },
   });
 
@@ -254,6 +271,7 @@ export async function getDeployabilityInputs(): Promise<
 
   for (const p of people) {
     const file = p.screeningFile[0];
+    const candidacy = p.candidacies[0];
     const rtw = p.documents.find((d) => d.typeId === "right_to_work");
     const visa = p.documents.find((d) => d.typeId === "visa");
     // Whichever runs out first is the one that stops them working.
@@ -261,26 +279,41 @@ export async function getDeployabilityInputs(): Promise<
       [rtw?.expiresAt, visa?.expiresAt].filter(Boolean).sort((a, b) => a!.getTime() - b!.getTime())[0] ??
       null;
 
-    let gateOpen = true;
-    let clockExpired = false;
+    // Confirmed employment means full screening completed and was signed off
+    // before confirmation (Gate 3), so the screening side is satisfied. Anyone
+    // else — conditional, or deployed without an employment record — needs a
+    // live file whose deployment gate is open. No file is not a pass.
+    let gateOpen: boolean;
+    let gateBlockedBy: string[] = [];
     if (file) {
-      const core = toCoreScreeningFile(file, p.id);
-      const interviewsHeld = p.candidacies.some((c) =>
-        c.interviews.some((i) => i.stage === "second" && i.outcome === "progress"),
+      const gate = evaluateDeploymentGate(
+        toCoreScreeningFile(file, p.id),
+        deploymentContext(
+          candidacy
+            ? {
+                stage: candidacy.stage as RecruitmentStage,
+                interviews: candidacy.interviews.map((i) => ({ stage: i.stage as InterviewStage, outcome: i.outcome })),
+                onboardingSteps: candidacy.onboardingSteps,
+                requiresAdditional: candidacy.requirement?.client.requiresAdditionalInterview ?? false,
+              }
+            : null,
+        ),
       );
-      gateOpen = evaluateDeploymentGate(core, {
-        riskEvaluationDocumented: true,
-        finalInterviewHeld: interviewsHeld,
-        signedDocumentsComplete: true,
-      }).open;
-      clockExpired = file.status === "time_expired";
+      gateOpen = gate.open || p.employment?.state === "confirmed";
+      gateBlockedBy = gateOpen ? [] : gate.blockedBy;
+    } else if (p.employment?.state === "confirmed") {
+      gateOpen = true;
+    } else {
+      gateOpen = false;
+      gateBlockedBy = ["No screening file has been opened (7.4a)"];
     }
 
     out.set(p.id, {
-      personName: p.fullName,
+      personName: p.licences[0]?.nameOnBadge ?? p.fullName,
       input: {
         deploymentGatePassed: gateOpen,
-        screeningClockExpired: clockExpired,
+        gateBlockedBy,
+        screeningClockExpired: file?.status === "time_expired",
         screeningUnsuccessful: file?.status === "unsuccessful",
         suspended: p.employment?.state === "suspended",
         postRequiresSiaLicence: true,
