@@ -371,45 +371,29 @@ export async function renewDocument(
  * afterwards be edited or deleted — the database refuses it.
  */
 export async function runDisposal(
-  subject: { kind: "candidacy" | "employment"; id: string; description: string },
   _prev: ActionResult | null,
-  _formData: FormData,
+  formData: FormData,
 ): Promise<ActionResult> {
   const { session, error } = await guard("disposal.run");
   if (error || !session) return error!;
 
-  const rule = subject.kind === "candidacy" ? "unsuccessful_applicant_12_months" : "after_cessation_7_years";
+  const kind = String(formData.get("kind") ?? "");
+  const subjectId = String(formData.get("subjectId") ?? "");
+  if (kind !== "candidacy" && kind !== "employment") return refused("Nothing to dispose of.");
 
-  await db.$transaction([
-    db.disposalRecord.create({
-      data: {
-        rule,
-        subjectDescription: subject.description,
-        itemsDestroyed: 1,
-        retainedInstead:
-          subject.kind === "candidacy"
-            ? "Outcome and date only, per the criminality document rule"
-            : null,
-        performedByUserId: session.userId,
-      },
-    }),
-    db.event.create({
-      data: {
-        type: "disposal.recorded",
-        actorUserId: session.userId,
-        actorRole: session.activeRole,
-        department: "administration",
-        detail: `Records destroyed under the ${
-          rule === "unsuccessful_applicant_12_months"
-            ? `${RETENTION.unsuccessfulApplicantMonths}-month`
-            : `${RETENTION.afterCessationYears}-year`
-        } rule, and written to the disposal log.`,
-      },
-    }),
-  ]);
+  // Not only a log line: the file and documents are marked disposed and the
+  // stored copies are deleted (lib/db/disposal.ts).
+  const { disposeRecords } = await import("@/lib/db/disposal");
+  const r = await disposeRecords({ kind, subjectId, actor: { userId: session.userId, role: session.activeRole } });
+  if (!r.ok) return refused(r.reason);
 
   revalidatePath("/compliance");
-  return ok("Disposal recorded. The entry cannot be edited or deleted — that is the point of it.");
+  revalidatePath("/vetting");
+  return ok(
+    r.copiesNotDeleted > 0
+      ? `Disposal recorded, but ${r.copiesNotDeleted} stored cop${r.copiesNotDeleted === 1 ? "y" : "ies"} could not be deleted and must be removed by hand.`
+      : `${r.destroyed} item(s) destroyed and written to the disposal log. The entry cannot be edited or deleted — that is the point of it.`,
+  );
 }
 
 // ---------------------------------------------------------------------------

@@ -35,6 +35,7 @@ import { normalisePhone } from "../lib/core/identity";
 import { ONBOARDING_STEPS, doneSteps, normaliseSiaNumber, outstandingFor, signatureChase, waitingOn } from "../lib/core/onboarding";
 import { STANDARD_CHECKS, deriveStatus, fullScreeningBlockers, limitedScreeningBlockers, offerBlockers, onlineChecksOnFile } from "../lib/core/screening";
 import { canSignOff } from "../lib/bs7858";
+import { isDue, retentionDue } from "../lib/core/retention";
 import { sniffMime, uploadProblem, uploadWarning } from "../lib/core/screening-documents";
 import { analyseHistory, chaseState, dateOf, merge, requestProblem, screeningWindow, verifyProblem, workingDaysBetween, type Period } from "../lib/core/history";
 import { declarationProblem, decisionProblem, extensionProblem, fileStatus, isExpiredOnClock, riskFindingProblem } from "../lib/core/screening-exceptions";
@@ -656,6 +657,17 @@ check("a missing figure reads neutral, never good",
     uploadProblem({ ...addr, documentDate: new Date(Date.now() - 120 * 86_400_000) }) === null &&
     uploadWarning("address_proof", new Date(Date.now() - 120 * 86_400_000)) !== null);
   check("a type that is not a screening document is refused", uploadProblem({ ...base, typeId: "client_contract" }) !== null);
+}
+
+// --- retention -------------------------------------------------------------
+{
+  const d = (x: string) => new Date(`${x}T00:00:00Z`);
+  check("an unsuccessful applicant's records are due 12 months after withdrawal (11.1, C14)",
+    retentionDue("candidacy", d("2025-09-23")).toISOString().slice(0, 10) === "2026-09-23");
+  check("a leaver's records are due seven years after employment ceased (11.3)",
+    retentionDue("employment", d("2019-08-31")).toISOString().slice(0, 10) === "2026-08-31");
+  check("due on the day itself", isDue(d("2026-09-23"), d("2026-09-23")));
+  check("not a day early", !isDue(d("2026-09-24"), d("2026-09-23")));
 }
 
 // --- 2. every action guards ------------------------------------------------

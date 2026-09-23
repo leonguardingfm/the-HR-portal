@@ -25,6 +25,7 @@ export default async function CompliancePage() {
       retention={retention}
       disposals={disposals}
       renewDenied={deniedReason(session.activeRole, "document.renew")}
+      disposeDenied={deniedReason(session.activeRole, "disposal.run")}
     />
   );
 }

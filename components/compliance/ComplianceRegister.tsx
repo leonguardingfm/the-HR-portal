@@ -10,7 +10,7 @@ import { RETENTION } from "@/lib/bs7858";
 import { daysUntil, expirySeverity } from "@/lib/core/deployability";
 import { formatDate } from "@/lib/format";
 import { EXPIRY_WARNING_DAYS } from "@/lib/sla";
-import { renewDocument } from "@/lib/actions/operations";
+import { renewDocument, runDisposal } from "@/lib/actions/operations";
 import type {
   ExpiringDocument,
   RetentionItemRow,
@@ -53,12 +53,14 @@ export function ComplianceRegister({
   retention,
   disposals,
   renewDenied,
+  disposeDenied,
 }: {
   documents: ExpiringDocument[];
   workforce: WorkforceDeployability[];
   retention: RetentionItemRow[];
   disposals: DisposalRow[];
   renewDenied: string | null;
+  disposeDenied: string | null;
 }) {
   const now = useNow();
 
@@ -204,10 +206,23 @@ export function ComplianceRegister({
                           {RULE_LABELS[r.rule] ?? r.rule} · due {formatDate(r.dueAt)}
                         </p>
                       </div>
-                      <StatusPill
-                        severity={days < 0 ? "critical" : days <= 30 ? "warning" : "neutral"}
-                        label={days < 0 ? `${Math.abs(days)} days overdue` : `in ${days} days`}
-                      />
+                      <div className="flex flex-col items-end gap-1.5">
+                        <StatusPill
+                          severity={days < 0 ? "critical" : days <= 30 ? "warning" : "neutral"}
+                          label={days < 0 ? `${Math.abs(days)} days overdue` : `in ${days} days`}
+                        />
+                        <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+                          {r.itemsHeld} item{r.itemsHeld === 1 ? "" : "s"} held
+                        </span>
+                        {days <= 0 && (
+                          <ActionButton
+                            action={runDisposal}
+                            label="Dispose"
+                            fields={{ kind: r.kind, subjectId: r.subjectId }}
+                            denied={disposeDenied}
+                          />
+                        )}
+                      </div>
                     </li>
                   );
                 })}

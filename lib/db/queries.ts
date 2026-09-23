@@ -437,6 +437,9 @@ export async function getLicences() {
 
 export interface RetentionItemRow {
   id: string;
+  /** What disposing it acts on: a withdrawn application or ended employment. */
+  kind: "candidacy" | "employment";
+  subjectId: string;
   description: string;
   rule: string;
   dueAt: string;
@@ -450,49 +453,25 @@ export interface RetentionItemRow {
  * an unsuccessful applicant's file 12 months after it was closed, a leaver's
  * records 7 years after employment ceased.
  */
-export async function getRetentionQueue(now = new Date()): Promise<RetentionItemRow[]> {
-  const months = RETENTION.unsuccessfulApplicantMonths;
-  const years = RETENTION.afterCessationYears;
-
-  const [withdrawn, leavers] = await Promise.all([
-    db.candidacy.findMany({ where: { stage: "withdrawn" }, orderBy: { stageSince: "asc" } }),
-    db.employment.findMany({ where: { endedAt: { not: null } }, orderBy: { endedAt: "asc" } }),
-  ]);
-
-  const items: RetentionItemRow[] = [
-    ...withdrawn.map((c) => {
-      const due = new Date(c.stageSince);
-      due.setMonth(due.getMonth() + months);
-      return {
-        id: `ret-${c.id}`,
-        // No name: a disposal record that reproduces the data it destroyed has
-        // not destroyed it, and the queue that feeds it follows the same rule.
-        description: `Application withdrawn ${c.stageSince.toISOString().slice(0, 7)} — screening file and documents`,
-        rule: "unsuccessful_applicant_12_months",
-        dueAt: due.toISOString(),
-        itemsHeld: 1,
-      };
-    }),
-    ...leavers.map((e) => {
-      const due = new Date(e.endedAt!);
-      due.setFullYear(due.getFullYear() + years);
-      return {
-        id: `ret-${e.id}`,
-        description: `Employment ceased ${e.endedAt!.toISOString().slice(0, 7)} — employment and screening records`,
-        rule: "after_cessation_7_years",
-        dueAt: due.toISOString(),
-        itemsHeld: 1,
-      };
-    }),
-  ];
-
-  // Soonest first, and anything already past its date is at the top — holding
-  // data longer than the policy allows is itself the compliance failure.
-  return items.sort((a, b) => new Date(a.dueAt).getTime() - new Date(b.dueAt).getTime());
+export async function getRetentionQueue(): Promise<RetentionItemRow[]> {
+  const { retentionQueue } = await import("./disposal");
+  return (await retentionQueue()).map((r) => ({
+    id: r.id,
+    kind: r.kind,
+    subjectId: r.subjectId,
+    description: r.description,
+    rule: r.rule,
+    dueAt: r.dueAt.toISOString(),
+    itemsHeld: r.itemsHeld,
+  }));
 }
 
 export async function getDisposalLog(limit = 10) {
   const rows = await db.disposalRecord.findMany({ orderBy: { at: "desc" }, take: limit });
+  const ids = [...new Set(rows.map((d) => d.performedByUserId).filter(Boolean))] as string[];
+  const names = new Map(
+    (await db.user.findMany({ where: { id: { in: ids } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]),
+  );
   return rows.map((d) => ({
     id: d.id,
     at: isoRequired(d.at),
@@ -500,7 +479,7 @@ export async function getDisposalLog(limit = 10) {
     subjectDescription: d.subjectDescription,
     itemsDestroyed: d.itemsDestroyed,
     retainedInstead: d.retainedInstead,
-    performedBy: d.performedBySystem ?? d.performedByUserId ?? "—",
+    performedBy: d.performedBySystem ?? (d.performedByUserId ? (names.get(d.performedByUserId) ?? "a former user") : "—"),
     verified: d.verifiedByUserId !== null,
   }));
 }
