@@ -70,6 +70,10 @@ export default async function SignInPage({
           <Link href="/signup" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
             Create an account
           </Link>
+          {" · "}
+          <Link href="/signup/officer" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+            I’m a security officer
+          </Link>
         </p>
 
         {seeded.length > 0 && (

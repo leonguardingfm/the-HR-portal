@@ -448,6 +448,56 @@ by the channel chosen for the batch. What is still not known to the platform is 
 officer tells Control on the phone — days they cannot do, next week only — beyond leave. If that
 needs to be recorded ahead of the rota rather than at the moment of asking, it is a new decision.
 
+### E22 — Duty checks: chase-up, book-on, check calls — **answered, and built**
+> **Duty confirmed → chase-up two hours before → officer confirms → book-on at site → hourly check calls
+> → alert if one is missed. Book-ons and check calls were the same page and did not relate; give each
+> its own. Day patrol and Concierge desk need check calls on night duty and at weekends.**
+> *(24 September 2026.)*
+
+- **Three pages, one flow.** Chase-ups, Book-ons and Check calls each have a page laid out for that step's
+  work, with the same five-step flow across the top of each, the live board and the dashboard, so the
+  whole picture is one glance and the next job one click.
+- **The chase-up** is new: it opens two hours before the shift, turns red with under an hour to go and no
+  confirmation, and records every try (`ChaseUp`, constraints §20). "Cannot attend" takes the officer
+  off and puts the shift on the cover list, the same as the rota's "Officer can't do it".
+- **Book-on**: late after 15 minutes, a no-show after 30 (unchanged, E4); no book-on more than an hour
+  before the start, after the end, or for an officer who came off.
+- **Check calls** are laid out per shift as a timeline — made, made late, missed, still to come — hourly
+  from the last contact to the end of the duty; the escalation ladder is E4's, unchanged.
+- **Check calls per shift, not per post.** `Post.checkCalls` is *every shift*, *night duty and weekends*,
+  or *never*. Night duty is any hours between 22:00 and 06:00; weekend is any hours on a Saturday or
+  Sunday. Day patrol and Concierge desk are *night duty and weekends*; the rest *every shift*.
+- **Alerts are durable** as well as live: `npm run sweep:duty` (to be scheduled every minute; it also
+  runs after every duty page, the dashboard and each check) raises a task and an event for an
+  unconfirmed chase-up, a missing book-on and a missed check call, and closes them when put right.
+- **Demonstration data**: `npm run demo:duty` builds ten shifts around the current time, one in every
+  state, for reviewing the pages. Not for production.
+
+### E23 — Officers do their own checks; Control monitors — **answered, and built**
+> **Officers perform their own duty checks from their own portal — view their duties, book on when
+> they arrive, make their check calls — and see only their own duties and information. The employer
+> side is a monitoring system. If an officer misses a book-on or a check call, both the officer and
+> the employer are alerted.** *(24 September 2026.)*
+
+- **An officer role**, holding one permission (`duty.self`) and one page (`/me`). Every other path is
+  closed to it by the navigation fence; every officer action loads the shift and refuses it unless it
+  belongs to the person signed in, with the same answer whether the shift is someone else's or does not
+  exist. Their duties are read by the person on the session, never by anything the page sends.
+- **The portal, built for a phone**: the shift on now or next, with the one thing to do — confirm, book
+  on, make the check call ("all well", or what is wrong) — upcoming and completed duties, and their alerts.
+  An officer can also say they cannot make a shift; Control is alerted and takes them off.
+- **Accounts attach to the officer's existing record**, proved by PIN and date of birth
+  (`/signup/officer`). *Before going live this needs a one-time code to the mobile on file (E16) and a
+  limit on attempts.*
+- **Alerts on both ends**: the sweep addresses each missed book-on or check call to the officer's
+  account (shown in their portal) and to Control (its task list and the dashboard), and closes both when
+  the officer puts it right — immediately, since every check re-runs it. Push or text to the phone waits
+  on messaging (E16).
+- **Control monitors**: each book-on and check call shows whether the officer made it themselves or
+  Control recorded it for them. Control's own buttons fold behind "Record for them — they rang in
+  instead" for officers with a portal, and stay open for those without, because an app cannot be made
+  mandatory (E3). The dashboard shows how much the officers did themselves.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

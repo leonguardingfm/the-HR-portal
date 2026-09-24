@@ -1,7 +1,7 @@
 import Link from "next/link";
 import { AuthShell } from "@/components/auth/AuthShell";
 import { SignUpForm } from "@/components/auth/SignUpForm";
-import { DEPARTMENTS, PASSWORD_MIN } from "@/lib/accounts";
+import { SIGNUP_DEPARTMENTS, PASSWORD_MIN } from "@/lib/accounts";
 
 /**
  * Create an account: name, username, email, password and department. The
@@ -15,7 +15,7 @@ export default function SignUpPage() {
       intro="Choose the department you work in. It decides which screens you see, and it is recorded against your account."
     >
       <SignUpForm
-        departments={DEPARTMENTS.map(({ id, label, description, needsApproval }) => ({
+        departments={SIGNUP_DEPARTMENTS.map(({ id, label, description, needsApproval }) => ({
           id,
           label,
           description,
@@ -24,7 +24,11 @@ export default function SignUpPage() {
         passwordMin={PASSWORD_MIN}
       />
       <p className="mt-4 text-center text-[12px]" style={{ color: "var(--text-secondary)" }}>
-        Already have an account?{" "}
+        Security officer?{" "}
+        <Link href="/signup/officer" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+          Set up your officer account
+        </Link>
+        {" · "}Already have an account?{" "}
         <Link
           href="/signin"
           className="font-medium underline-offset-2 hover:underline"

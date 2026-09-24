@@ -13,7 +13,7 @@ import { ActiveNow } from "./ActiveNow";
 import { ActivityFeed } from "./ActivityFeed";
 import { DepartmentKpis } from "./DepartmentKpis";
 import { ExceptionsQueue } from "./ExceptionsQueue";
-import { LiveStrip } from "./LiveStrip";
+import { DutyPanel } from "./DutyPanel";
 import { RequirementBoard } from "./RequirementBoard";
 import { TaskDigest } from "./TaskDigest";
 import { TileRow } from "./TileRow";
@@ -71,13 +71,13 @@ export function DashboardView({
       />
 
       {/* Operational roles open on what is happening, not on the funnel. */}
-      {operational && seesLive && <LiveStrip rows={liveRows} />}
+      {operational && seesLive && <DutyPanel rows={liveRows} />}
 
       <TileRow />
 
       {seesClock && <VettingClockBoard files={clockFiles} />}
 
-      {!operational && seesLive && <LiveStrip rows={liveRows} />}
+      {!operational && seesLive && <DutyPanel rows={liveRows} />}
 
       <RequirementBoard />
 

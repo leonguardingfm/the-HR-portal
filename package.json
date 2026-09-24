@@ -16,7 +16,9 @@
     "db:seed": "tsx --env-file-if-exists=.env prisma/seed.ts",
     "db:reset": "prisma migrate reset --force --skip-generate && npm run db:seed",
     "test:permissions": "tsx scripts/test-permissions.ts",
-    "sweep:clocks": "tsx --env-file-if-exists=.env scripts/sweep-screening-clocks.ts"
+    "sweep:clocks": "tsx --env-file-if-exists=.env scripts/sweep-screening-clocks.ts",
+    "sweep:duty": "tsx --env-file-if-exists=.env scripts/sweep-duty.ts",
+    "demo:duty": "tsx --env-file-if-exists=.env scripts/demo-duty.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

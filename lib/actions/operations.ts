@@ -8,6 +8,9 @@ import { canPublishAssignment } from "@/lib/core/deployability";
 import { getDeployabilityInputs, shiftDeployability } from "@/lib/db/queries";
 import { hoursProblemFor } from "@/lib/db/rota";
 import { RETENTION } from "@/lib/bs7858";
+import { DUTY_RULES, callsRequiredFor } from "@/lib/core/duty";
+import { formatTime } from "@/lib/format";
+import { sweepDutyChecks } from "@/lib/db/duty-sweep";
 import { refused, ok, type ActionResult } from "./types";
 import type { ContactChannel } from "@/lib/core/types";
 
@@ -70,10 +73,15 @@ export async function recordCheckCall(
   if (!assignment.bookOn) {
     return refused("No check call is expected until the officer has booked on.");
   }
+  if (assignment.endsAt <= new Date()) return refused("That shift has finished.");
+  // An officer can ring in to say all is not well; that is still contact, and the note says what.
+  const allWell = String(formData.get("allWell") ?? "yes") !== "no";
+  const note = String(formData.get("note") ?? "").trim().slice(0, 300) || null;
+  if (!allWell && !note) return refused("Say what is wrong — a check call that is not all well needs a note.");
 
   await db.$transaction([
     db.checkCall.create({
-      data: { assignmentId, at: new Date(), channel, allWell: true, takenByUserId: session.userId },
+      data: { assignmentId, at: new Date(), channel, allWell, note, takenByUserId: session.userId },
     }),
     db.event.create({
       data: {
@@ -83,11 +91,12 @@ export async function recordCheckCall(
         department: "control",
         assignmentId,
         personId: assignment.personId,
-        detail: `All well. ${assignment.post.site.name} — ${assignment.post.name}.`,
+        detail: `${allWell ? "All well" : `Not all well: ${note}`}. ${assignment.post.site.name} — ${assignment.post.name}.`,
       },
     }),
   ]);
 
+  await sweepDutyChecks();
   refreshOps();
   return ok(`Check call recorded for ${assignment.person.fullName}. The clock restarts.`);
 }
@@ -142,16 +151,22 @@ export async function recordBookOn(
   const channel = (String(formData.get("channel") ?? "site_phone") || "site_phone") as ContactChannel;
   const assignment = await db.assignment.findUnique({
     where: { id: assignmentId },
-    include: { person: true, bookOn: true, post: { include: { site: true } } },
+    include: { person: true, bookOn: true, post: { include: { site: true } }, leftCover: { select: { id: true } } },
   });
   if (!assignment) return refused("That shift no longer exists.");
   if (assignment.bookOn) return refused("That officer is already booked on.");
   if (assignment.state === "draft") {
     return refused("That shift has not been published, so nobody can book on to it.");
   }
+  if (assignment.state === "cancelled" || assignment.leftCover) return refused(`${assignment.person.fullName} is off that shift.`);
+  const now = new Date();
+  if (assignment.endsAt <= now) return refused("That shift has finished.");
+  if (assignment.startsAt.getTime() - now.getTime() > DUTY_RULES.bookOnEarliestMinutes * 60_000) {
+    return refused(`Too early to book on — the shift starts at ${formatTime(assignment.startsAt)}. The book-on is when they arrive at site.`);
+  }
 
   await db.$transaction([
-    db.bookOn.create({ data: { assignmentId, at: new Date(), channel, recordedByUserId: session.userId } }),
+    db.bookOn.create({ data: { assignmentId, at: now, channel, recordedByUserId: session.userId } }),
     db.event.create({
       data: {
         type: "book_on.recorded",
@@ -165,8 +180,16 @@ export async function recordBookOn(
     }),
   ]);
 
+  await sweepDutyChecks();
   refreshOps();
-  return ok(`${assignment.person.fullName} booked on. The check-call clock starts from here.`);
+  const calls = callsRequiredFor(assignment.post.checkCalls, assignment.startsAt, assignment.endsAt);
+  return ok(
+    !assignment.post.mobileSignal
+      ? `${assignment.person.fullName} booked on. No signal at this post — tell the client they have arrived.`
+      : calls.required
+        ? `${assignment.person.fullName} booked on. Hourly check calls start from here.`
+        : `${assignment.person.fullName} booked on. No check calls this shift (${calls.why.toLowerCase()}).`,
+  );
 }
 
 export async function notifyClient(

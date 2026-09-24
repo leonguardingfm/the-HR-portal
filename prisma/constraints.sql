@@ -922,3 +922,20 @@ $$ LANGUAGE plpgsql;
 CREATE TRIGGER open_shift_fill
   BEFORE INSERT OR UPDATE ON "OpenShift"
   FOR EACH ROW EXECUTE FUNCTION enforce_open_shift_fill();
+
+-- ---------------------------------------------------------------------------
+-- 20. Chase-ups  [Control, 24 September 2026]
+-- ---------------------------------------------------------------------------
+-- A chase-up is about a shift somebody is on, and says what happened.
+
+-- 20a. "No answer" says how they were tried. A confirmation, or a "cannot
+-- attend", may come from the officer themselves in their portal, with no
+-- channel of Control's.
+ALTER TABLE "ChaseUp"
+  ADD CONSTRAINT chase_up_how_tried
+  CHECK (outcome <> 'no_answer' OR channel IS NOT NULL);
+
+-- 20b. Cannot attend says why — it takes the officer off the shift.
+ALTER TABLE "ChaseUp"
+  ADD CONSTRAINT chase_up_cannot_attend_says_why
+  CHECK (outcome <> 'cannot_attend' OR length(btrim(coalesce(note, ''))) > 0);

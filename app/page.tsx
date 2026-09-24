@@ -1,4 +1,6 @@
+import { after } from "next/server";
 import { DashboardView } from "@/components/dashboard/DashboardView";
+import { sweepDutyChecks } from "@/lib/db/duty-sweep";
 import { requireSession } from "@/lib/auth/server";
 import {
   getDashboardCounts,
@@ -13,12 +15,13 @@ export const dynamic = "force-dynamic";
 export default async function DashboardPage() {
   const session = await requireSession();
   const [liveRows, events, counts, presence, clockFiles] = await Promise.all([
-    getLiveRows(),
+    getLiveRows(12),
     getRecentEvents(7),
     getDashboardCounts(),
     getPresence(),
     getClockRows(),
   ]);
+  after(() => sweepDutyChecks());
   return (
     <DashboardView
       liveRows={liveRows}

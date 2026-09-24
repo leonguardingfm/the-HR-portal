@@ -325,7 +325,8 @@ async function seedPlaces() {
       pattern: p.pattern,
       requiresSiaLicence: p.requiresSiaLicence,
       screeningPeriodYears: p.screeningPeriodYears,
-      checkCallsRequired: p.checkCallsRequired,
+      // The day posts that said no were named by Control as needing calls at night and at weekends.
+      checkCalls: p.checkCallsRequired ? "always" : "nights_and_weekends",
       loneWorking: p.loneWorking,
       mobileSignal: p.mobileSignal,
     })),

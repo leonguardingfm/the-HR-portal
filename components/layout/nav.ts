@@ -24,6 +24,7 @@ export type NavGroup =
   | "Dashboard"
   | "Sales"
   | "Client"
+  | "My duties"
   | "Control Room"
   | "HR"
   | "Admin"
@@ -58,6 +59,11 @@ export const NAV_GROUP_SPECS: NavGroupSpec[] = [
     id: "Client",
     defaultOpen: true,
     purpose: "Your account with us.",
+  },
+  {
+    id: "My duties",
+    defaultOpen: true,
+    purpose: "Your own shifts, and nothing else.",
   },
   {
     id: "Control Room",
@@ -225,17 +231,25 @@ export const NAV: NavItem[] = [
     built: true,
   },
   {
-    href: "/live?view=book-ons",
-    label: "Book-ons",
-    purpose: "The live board narrowed to shifts still waiting on the officer to confirm arrival.",
+    href: "/duty/chase-ups",
+    label: "Chase-ups",
+    purpose: "Two hours before each shift: does the officer know, and will they be on site.",
     group: "Control Room",
     roles: CONTROL_ROOM,
     built: true,
   },
   {
-    href: "/live?view=check-calls",
+    href: "/duty/book-ons",
+    label: "Book-ons",
+    purpose: "The officer at site and on duty: who should be there and is not, who is due, who is on.",
+    group: "Control Room",
+    roles: CONTROL_ROOM,
+    built: true,
+  },
+  {
+    href: "/duty/check-calls",
     label: "Check calls",
-    purpose: "The live board narrowed to posts with an hourly check-call requirement.",
+    purpose: "Hourly calls through the duty: made, missed and due, and the escalation when one is missed.",
     group: "Control Room",
     roles: CONTROL_ROOM,
     built: true,
@@ -352,6 +366,18 @@ export const NAV: NavItem[] = [
     purpose: "Every client, their sites, and the requirements still open against them.",
     group: "Sales",
     roles: ["sales", "top_management", "auditor"],
+    built: true,
+  },
+
+  // --- Officer -------------------------------------------------------------
+  // Everything an officer can reach. Nothing else in NAV lists the role, and a
+  // path NAV does not list is closed to it (canAccessPath), so this is the fence.
+  {
+    href: "/me",
+    label: "My duties",
+    purpose: "Your shifts: where and when, confirm, book on and make your check calls.",
+    group: "My duties",
+    roles: ["officer"],
     built: true,
   },
 

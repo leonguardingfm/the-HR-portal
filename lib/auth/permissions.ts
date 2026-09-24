@@ -66,6 +66,8 @@ export type ActionId =
   | "screening.sweep"
   | "requirement.raise"
   | "requirement.manage"
+  | "chase_up.record"
+  | "duty.self"
   | "rota.build"
   | "rota.change"
   | "officer.hours";
@@ -189,6 +191,9 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   // against them; it does not raise, release or close them.
   "requirement.raise": { roles: ["control", "operations_manager"], owner: "Control", what: "Raising a client requirement" },
   "requirement.manage": { roles: ["control", "operations_manager"], owner: "Control", what: "Working a client requirement: the pool check, release to HR, allocation and closing" },
+  "chase_up.record": { roles: ["control", "operations_manager"], owner: "Control", what: "Chasing up an officer before their shift" },
+  // The officer's own: and only ever for their own shift, which each action checks on top of this.
+  "duty.self": { roles: ["officer"], owner: "the officer on the shift", what: "Confirming, booking on and making check calls for your own shift" },
   "rota.build": { roles: ["control", "operations_manager"], owner: "Control", what: "Building the rota: asking officers, putting shifts on as drafts and naming a post's regular officer" },
   "rota.change": { roles: ["control", "operations_manager"], owner: "Control", what: "Changing the rota once it is published: an officer off, cover, new hours or a cancelled shift" },
   // Control's, like the rest of the rota (24 September 2026). Every change is an event naming who made it.

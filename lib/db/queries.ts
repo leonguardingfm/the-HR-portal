@@ -29,7 +29,9 @@ import type {
 } from "../core/types";
 import type { DeployabilityInput } from "../core/deployability";
 import type { NoSignalHandover } from "../core/ops";
+import { callsRequiredFor, type ChaseUpOutcome } from "../core/duty";
 import type { Check, InterviewStage, RecruitmentStage, Role, ScreeningFile, ScreeningPeriodYears } from "../types";
+import type { Prisma } from "@prisma/client";
 import { db } from "./client";
 
 const iso = (d: Date | null | undefined) => (d ? d.toISOString() : null);
@@ -51,26 +53,61 @@ export interface LiveRow {
   attempts: ContactAttempt[];
   /** Only present on a post with no mobile signal. */
   noSignal: NoSignalHandover | undefined;
+  /** Every chase-up attempt, oldest first. */
+  chaseUps: { at: string; outcome: ChaseUpOutcome; channel: string | null; note: string | null; by: string }[];
+  /** For the chase-up, which is a phone call. */
+  phone: string | null;
+  /** Cancelled shows only in an officer's own list, where a shift they came off still belongs. */
+  state: string;
+  siteAddress: string | null;
+  /** Whether the officer can do their own checks, or Control records them. */
+  officerHasPortal: boolean;
+  /** Their account, where they have one: their alerts are addressed to it. */
+  officerUserId: string | null;
 }
 
 /** Shifts that touch now, plus anything starting inside the window. */
-export async function getLiveRows(windowHours = 6, now = new Date()): Promise<LiveRow[]> {
+export function getLiveRows(windowHours = 6, now = new Date()): Promise<LiveRow[]> {
+  return liveRows({
+    state: { notIn: ["draft", "cancelled"] },
+    endsAt: { gt: now },
+    startsAt: { lt: new Date(now.getTime() + windowHours * 3_600_000) },
+  });
+}
+
+/**
+ * One officer's own duties, for their portal: the last week and the next two.
+ * Filtered by the person on the server — the officer's session decides whose
+ * shifts come back, never anything the page sends.
+ */
+export function getMyDuties(personId: string, now = new Date()): Promise<LiveRow[]> {
+  return liveRows({
+    personId,
+    startsAt: { gte: new Date(now.getTime() - 7 * 86_400_000), lt: new Date(now.getTime() + 14 * 86_400_000) },
+    // Never a draft — they were never told — and a cancelled shift only where
+    // it was a change they should know about: they came off it, or Control
+    // cancelled it with a reason.
+    OR: [{ state: { notIn: ["draft", "cancelled"] } }, { state: "cancelled", publishedAt: { not: null }, amendments: { some: {} } }],
+  });
+}
+
+async function liveRows(where: Prisma.AssignmentWhereInput): Promise<LiveRow[]> {
   const rows = await db.assignment.findMany({
-    where: {
-      state: { notIn: ["draft", "cancelled"] },
-      endsAt: { gt: now },
-      startsAt: { lt: new Date(now.getTime() + windowHours * 3_600_000) },
-    },
+    where,
     orderBy: { startsAt: "asc" },
     include: {
       post: { include: { site: { include: { client: true } } } },
-      person: { include: { employment: true } },
+      person: { include: { employment: true, user: { select: { id: true } } } },
       bookOn: true,
       checkCalls: { orderBy: { at: "desc" } },
       attempts: { orderBy: { at: "desc" } },
       noSignal: true,
+      chaseUps: { orderBy: { at: "asc" } },
     },
   });
+  const byIds = [...new Set(rows.flatMap((a) => [...a.chaseUps.map((c) => c.byUserId), ...a.attempts.map((t) => t.byUserId)]).filter(Boolean))] as string[];
+  const users = await db.user.findMany({ where: { id: { in: byIds } }, select: { id: true, displayName: true } });
+  const nameOf = new Map(users.map((u) => [u.id, u.displayName]));
 
   return rows.map((a) => ({
     assignment: {
@@ -90,7 +127,11 @@ export async function getLiveRows(windowHours = 6, now = new Date()): Promise<Li
       pattern: a.post.pattern ?? "",
       requiresSiaLicence: a.post.requiresSiaLicence,
       screeningPeriodYears: a.post.screeningPeriodYears as ScreeningPeriodYears,
-      checkCallsRequired: a.post.checkCallsRequired,
+      // Per shift, from the post's rule: a nights-and-weekends post makes no calls on a weekday day shift.
+      ...(() => {
+        const rule = callsRequiredFor(a.post.checkCalls, a.startsAt, a.endsAt);
+        return { checkCallsRequired: rule.required, checkCallRule: a.post.checkCalls, checkCallWhy: rule.why };
+      })(),
       loneWorking: a.post.loneWorking,
       mobileSignal: a.post.mobileSignal,
     },
@@ -111,6 +152,8 @@ export async function getLiveRows(windowHours = 6, now = new Date()): Promise<Li
           at: isoRequired(a.bookOn.at),
           channel: a.bookOn.channel,
           locationVerified: a.bookOn.locationVerified,
+          // Nobody recorded it for them: the officer did it themselves, in their portal.
+          byOfficer: !a.bookOn.recordedByUserId,
         }
       : undefined,
     calls: a.checkCalls.map((c) => ({
@@ -120,16 +163,29 @@ export async function getLiveRows(windowHours = 6, now = new Date()): Promise<Li
       channel: c.channel,
       allWell: c.allWell,
       note: c.note,
+      byOfficer: !c.takenByUserId,
     })),
     attempts: a.attempts.map((t) => ({
       id: t.id,
       assignmentId: t.assignmentId,
       at: isoRequired(t.at),
-      by: t.byUserId ?? "Control",
+      by: (t.byUserId && nameOf.get(t.byUserId)) || "Control",
       channel: t.channel,
       reached: t.reached,
       note: t.note,
     })),
+    chaseUps: a.chaseUps.map((c) => ({
+      at: isoRequired(c.at),
+      outcome: c.outcome as ChaseUpOutcome,
+      channel: c.channel,
+      note: c.note,
+      by: (c.byUserId && nameOf.get(c.byUserId)) || "Control",
+    })),
+    phone: a.person.phone,
+    state: a.state,
+    siteAddress: a.post.site.address,
+    officerHasPortal: !!a.person.user,
+    officerUserId: a.person.user?.id ?? null,
   }));
 }
 

@@ -24,6 +24,8 @@ import {
   reportClientLostContact,
 } from "@/lib/actions/operations";
 import { ActionForm } from "@/components/admin/ActionForm";
+import { DutyFlow } from "@/components/duty/DutyShared";
+import { dutyCounts, dutyStatus } from "@/lib/core/duty";
 import type { IncidentRow, LiveRow } from "@/lib/db/queries";
 import type { Severity } from "@/lib/types";
 
@@ -85,14 +87,14 @@ const FOCUS_META: Record<
   },
   book_ons: {
     label: "Book-ons",
-    href: "/live?view=book-ons",
+    href: "/duty/book-ons",
     title: "Posts still expecting a book-on",
     subtitle:
       "Shifts where the officer has not confirmed arrival. Anyone already on post has dropped off this list, so what is left is the work.",
   },
   check_calls: {
     label: "Check calls",
-    href: "/live?view=check-calls",
+    href: "/duty/check-calls",
     title: "Posts where check calls apply",
     subtitle:
       "Hourly contact, per the client's instructions for the post. Posts with no check-call requirement are not shown, rather than shown as compliant.",
@@ -302,6 +304,8 @@ export function LiveBoard({
           </span>
         }
       />
+
+      <DutyFlow counts={dutyCounts(input.map((r) => dutyStatus(r, now)), now)} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         <StatTile label="Officers on post" value={onPost} detail={`of ${rows.length} shifts in the window`} />

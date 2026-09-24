@@ -108,6 +108,7 @@ export const ROLE_LABELS: Record<Role, string> = {
   auditor: "Auditor",
   sales: "Sales",
   client: "Client",
+  officer: "Officer",
 };
 
 export const INTERVIEW_STAGE_LABELS: Record<InterviewStage, string> = {

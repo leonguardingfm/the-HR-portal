@@ -8,14 +8,17 @@ import type { Severity } from "@/lib/types";
 export function StatusPill({
   severity,
   label,
+  wrap = false,
 }: {
   severity: Severity;
   label?: string;
+  /** Long labels in narrow places: let the pill wrap rather than push the page wide. */
+  wrap?: boolean;
 }) {
   const meta = SEVERITY_META[severity];
   return (
     <span
-      className="inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium whitespace-nowrap"
+      className={`inline-flex items-center gap-1.5 rounded-full px-2 py-0.5 text-[11px] font-medium ${wrap ? "" : "whitespace-nowrap"}`}
       style={{ background: meta.wash, color: "var(--text-primary)" }}
     >
       <span aria-hidden style={{ color: meta.color, fontSize: "9px", lineHeight: 1 }}>

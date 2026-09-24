@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- One hundred and fifty-eight assertions. Each one names a rule the platform claims to
+-- One hundred and sixty-three assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -631,3 +631,18 @@ SELECT expect_success('an open shift removed, with the reason',
 SELECT expect_success('a removed shift frees its hours for a new one',
   $$INSERT INTO "OpenShift"(id,"postId","startsAt","endsAt","createdById")
     VALUES ('os5','post2','2026-10-12 09:00+01','2026-10-12 17:00+01','u3')$$);
+
+-- ---------------------------------------------------------------------------
+-- 20. Chase-ups
+-- ---------------------------------------------------------------------------
+
+SELECT expect_success('a chase-up, confirmed by phone',
+  $$INSERT INTO "ChaseUp"(id,"assignmentId",channel,outcome) VALUES ('cu1','rf1','phone','confirmed')$$);
+SELECT expect_success('confirmed on the officer''s own channel, no Control channel',
+  $$INSERT INTO "ChaseUp"(id,"assignmentId",outcome) VALUES ('cu2','rf1','confirmed')$$);
+SELECT expect_failure('no answer that does not say how they were tried',
+  $$INSERT INTO "ChaseUp"(id,"assignmentId",outcome) VALUES ('cu3','rf1','no_answer')$$);
+SELECT expect_failure('cannot attend without saying why',
+  $$INSERT INTO "ChaseUp"(id,"assignmentId",channel,outcome) VALUES ('cu4','rf1','phone','cannot_attend')$$);
+SELECT expect_success('cannot attend, with what they said',
+  $$INSERT INTO "ChaseUp"(id,"assignmentId",channel,outcome,note) VALUES ('cu5','rf1','whatsapp','cannot_attend','Rang in sick')$$);

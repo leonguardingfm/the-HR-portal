@@ -323,7 +323,8 @@ export type Role =
   | "top_management"
   | "auditor"
   | "sales"
-  | "client";
+  | "client"
+  | "officer";
 
 /**
  * A person who uses the portal.

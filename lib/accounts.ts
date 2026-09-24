@@ -18,7 +18,8 @@ export type AccountDepartment =
   | "hr_vetting"
   | "sales"
   | "administration"
-  | "client_portal";
+  | "client_portal"
+  | "officer";
 
 export type AccountStatus = "pending" | "active" | "suspended" | "rejected";
 
@@ -84,7 +85,20 @@ export const DEPARTMENTS: DepartmentSpec[] = [
     description: "For client contacts. No access to internal screens.",
     needsApproval: null,
   },
+  {
+    // Not offered on the ordinary sign-up: an officer already exists as a
+    // person, with a PIN, and their account attaches to that record after they
+    // prove who they are (/signup/officer).
+    id: "officer",
+    label: "Officers",
+    role: "officer",
+    description: "Security officers: their own duties, book-on and check calls.",
+    needsApproval: null,
+  },
 ];
+
+/** The departments the ordinary sign-up offers. Officers have their own. */
+export const SIGNUP_DEPARTMENTS = DEPARTMENTS.filter((d) => d.id !== "officer");
 
 export const DEPARTMENT_LABELS = Object.fromEntries(
   DEPARTMENTS.map((d) => [d.id, d.label]),
@@ -107,6 +121,7 @@ export const USER_ADMIN_ROLES: Role[] = ["admin_manager", "top_management"];
 /** Where each role lands after signing in, and when sent away from a page. */
 export function roleHome(role: Role): string {
   if (role === "client") return "/client-portal";
+  if (role === "officer") return "/me";
   if (role === "sales") return "/sales";
   return "/";
 }

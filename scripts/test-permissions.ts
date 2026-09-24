@@ -37,6 +37,7 @@ import { STANDARD_CHECKS, deriveStatus, fullScreeningBlockers, limitedScreeningB
 import { canSignOff } from "../lib/bs7858";
 import { atRisk, fillProblem, headcount, nextReference, releaseProblem, statusAfterAllocation } from "../lib/core/requirements";
 import { isDue, retentionDue } from "../lib/core/retention";
+import { callsRequiredFor, chaseUpStatus, checkCallSchedule, dutyStatus, type DutyInput } from "../lib/core/duty";
 import { askProblem, busiestWeek, candidateOrder, clashWith, createProblem, datesBetween, fromNow, hoursProblem, leavePending, leaveProblem, planBatch, slotsFor, suggestOfficers, hoursWithin, mondayOf, newHoursProblem, offWindow, parsePattern, rosterState, shiftWindow, shortestRest, ukDate, ukInstant, ukTime, weeksOf } from "../lib/core/rota";
 import { sniffMime, uploadProblem, uploadWarning } from "../lib/core/screening-documents";
 import { analyseHistory, chaseState, dateOf, merge, requestProblem, screeningWindow, verifyProblem, workingDaysBetween, type Period } from "../lib/core/history";
@@ -57,8 +58,8 @@ const check = (name: string, pass: boolean, detail = "") => {
 const STAFF_BASELINE: ActionId[] = ["work_item.complete", "reminder.send", "admin_item.raise"];
 
 const EXPECTED: Record<string, ActionId[]> = {
-  control: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "rota.build", "rota.change", "officer.hours", ...STAFF_BASELINE],
-  operations_manager: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "rota.build", "rota.change", "officer.hours", ...STAFF_BASELINE],
+  control: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", ...STAFF_BASELINE],
+  operations_manager: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", ...STAFF_BASELINE],
   recruitment: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "stock.move", ...STAFF_BASELINE],
   recruitment_manager: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "admin_item.approve", "admin_item.reject", "holiday.decide", "authority_matter.respond", ...STAFF_BASELINE],
   admin_officer: ["admin_item.start", "admin_item.review", "admin_item.complete", "payment.record", "asset.maintain", "stock.move", "accreditation.evidence", ...STAFF_BASELINE],
@@ -74,6 +75,7 @@ const EXPECTED: Record<string, ActionId[]> = {
   // client out of every internal screen.
   sales: [],
   client: [],
+  officer: ["duty.self"],
 };
 
 const allActions = Object.keys(ACTIONS) as ActionId[];
@@ -872,9 +874,70 @@ check("a missing figure reads neutral, never good",
     busiestWeek([night("2026-09-28"), night("2026-09-29"), night("2026-10-06")], "2026-09-28", 2) === 24);
 }
 
+// --- duty checks: chase-up, book-on, check calls ------------------------------
+{
+  const t = (iso: string) => new Date(iso);
+  const start = t("2026-09-24T18:00Z"); // 19:00 UK
+  const chase = (nowIso: string, attempts: { at: string; outcome: "confirmed" | "no_answer" | "cannot_attend" }[] = []) =>
+    chaseUpStatus(start, attempts.map((a) => ({ at: t(a.at), outcome: a.outcome })), t(nowIso));
+  check("more than two hours out, the chase-up is not due", chase("2026-09-24T15:30Z").state === "not_due");
+  check("inside two hours, it is due", chase("2026-09-24T16:30Z").state === "due");
+  check("tried with no answer, it says so", chase("2026-09-24T16:40Z", [{ at: "2026-09-24T16:35Z", outcome: "no_answer" }]).state === "no_answer");
+  check("under an hour to go and not confirmed, it is urgent", chase("2026-09-24T17:10Z", [{ at: "2026-09-24T16:35Z", outcome: "no_answer" }]).severity === "critical");
+  check("confirmed is confirmed, whatever was tried before",
+    chase("2026-09-24T17:30Z", [{ at: "2026-09-24T16:35Z", outcome: "no_answer" }, { at: "2026-09-24T16:50Z", outcome: "confirmed" }]).state === "confirmed");
+  check("started without a confirmation is the book-on's problem now", chase("2026-09-24T18:05Z").state === "missed");
+  check("the chase-up opens two hours before", chase("2026-09-24T15:00Z").dueAt.toISOString() === "2026-09-24T16:00:00.000Z");
+
+  // The hourly calls, as a timeline.
+  const bookOn = t("2026-09-24T18:00Z");
+  const end = t("2026-09-25T06:00Z");
+  const sched = checkCallSchedule(bookOn, end, [t("2026-09-24T18:55Z"), t("2026-09-24T20:10Z")], t("2026-09-24T20:30Z"));
+  check("a call inside the hour is done", sched.slots[0].kind === "done");
+  check("a call after the hour is late, and by how much", sched.slots[1].kind === "late" && sched.slots[1].minutesLate === 15);
+  check("the next is due an hour after the last contact", sched.nextDue?.toISOString() === "2026-09-24T21:10:00.000Z");
+  check("the rest are projected hourly to the end of the shift", sched.upcoming === 9 && sched.slots.at(-1)!.dueAt.toISOString() === "2026-09-25T05:10:00.000Z");
+  const lapsed = checkCallSchedule(bookOn, end, [t("2026-09-24T18:55Z")], t("2026-09-24T20:10Z"));
+  check("an hour gone with no call is missed — no grace", lapsed.missed === 1 && lapsed.slots.at(-1)!.kind === "missed" && lapsed.slots.at(-1)!.minutesLate === 15);
+  check("while a call is missed, nothing is projected past it", lapsed.upcoming === 0);
+
+  // Nights and weekends: Day patrol and Concierge desk (Control, 24 September 2026).
+  const tue = (a: string, b: string) => callsRequiredFor("nights_and_weekends", t(a), t(b));
+  check("a weekday day shift on a nights-and-weekends post makes no calls", !tue("2026-09-29T06:00Z", "2026-09-29T18:00Z").required);
+  check("a weekday night shift makes them", tue("2026-09-29T18:00Z", "2026-09-30T06:00Z").required && tue("2026-09-29T18:00Z", "2026-09-30T06:00Z").why === "Night duty");
+  check("a day shift running past 22:00 is night duty", tue("2026-09-29T11:00Z", "2026-09-29T22:00Z").required);
+  check("a Saturday day shift makes them", callsRequiredFor("nights_and_weekends", t("2026-10-03T06:00Z"), t("2026-10-03T18:00Z")).why === "Weekend");
+  check("always and never mean what they say",
+    callsRequiredFor("always", t("2026-09-29T06:00Z"), t("2026-09-29T18:00Z")).required && !callsRequiredFor("never", t("2026-10-03T21:00Z"), t("2026-10-04T05:00Z")).required);
+
+  // Where a duty sits in the flow.
+  const post = { id: "p", siteId: "s", name: "Gate", pattern: "", requiresSiaLicence: true, screeningPeriodYears: 5 as const, checkCallsRequired: true, loneWorking: false, mobileSignal: true };
+  const duty = (over: Partial<DutyInput>, nowIso: string) =>
+    dutyStatus(
+      {
+        assignment: { id: "a", personId: "x", postId: "p", startsAt: "2026-09-24T18:00:00Z", endsAt: "2026-09-25T06:00:00Z", state: "published", publishedAt: null, amendments: [] },
+        post,
+        bookOn: undefined,
+        calls: [],
+        attempts: [],
+        chaseUps: [],
+        ...over,
+      },
+      t(nowIso),
+    );
+  check("hours ahead, the duty is just confirmed", duty({}, "2026-09-24T12:00Z").stage === "scheduled");
+  check("inside two hours, it is at the chase-up", duty({}, "2026-09-24T16:30Z").stage === "chase_up");
+  check("confirmed, and nearly time, it waits for the book-on",
+    duty({ chaseUps: [{ at: "2026-09-24T16:30Z", outcome: "confirmed" }] }, "2026-09-24T17:30Z").stage === "awaiting_book_on");
+  check("half an hour past the start with no book-on is a no-show", duty({}, "2026-09-24T18:31Z").stage === "no_show");
+  const on = { bookOn: { assignmentId: "a", at: "2026-09-24T17:58:00Z", channel: "site_phone" as const, locationVerified: false } };
+  check("booked on and calling, on duty", duty({ ...on, calls: [{ id: "c", assignmentId: "a", at: "2026-09-24T18:50:00Z", channel: "phone", allWell: true, note: null }] }, "2026-09-24T19:30Z").stage === "on_duty");
+  check("booked on and an hour silent, the alert", duty(on, "2026-09-24T19:05Z").stage === "alert");
+}
+
 // --- 2. every action guards ------------------------------------------------
 let actionCount = 0;
-for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota"]) {
+for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me"]) {
   const src = readFileSync(new URL(`../lib/actions/${file}.ts`, import.meta.url), "utf8");
   const exported = [...src.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
   check(`${file}.ts has server actions to check`, exported.length > 0, `${exported.length} found`);

@@ -16,7 +16,6 @@ import {
   isDate,
   isTime,
   newHoursProblem,
-  offWindow,
   ASK_CHANNELS,
   DEFAULT_WEEKLY_HOURS,
   MAX_BATCH,
@@ -31,7 +30,6 @@ import {
   type Busy,
   type PlanItem,
   OFF_REASONS,
-  OFF_REASON_LABELS,
   shiftWindow,
   ukDate,
   ukInstant,
@@ -43,6 +41,7 @@ import {
 } from "@/lib/core/rota";
 import { getDeployabilityInputs, shiftDeployability } from "@/lib/db/queries";
 import { hoursProblemFor, leaveFor } from "@/lib/db/rota";
+import { liveProblem, loadLive, officerOffWrites } from "@/lib/db/cover";
 import type { Role } from "@/lib/types";
 import { refused, ok, type ActionResult } from "./types";
 
@@ -364,21 +363,6 @@ export async function setRegularOfficer(_prev: ActionResult | null, formData: Fo
 // change keeps the shift as it was, who changed it and why, as an amendment —
 // nothing is overwritten.
 
-const loadLive = (id: string) =>
-  db.assignment.findUnique({
-    where: { id },
-    include: { person: true, post: { include: { site: true } }, leftCover: { select: { id: true } } },
-  });
-
-/** Why a shift cannot be changed as a published shift, or null. */
-function liveProblem(a: NonNullable<Awaited<ReturnType<typeof loadLive>>> | null): string | null {
-  if (!a) return "That shift no longer exists.";
-  if (a.leftCover) return `${a.person.fullName} has already come off that shift.`;
-  if (a.state === "cancelled") return "That shift is already off the rota.";
-  if (a.state === "draft") return "That is still a draft — nobody has been told they are on. Take it off instead.";
-  return null;
-}
-
 /**
  * An officer cannot work a shift after all: sick, changed their mind, or did
  * not turn up. They come off at once, and what is left becomes a cover need
@@ -398,54 +382,12 @@ export async function officerOff(_prev: ActionResult | null, formData: FormData)
   const note = text(formData, "note").slice(0, 300) || null;
   if (reason === "other" && !note) return refused("Say what happened — “other” needs a note.");
 
-  const w = offWindow(a);
-  if (!w.ok) return refused(w.reason);
-  const label = OFF_REASON_LABELS[reason];
-  const change = w.started
-    ? `${a.person.fullName} off at ${ukTime(w.cover.startsAt)} (${label.toLowerCase()}); the rest of the shift needs cover`
-    : `${a.person.fullName} off (${label.toLowerCase()}); the shift needs cover`;
-
-  await db.$transaction([
-    db.assignment.update({
-      where: { id: a.id },
-      data: w.started ? { endsAt: w.cover.startsAt, state: "amended" } : { state: "cancelled" },
-    }),
-    db.assignmentAmendment.create({
-      data: {
-        assignmentId: a.id,
-        byUserId: session.userId,
-        change,
-        reason: note ?? label,
-        previousPersonId: a.personId,
-        previousStartsAt: a.startsAt,
-        previousEndsAt: a.endsAt,
-      },
-    }),
-    db.coverNeed.create({
-      data: {
-        postId: a.postId,
-        startsAt: w.cover.startsAt,
-        endsAt: w.cover.endsAt,
-        reason,
-        note,
-        fromAssignmentId: a.id,
-        raisedById: session.userId,
-      },
-    }),
-    db.event.create({
-      data: {
-        type: "rota.officer_off",
-        actorUserId: session.userId,
-        actorRole: session.activeRole,
-        department: "control",
-        assignmentId: a.id,
-        detail: `${change}: ${a.post.name}, ${a.post.site.name}, ${shiftLabel(w.cover)}.${note ? ` ${note}` : ""}`,
-      },
-    }),
-  ]);
+  const off = officerOffWrites(a, reason, note, { userId: session.userId, role: session.activeRole });
+  if (!off.ok) return refused(off.reason);
+  await db.$transaction(off.writes);
 
   refresh();
-  return ok(`${a.person.fullName} is off. ${shiftLabel(w.cover)} now needs cover — ring round below.`);
+  return ok(`${a.person.fullName} is off. ${off.coverLabel} now needs cover — ring round below.`);
 }
 
 /** New hours for a published shift: the client wants an earlier start, or the officer stays on. */

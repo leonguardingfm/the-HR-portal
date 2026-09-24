@@ -78,7 +78,12 @@ export interface Post {
   requiresSiaLicence: boolean;
   screeningPeriodYears: 5 | 10;
   /** Hourly check calls expected on this post, per the client's instructions. */
+  /** For this shift: worked out from the post's rule where the rows come from the database. */
   checkCallsRequired: boolean;
+  /** The post's rule, where known: every shift, nights and weekends, or never. */
+  checkCallRule?: "always" | "nights_and_weekends" | "never";
+  /** Why this shift does or does not make calls, in words. */
+  checkCallWhy?: string;
   /** Lone working, which raises the welfare obligation. */
   loneWorking: boolean;
   /**
@@ -165,6 +170,8 @@ export interface BookOn {
   channel: ContactChannel;
   /** Only where the channel carries it and consent covers it. See E6. */
   locationVerified: boolean;
+  /** The officer booked on themselves, in their portal, rather than Control for them. */
+  byOfficer?: boolean;
 }
 
 export interface CheckCall {
@@ -175,6 +182,8 @@ export interface CheckCall {
   /** Recorded so a pattern of "all well" that never varies is visible. */
   allWell: boolean;
   note: string | null;
+  /** Made by the officer in their portal, rather than taken by Control. */
+  byOfficer?: boolean;
 }
 
 /**

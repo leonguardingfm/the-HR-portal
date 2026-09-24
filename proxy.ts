@@ -20,7 +20,7 @@ import { SESSION_COOKIE, verify } from "@/lib/auth/session";
  * Called `proxy` rather than `middleware` because Next renamed the convention
  * in 16 — same functionality, and `next dev` warns on the old name.
  */
-const PUBLIC_PATHS = new Set(["/signin", "/signup"]);
+const PUBLIC_PATHS = new Set(["/signin", "/signup", "/signup/officer"]);
 /** Reachable signed in or not: it is how a dead session is cleared. */
 const SESSION_END = "/signin/ended";
 

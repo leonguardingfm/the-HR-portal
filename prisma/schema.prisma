@@ -152,6 +152,9 @@ enum Role {
   sales
   /// An external client contact. Sees the client portal and nothing internal.
   client
+  /// A security officer. Sees their own duties and nothing else: confirms,
+  /// books on and makes their check calls from their own portal.
+  officer
 }
 
 enum Department {
@@ -175,6 +178,8 @@ enum AccountDepartment {
   sales
   administration
   client_portal
+  /// A security officer's own account, attached to their existing record.
+  officer
 }
 
 /// Whether an account may sign in. `pending` is where registrations wait when
@@ -375,10 +380,13 @@ model Post {
 
   /// Human-readable. The assignments carry the truth.
   pattern              String?
-  requiresSiaLicence   Boolean @default(true)
-  screeningPeriodYears Int     @default(5)
-  checkCallsRequired   Boolean @default(true)
-  loneWorking          Boolean @default(false)
+  requiresSiaLicence   Boolean       @default(true)
+  screeningPeriodYears Int           @default(5)
+  /// When officers on this post make hourly check calls. Some posts need
+  /// them only on night duty and at weekends (Control, 24 September 2026), so
+  /// it is worked out per shift rather than being a yes or no for the post.
+  checkCalls           CheckCallRule @default(always)
+  loneWorking          Boolean       @default(false)
   /// Whether an officer can get a mobile signal here.
   ///
   /// False changes the contact model rather than degrading it, per the
@@ -388,8 +396,8 @@ model Post {
   ///
   /// Default true, because most posts have a signal and the exception is the
   /// thing somebody has to state deliberately.
-  mobileSignal         Boolean @default(true)
-  active               Boolean @default(true)
+  mobileSignal         Boolean       @default(true)
+  active               Boolean       @default(true)
 
   /// The officer who normally works this post, where there is one. Most posts
   /// are covered from the pool and a few are one officer's own (Control, 24
@@ -405,6 +413,15 @@ model Post {
   openShifts    OpenShift[]
 
   @@unique([siteId, name])
+}
+
+/// When a post's officers make hourly check calls.
+enum CheckCallRule {
+  always
+  /// On a shift with any hours between 22:00 and 06:00, or any on a Saturday
+  /// or Sunday. A weekday day shift makes none.
+  nights_and_weekends
+  never
 }
 
 /// We issue the PIN; some sites issue their own reference. Recorded against
@@ -1414,6 +1431,7 @@ model Assignment {
   covers        CoverNeed?            @relation("CoverBy")
   /// The open shift this assignment fills, where it was created as one.
   fills         OpenShift?
+  chaseUps      ChaseUp[]
 
   @@index([startsAt, endsAt])
   @@index([personId, startsAt])
@@ -1636,6 +1654,39 @@ model CheckCall {
 /// not when a timer expires. So this table is not paperwork after the fact — it
 /// is the mechanism, and it is the record showing the duty of care was
 /// discharged.
+/// What the officer said when Control chased them up.
+enum ChaseUpOutcome {
+  /// Knows about the shift and will be there.
+  confirmed
+  /// Tried, not reached. Another try follows.
+  no_answer
+  /// Cannot do it after all. They come off, and the shift needs cover.
+  cannot_attend
+}
+
+/// The chase-up: two hours before a shift, Control makes sure the officer
+/// knows about it and will be on site (Control, 24 September 2026).
+///
+/// One row per attempt, like the contact attempts on a missed check call, so
+/// "tried at 17:00, no answer; confirmed at 17:20" is two rows and the record
+/// shows the chase was made rather than asserting it.
+model ChaseUp {
+  id           String @id @default(cuid())
+  assignmentId String
+
+  at       DateTime       @default(now()) @db.Timestamptz(3)
+  byUserId String?
+  /// Null where the officer confirmed through a channel of their own — the
+  /// production hook for an app or a text reply.
+  channel  AskChannel?
+  outcome  ChaseUpOutcome
+  note     String?
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+
+  @@index([assignmentId, at])
+}
+
 /// The no-signal handover.
 ///
 /// One row per shift on a post with no mobile signal, because what is being
