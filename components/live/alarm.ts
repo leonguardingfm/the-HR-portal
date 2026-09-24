@@ -62,3 +62,36 @@ export function soundAlarm(urgent = true) {
   } catch {}
   return true;
 }
+
+/**
+ * The office tone, for Control and the other staff screens (25 September
+ * 2026): short, soft beeps instead of the siren, so an alert is noticed at
+ * the desk without disturbing the office. Three beeps for something that
+ * needs action now, two for the rest. The siren stays for officers' phones,
+ * where it has to cut through a car park or a noisy site.
+ */
+export function soundBeep(urgent = true) {
+  const c = context();
+  if (!c || c.state !== "running") return false;
+  const t0 = c.currentTime + 0.02;
+  const beeps = urgent ? 3 : 2;
+  const length = 0.14;
+  const gap = 0.12;
+  for (let i = 0; i < beeps; i++) {
+    const start = t0 + i * (length + gap);
+    const osc = c.createOscillator();
+    const gain = c.createGain();
+    // A pure tone, not a harsh square wave, with soft edges so it does not click.
+    osc.type = "sine";
+    osc.frequency.setValueAtTime(urgent ? 988 : 880, start);
+    gain.gain.setValueAtTime(0.0001, start);
+    gain.gain.exponentialRampToValueAtTime(0.12, start + 0.015);
+    gain.gain.setValueAtTime(0.12, start + length - 0.03);
+    gain.gain.exponentialRampToValueAtTime(0.0001, start + length);
+    osc.connect(gain);
+    gain.connect(c.destination);
+    osc.start(start);
+    osc.stop(start + length + 0.01);
+  }
+  return true;
+}

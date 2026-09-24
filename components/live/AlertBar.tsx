@@ -7,7 +7,7 @@ import { useNow } from "@/components/ui/useNow";
 import { alertKind, startsIn } from "@/lib/core/alerts";
 import type { PulseAlert } from "@/lib/db/pulse";
 import { formatTime } from "@/lib/format";
-import { alarmReady, soundAlarm } from "./alarm";
+import { alarmReady, soundAlarm, soundBeep } from "./alarm";
 import { DeviceAlertsInline } from "./DeviceAlerts";
 import { useLive } from "./Live";
 
@@ -16,8 +16,9 @@ import { useLive } from "./Live";
  *
  * For Control: a red bar across the top whenever anything needs action now —
  * how many, the next shift nobody is on and how soon it starts, and the way to
- * each. A new alert sounds the siren, flashes the tab and repeats every twenty
- * seconds until somebody presses Acknowledge; a newer alert starts it again.
+ * each. A new alert gives a soft beep — not a siren, to keep the office calm —
+ * flashes the tab, and beeps again every thirty seconds until somebody presses
+ * Acknowledge; a newer alert starts it again.
  * With nothing to do it is one quiet line saying the screen is live.
  *
  * For an officer: their own alert, in red, with the siren and the phone's
@@ -27,7 +28,8 @@ import { useLive } from "./Live";
  * alert. The alert closes when the thing is put right.
  */
 
-const REPEAT_MS = 20_000;
+/** How often an unacknowledged alert sounds again: the officer's siren sooner, the office beep less often. */
+const REPEAT_MS = { officer: 20_000, office: 30_000 } as const;
 const ACK_KEY = "leon-alerts-acknowledged";
 
 function readAck(): Set<string> {
@@ -81,11 +83,12 @@ export function AlertBar({ vapidKey }: { vapidKey: string | null }) {
       setNeedsTap(false);
       return;
     }
-    if (now.getTime() - lastSound.current < REPEAT_MS) return;
-    const played = soundAlarm(loud);
+    if (now.getTime() - lastSound.current < (officer ? REPEAT_MS.officer : REPEAT_MS.office)) return;
+    // Officers get the siren; staff screens a soft beep, to keep the office calm.
+    const played = officer ? soundAlarm(loud) : soundBeep(loud);
     setNeedsTap(!played && !alarmReady());
     if (played) lastSound.current = now.getTime();
-  }, [now, sounding.length, loud]);
+  }, [now, sounding.length, loud, officer]);
 
   // A new alert restarts the siren straight away.
   const newestId = newest?.id;
