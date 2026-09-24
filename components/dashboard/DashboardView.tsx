@@ -45,6 +45,8 @@ export function DashboardView({
   const operational = role === "control" || role === "operations_manager";
   const oversight = role === "top_management" || role === "auditor";
   const vetting = role === "vetting_admin" || role === "vetting_controller" || role === "recruitment_manager";
+  // Who is working on what is for management, not the teams themselves (25 September 2026).
+  const manages = oversight || role === "operations_manager" || role === "recruitment_manager" || role === "admin_manager";
 
   return (
     <div className="space-y-5">
@@ -54,9 +56,9 @@ export function DashboardView({
       {(operational || oversight) && <DutyPanel rows={liveRows} />}
       {(vetting || oversight) && <VettingClockBoard files={clockFiles} />}
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div className={manages ? "grid grid-cols-1 gap-5 xl:grid-cols-2" : ""}>
         <TaskSummary rows={tasks.rows} total={tasks.total} department={tasks.department} />
-        <ActiveNow rows={presence} youUserId={userId} />
+        {manages && <ActiveNow rows={presence} youUserId={userId} />}
       </div>
 
       {oversight && <ActivityFeed events={events} />}

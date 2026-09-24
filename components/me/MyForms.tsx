@@ -3,7 +3,9 @@
 import { useState, useTransition } from "react";
 import { field, inputStyle } from "@/components/scheduling/RotaForms";
 import { useFormAction } from "@/components/ui/useFormAction";
-import { bookMeOn, cannotMakeIt, confirmMyShift, myCheckCall, offerForShift, reportIncident, runningLate, setMyAvailability, withdrawOffer } from "@/lib/actions/me";
+import { bookMeOn, cancelMyLeave, cannotMakeIt, confirmMyShift, myCheckCall, offerForShift, reportIncident, requestMyLeave, runningLate, setMyAvailability, withdrawOffer } from "@/lib/actions/me";
+import { dayLabel } from "@/lib/core/rota";
+import type { MyLeave } from "@/lib/db/me";
 import type { ActionResult } from "@/lib/actions/types";
 import { ProofCamera, type ProofShot } from "./ProofCamera";
 
@@ -288,7 +290,9 @@ export function WithdrawOfferButton({ openShiftId, onResult }: { openShiftId: st
  * The next four weeks: tap a day to say free, again for not free, again to
  * say nothing. Saved as it is tapped.
  */
-export function AvailabilityCalendar({ days, said, onResult }: { days: { date: string; label: string; weekday: string; shift: string | null }[]; said: Record<string, "available" | "unavailable">; onResult: (r: ActionResult) => void }) {
+export type CalendarDay = { date: string; label: string; weekday: string; shift: string | null; leave: "approved" | "pending" | null };
+
+export function AvailabilityCalendar({ days, said, onResult }: { days: CalendarDay[]; said: Record<string, "available" | "unavailable">; onResult: (r: ActionResult) => void }) {
   const [local, setLocal] = useState(said);
   const [pending, start] = useTransition();
   const cycle = (date: string) => {
@@ -322,24 +326,27 @@ export function AvailabilityCalendar({ days, said, onResult }: { days: { date: s
         {days.map((d, i) => {
           const s = local[d.date];
           const offset = i === 0 ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(d.weekday) : 0;
+          // Approved leave is not a day to offer; the rota already knows.
+          const fixed = !!d.shift || d.leave === "approved";
           return (
             <button
               key={d.date}
               type="button"
-              onClick={() => !d.shift && cycle(d.date)}
-              disabled={!!d.shift}
-              title={d.shift ? `On shift: ${d.shift}` : s === "available" ? "Free — tap for not free" : s === "unavailable" ? "Not free — tap to clear" : "Tap if you are free"}
-              aria-label={`${d.label}: ${d.shift ? `on shift, ${d.shift}` : s === "available" ? "free" : s === "unavailable" ? "not free" : "not said"}`}
+              onClick={() => !fixed && cycle(d.date)}
+              disabled={fixed}
+              title={d.leave === "approved" ? "On leave" : d.shift ? `On shift: ${d.shift}` : s === "available" ? "Free — tap for not free" : s === "unavailable" ? "Not free — tap to clear" : "Tap if you are free"}
+              aria-label={`${d.label}: ${d.leave === "approved" ? "on leave" : d.shift ? `on shift, ${d.shift}` : s === "available" ? "free" : s === "unavailable" ? "not free" : "not said"}${d.leave === "pending" ? ", leave asked for" : ""}`}
               className="flex h-12 flex-col items-center justify-center rounded-md border text-[13px] font-semibold"
               style={{
                 gridColumnStart: offset ? offset + 1 : undefined,
-                borderColor: s === "available" ? "var(--status-good)" : s === "unavailable" ? "var(--status-critical)" : "var(--hairline)",
-                background: d.shift ? "var(--wash-neutral)" : s === "available" ? "var(--wash-good)" : s === "unavailable" ? "var(--wash-critical)" : "transparent",
-                color: d.shift ? "var(--text-muted)" : undefined,
+                borderColor: d.leave === "approved" ? "var(--series-1)" : s === "available" ? "var(--status-good)" : s === "unavailable" ? "var(--status-critical)" : d.leave === "pending" ? "var(--series-1)" : "var(--hairline)",
+                borderStyle: d.leave === "pending" ? "dashed" : undefined,
+                background: d.leave === "approved" ? "color-mix(in srgb, var(--series-1) 14%, transparent)" : d.shift ? "var(--wash-neutral)" : s === "available" ? "var(--wash-good)" : s === "unavailable" ? "var(--wash-critical)" : "transparent",
+                color: d.shift && d.leave !== "approved" ? "var(--text-muted)" : undefined,
               }}
             >
               {Number(d.date.slice(8))}
-              <span className="text-[9px] font-normal">{d.shift ? "on" : s === "available" ? "free" : s === "unavailable" ? "not free" : ""}</span>
+              <span className="text-[9px] font-normal">{d.leave === "approved" ? "leave" : d.shift ? "on" : s === "available" ? "free" : s === "unavailable" ? "not free" : d.leave === "pending" ? "asked" : ""}</span>
             </button>
           );
         })}
@@ -349,5 +356,94 @@ export function AvailabilityCalendar({ days, said, onResult }: { days: { date: s
         {pending && " Saving…"}
       </p>
     </div>
+  );
+}
+
+const DECISION_LABEL = { pending: "Waiting for Administration", approved: "Approved", rejected: "Not approved", cancelled: "Withdrawn" } as const;
+const DECISION_COLOUR = { pending: "var(--status-warning)", approved: "var(--status-good)", rejected: "var(--status-critical)", cancelled: "var(--text-muted)" } as const;
+
+/**
+ * Leave: what they have left, what they have asked for, and a form to ask.
+ * The request goes to Administration; Control sees it on the rota at once.
+ */
+export function MyLeaveSection({ leave, onResult }: { leave: MyLeave; onResult: (r: ActionResult) => void }) {
+  const [open, setOpen] = useState(false);
+  const [problem, setProblem] = useState<string | null>(null);
+  const { pending, form } = useLifted(requestMyLeave, (r) => {
+    onResult(r);
+    setProblem(r.ok ? null : r.message);
+    if (r.ok) setOpen(false);
+  });
+  const left = leave.entitlement !== null ? leave.entitlement - leave.taken - leave.waiting : null;
+  return (
+    <div className="space-y-2">
+      {leave.entitlement !== null ? (
+        <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+          <strong style={{ color: "var(--text-primary)" }}>{left} hours left</strong> of {leave.entitlement} this year · {leave.taken} taken
+          {leave.waiting ? ` · ${leave.waiting} waiting` : ""}
+          {leave.yearEnds ? ` · year ends ${dayLabel(leave.yearEnds)}` : ""}
+        </p>
+      ) : (
+        <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+          Ask for days off here. Administration decides; if you are on shifts then, they come off and Control finds cover.
+        </p>
+      )}
+      {leave.requests.length > 0 && (
+        <ul className="divide-y rounded-lg border" style={{ borderColor: "var(--hairline)" }}>
+          {leave.requests.map((r) => (
+            <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3" style={{ borderColor: "var(--hairline)" }}>
+              <div className="min-w-0">
+                <p className="text-[14px] font-medium">{r.from === r.to ? dayLabel(r.from) : `${dayLabel(r.from)} – ${dayLabel(r.to)}`}</p>
+                <p className="text-[12px]" style={{ color: DECISION_COLOUR[r.decision] }}>
+                  {DECISION_LABEL[r.decision]} · {r.hours}h{r.decision === "rejected" && r.note ? ` — ${r.note}` : ""}
+                </p>
+              </div>
+              {r.decision === "pending" && <WithdrawLeaveButton requestId={r.id} onResult={onResult} />}
+            </li>
+          ))}
+        </ul>
+      )}
+      {!open ? (
+        <button type="button" onClick={() => setOpen(true)} className="h-11 w-full rounded-lg border text-[14px] font-semibold" style={{ borderColor: "var(--hairline)" }}>
+          Ask for leave
+        </button>
+      ) : (
+        <form {...form} className="space-y-2 rounded-lg border p-3" style={{ borderColor: "var(--hairline)" }}>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="block text-[13px] font-medium">
+              First day
+              <input type="date" name="from" required className={`${field} mt-1 h-11 w-full text-[15px]`} style={inputStyle} />
+            </label>
+            <label className="block text-[13px] font-medium">
+              Last day
+              <input type="date" name="to" className={`${field} mt-1 h-11 w-full text-[15px]`} style={inputStyle} />
+            </label>
+          </div>
+          <input name="note" maxLength={300} autoComplete="off" placeholder="Anything Administration should know (optional)" className={`${field} h-11 w-full text-[15px]`} style={inputStyle} />
+          {problem && (
+            <p role="alert" className="text-[13px]" style={{ color: "var(--status-critical)" }}>
+              {problem}
+            </p>
+          )}
+          <button type="submit" disabled={pending} className={big} style={{ background: "var(--series-1)" }}>
+            {pending ? "Sending…" : "Send to Administration"}
+          </button>
+          <button type="button" onClick={() => setOpen(false)} className={link} style={{ color: "var(--text-secondary)" }}>
+            Cancel
+          </button>
+        </form>
+      )}
+    </div>
+  );
+}
+
+function WithdrawLeaveButton({ requestId, onResult }: { requestId: string } & OnResult) {
+  const { pending, form } = useLifted(cancelMyLeave.bind(null, requestId), onResult);
+  return (
+    <form {...form}>
+      <button type="submit" disabled={pending} className={link} style={{ color: "var(--text-secondary)" }}>
+        {pending ? "…" : "Withdraw"}
+      </button>
+    </form>
   );
 }

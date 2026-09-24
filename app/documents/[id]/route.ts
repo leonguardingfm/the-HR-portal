@@ -8,7 +8,8 @@ import { getObject } from "@/lib/storage";
  * The one way an uploaded copy leaves the platform.
  *
  * A copy on a screening file is shown only to roles that may open screening
- * files; a copy on a person only to roles that may open Compliance. Every view
+ * files; a copy on a person only to roles that may open Compliance or the
+ * employee records. Every view
  * is written to the event log, because who looked at somebody's passport is a
  * question the confidentiality obligations [6.1] expect to be answerable.
  */
@@ -20,8 +21,9 @@ export async function GET(_req: NextRequest, { params }: { params: Promise<{ id:
   const doc = await db.documentRecord.findUnique({ where: { id }, include: { type: true } });
   if (!doc) return new Response("Not found.", { status: 404 });
 
-  const area = doc.screeningFileId ? "/vetting" : doc.personId ? "/compliance" : "/admin";
-  if (!canAccessPath(session.activeRole, area)) {
+  // A person's own documents open from Compliance or from their employee record.
+  const areas = doc.screeningFileId ? ["/vetting"] : doc.personId ? ["/compliance", "/people"] : ["/admin"];
+  if (!areas.some((a) => canAccessPath(session.activeRole, a))) {
     return new Response("Your role does not open these documents.", { status: 403 });
   }
   if (!doc.storageKey || doc.disposedAt) {

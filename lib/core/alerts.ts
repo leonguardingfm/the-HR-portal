@@ -36,6 +36,7 @@ export type AlertKind =
   | "officer_confirm"
   | "officer_licence"
   | "officer_decision"
+  | "officer_leave"
   | "other";
 
 interface KindSpec {
@@ -75,6 +76,7 @@ export const ALERT_KIND_SPECS: Record<AlertKind, KindSpec> = {
   officer_confirm: { prefix: "Please confirm your shift", page: "me", severity: "serious", alarm: true, selfClosing: true },
   officer_licence: { prefix: "Your SIA licence expir", page: "me", severity: "warning", alarm: true, selfClosing: true },
   officer_decision: { prefix: "Control has", page: "me", severity: "neutral", alarm: true, selfClosing: false },
+  officer_leave: { prefix: "Your leave", page: "me", severity: "neutral", alarm: true, selfClosing: false },
   other: { prefix: "", page: "live", severity: "neutral", alarm: false, selfClosing: false },
 };
 

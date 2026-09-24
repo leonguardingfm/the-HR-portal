@@ -1,5 +1,6 @@
 "use client";
 
+import { emailReferenceRequest } from "@/lib/actions/references";
 import { useEffect, useState } from "react";
 import { useFormAction } from "@/components/ui/useFormAction";
 import {
@@ -153,8 +154,38 @@ export function PermissionForm({ periodId }: { periodId: string }) {
 
 export function RequestForm({ periodId }: { periodId: string }) {
   const { state, pending, form } = useFormAction(requestReference);
+  const emailed = useFormAction(emailReferenceRequest);
+  const [how, setHow] = useState<"email" | "manual">("email");
   return (
     <Disclose title="Send the 1st reference request">
+      <div className="mb-2 flex flex-wrap gap-3 text-[12px]">
+        <label className="flex items-center gap-1.5">
+          <input type="radio" checked={how === "email"} onChange={() => setHow("email")} /> Email it from the portal — the referee answers online
+        </label>
+        <label className="flex items-center gap-1.5">
+          <input type="radio" checked={how === "manual"} onChange={() => setHow("manual")} /> I sent it myself — record it
+        </label>
+      </div>
+      {how === "email" ? (
+        <form {...emailed.form} className="grid gap-2.5 sm:grid-cols-2">
+          <input type="hidden" name="periodId" value={periodId} />
+          <Field label="Referee">
+            <input name="verifierName" required autoComplete="off" placeholder="e.g. HR department, Brightwater" className={input} style={inputStyle} />
+          </Field>
+          <Field label="Their email">
+            <input name="verifierEmail" type="email" required autoComplete="off" placeholder="The address you established" className={input} style={inputStyle} />
+          </Field>
+          <Field label="How the email was established independently (7.5.2a)" wide>
+            <input name="contactVerifiedHow" required autoComplete="off" placeholder="e.g. HR address from the company website — not one the candidate gave" className={input} style={inputStyle} />
+          </Field>
+          <div className="sm:col-span-2">
+            <button type="submit" disabled={emailed.pending} className={primary} style={{ background: "var(--series-1)" }}>
+              {emailed.pending ? "Sending…" : "Email the request"}
+            </button>
+            <Result state={emailed.state} />
+          </div>
+        </form>
+      ) : (
       <form {...form} className="grid gap-2.5 sm:grid-cols-2">
         <input type="hidden" name="periodId" value={periodId} />
         <Field label="Sent to">
@@ -180,6 +211,7 @@ export function RequestForm({ periodId }: { periodId: string }) {
           <Result state={state} />
         </div>
       </form>
+      )}
     </Disclose>
   );
 }

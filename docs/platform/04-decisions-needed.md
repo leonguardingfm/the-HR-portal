@@ -582,6 +582,72 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
 - The record stays on the shift: one visit at a time per shift, nothing closed without an outcome, and
   "not found" impossible without the police — enforced in the database (constraints §22).
 
+### E30 — Candidates fill in their own application, by email link — **answered, and built**
+> **"Staff wouldn't type every application in, and yes they have to upload every document
+> themselves. All the forms and applications will be sent to them through email."** *(25 September 2026.)*
+
+- **Send the application form** on the candidate emails a private link (14 days; reminders after two
+  and five days). No account: the link is the key, stored only as a hash, and a new link withdraws the
+  old one. On a phone the form saves as it goes: details, five or ten years of addresses and history
+  with the gaps shown live as they type ("Fill this gap"), right to work, next of kin, their own
+  documents by camera or file, and a typed-name signature.
+- What they send lands where it is used: history periods and documents go straight onto the screening
+  file, with the referees they named kept as notes to verify independently, never relied on [7.5.2a].
+- Every email is kept on the record. Until SMTP is set up on the server, emails are recorded as "not
+  sent" with a copyable link, so nothing is blocked.
+- **Compared with screeningportal.co.uk**: the same idea (candidate self-service, automatic chasing),
+  plus the gap check while the candidate is still typing, the import into the BS 7858 file, and
+  independent referee verification built into the flow rather than left to the administrator.
+
+### E31 — References and interviews by email — **answered, and built**
+- The screening administrator emails a referee a two-minute form once the contact has been established
+  independently (how it was established is required). The answer lands on the history period;
+  verifying it stays the administrator's decision. The second request goes by itself after ten working
+  days; after twenty the administrator is told to go documentary [7.7].
+- Interviews are booked in a diary on the candidate, the candidate is emailed the invitation and reminded
+  the day before; holding the interview marks the slot held.
+
+### E32 — The employee record, leave and leavers — **answered, and built**
+> **"Create place for contact details, next of kin, contract, payroll reference, training, leave and
+> documents. Add a leaver process. Officers can request leave from their portal but the request will
+> fall into administration and update officers availability for control room to avoid repetition, and
+> it also creates rota checks. Add an option to edit it."** *(25 September 2026.)*
+
+- **Employees** (HR menu) lists everyone employed, with leavers a tab away. Each record has contact
+  details, next of kin, contract (type, job title, start, notice, signed date), payroll (reference and
+  NI — sent to the page only for the HR Manager, Admin Manager and Finance), training with certificates
+  and expiry, leave, documents and kit issued. Each card has its own Edit; every change is logged.
+- **Leave** — one request, one place. The officer asks from **My leave** in their portal (or HR asks on
+  their behalf); it goes to Administration's list. While it waits, the rota warns anyone putting them on
+  those days; once approved, the rota refuses it, any shifts they were already on come off onto
+  Control's cover list, their calendar shows "leave", and they are told in their portal. A rostered day
+  costs its shift hours; any other day eight hours.
+- **Leaver** (HR Manager, Admin Manager): last working day and a typed reason. Shifts after the last day
+  come off onto the cover list, offers and availability go, a regular post is freed, and kit returns,
+  final pay/P45 and an exit interview become tasks. Portal access ends after the last day. The record
+  is kept seven years from it [11.3].
+- In the database: pay positive, notice up to 26 weeks, a leaver has a reason, ended employment has a
+  date, training runs out after it was done (constraints §23).
+
+### E33 — The welcome pack, signed online — **answered, and built**
+- After the conditional offer, **Send the welcome pack** emails a link (with the personalised contract
+  attached if wanted). The candidate reads and ticks the contract (including that confirmation depends on
+  screening [7.5.2]), confidentiality, restrictive covenant and handbook, gives their next of kin, and
+  signs with their name; a photo of a signed paper contract can go with it. Each part ticks itself off
+  the onboarding checklist. Bank details are not asked for: the portal does not keep them.
+- **C18 still applies**: the wording of those four acknowledgements is a draft in
+  `lib/core/welcome.ts` and wants signing off, like the contract itself.
+
+### E34 — HR kept simple — **answered, and built**
+- HR menu down to five: Candidates, Vetting, Onboarding, Employees, Right to work & SIA. Interviews is
+  a filter on Candidates; "Forms & packs" went (forms go by email from the candidate); HR tasks are in
+  My tasks.
+- Candidates opens on **Today**: interviews today and tomorrow, applications to check, forms still with
+  the candidate. On a phone the list is one line per person. A task about a person opens their
+  candidate or employee record. The long screening file has a section bar.
+- **"Who is working on what"** is a management view: on the dashboard for managers only, and on the
+  Department board — never for officers (25 September 2026).
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

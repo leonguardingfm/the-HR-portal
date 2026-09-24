@@ -9,11 +9,13 @@ import { alertKind } from "@/lib/core/alerts";
 import { DUTY_RULES, dutyStatus, type DutyStatus } from "@/lib/core/duty";
 import { mapLink } from "@/lib/core/proof";
 import { dayLabel, ukDate } from "@/lib/core/rota";
-import type { MyOpenShift } from "@/lib/db/me";
+import type { MyLeave, MyOpenShift } from "@/lib/db/me";
 import type { LiveRow } from "@/lib/db/queries";
 import { formatTime } from "@/lib/format";
 import {
   AvailabilityCalendar,
+  MyLeaveSection,
+  type CalendarDay,
   BookOnButton,
   CannotMakeItForm,
   CheckCallButtons,
@@ -34,7 +36,8 @@ interface Props {
   controlPhone: string | null;
   vapidKey: string | null;
   openShifts: MyOpenShift[];
-  availability: { said: Record<string, "available" | "unavailable">; days: { date: string; label: string; weekday: string; shift: string | null }[] };
+  availability: { said: Record<string, "available" | "unavailable">; days: CalendarDay[] };
+  leave: MyLeave;
 }
 
 const tel = (n: string) => `tel:${n.replace(/[^\d+]/g, "")}`;
@@ -46,7 +49,7 @@ const tel = (n: string) => `tel:${n.replace(/[^\d+]/g, "")}`;
  * shifts they could take, which days they are free, and what is coming and
  * done. Built for a phone, in a car park, at night.
  */
-export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, openShifts, availability }: Props) {
+export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, openShifts, availability, leave }: Props) {
   const now = useNow(30_000);
   const [notice, setNotice] = useState<ActionResult | null>(null);
   const duties = useMemo<Duty[]>(
@@ -66,8 +69,9 @@ export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, open
   const off = duties.filter((d) => d.state === "cancelled" && d.end > now);
   // An incident can be reported on the shift it happened on, up to twelve hours after.
   const justFinished = !current ? done.find((d) => now.getTime() - d.end.getTime() < 12 * 3_600_000) : undefined;
-  const action = alerts.filter((a) => alertKind(a.title) !== "officer_decision");
-  const news = alerts.filter((a) => alertKind(a.title) === "officer_decision");
+  const isNews = (t: string) => ["officer_decision", "officer_leave"].includes(alertKind(t));
+  const action = alerts.filter((a) => !isNews(a.title));
+  const news = alerts.filter((a) => isNews(a.title));
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
@@ -244,6 +248,13 @@ export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, open
           Tell Control which days you can work, and which you cannot. They ask the people who are free first.
         </p>
         <AvailabilityCalendar days={availability.days} said={availability.said} onResult={setNotice} />
+      </section>
+
+      <section aria-labelledby="leave-h" className="space-y-2">
+        <h2 id="leave-h" className="text-[15px] font-semibold">
+          My leave
+        </h2>
+        <MyLeaveSection leave={leave} onResult={setNotice} />
       </section>
 
       <section aria-labelledby="done-h">

@@ -727,7 +727,8 @@ export interface PresenceRow {
  */
 export async function getPresence(now = new Date()): Promise<PresenceRow[]> {
   const rows = await db.workSession.findMany({
-    where: { signedOutAt: null, lastSeenAt: { gte: new Date(now.getTime() - 12 * 3_600_000) } },
+    // Staff only: officers working their own shifts are not "who is working on what".
+    where: { signedOutAt: null, lastSeenAt: { gte: new Date(now.getTime() - 12 * 3_600_000) }, activeRole: { not: "officer" } },
     orderBy: { lastSeenAt: "desc" },
     include: { user: true },
   });

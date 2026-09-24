@@ -28,18 +28,34 @@ const SESSION_END = "/signin/ended";
  * answers only about the person asking, so there is nothing to fence.
  */
 const ANY_SIGNED_IN = new Set(["/api/pulse"]);
+/**
+ * The links emailed to candidates and referees. Open to anyone holding one,
+ * signed in or not: the link itself is the key, checked by the page and by
+ * every action behind it.
+ */
+const BY_LINK = ["/apply/", "/reference/"];
 
 export async function proxy(req: NextRequest) {
+  // Only this layer sets the link mark; one arriving from outside is dropped.
+  const clean = new Headers(req.headers);
+  clean.delete("x-leon-by-link");
+  const pass = () => NextResponse.next({ request: { headers: clean } });
   const session = await verify(req.cookies.get(SESSION_COOKIE)?.value);
   const { pathname } = req.nextUrl;
-  if (pathname === SESSION_END) return NextResponse.next();
+  if (pathname === SESSION_END) return pass();
+  if (BY_LINK.some((p) => pathname.startsWith(p))) {
+    // Marked, so the page renders without the staff shell around it.
+    const h = new Headers(req.headers);
+    h.set("x-leon-by-link", "1");
+    return NextResponse.next({ request: { headers: h } });
+  }
   const isPublic = PUBLIC_PATHS.has(pathname);
 
   // A screen polling in the background gets an answer it can read, not a page.
   if (!session && pathname.startsWith("/api/")) {
     return Response.json({ signedOut: true }, { status: 401 });
   }
-  if (session && ANY_SIGNED_IN.has(pathname)) return NextResponse.next();
+  if (session && ANY_SIGNED_IN.has(pathname)) return pass();
 
   if (!session && !isPublic) {
     const url = req.nextUrl.clone();
@@ -56,11 +72,11 @@ export async function proxy(req: NextRequest) {
     const url = req.nextUrl.clone();
     url.pathname = roleHome(session.activeRole);
     url.search = "";
-    if (url.pathname === pathname) return NextResponse.next();
+    if (url.pathname === pathname) return pass();
     return NextResponse.redirect(url);
   }
 
-  return NextResponse.next();
+  return pass();
 }
 
 export const config = {

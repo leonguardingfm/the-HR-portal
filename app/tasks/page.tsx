@@ -6,6 +6,7 @@ import { alertKind, alertSeverity, closesItself, isAlarm, openHref } from "@/lib
 import { mondayOf, ukDate } from "@/lib/core/rota";
 import { QUEUE_DEPARTMENTS, departmentOfRole } from "@/lib/core/work";
 import { db } from "@/lib/db/client";
+import { personTaskLinks } from "@/lib/db/employees";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
@@ -60,6 +61,7 @@ export default async function TasksPage({
   const shiftOf = new Map(shifts.map((a) => [a.id, a]));
   const now = new Date();
 
+  const personHref = await personTaskLinks(items);
   const rows: TaskRow[] = items.map((i) => {
     const alarm = isAlarm(i);
     const shift = i.coverNeed ?? i.openShift;
@@ -75,7 +77,7 @@ export default async function TasksPage({
       alarm,
       severity: alarm ? alertSeverity(i) : i.state === "blocked" ? "neutral" : i.dueAt < now ? "serious" : "good",
       status: alarm ? "alert" : i.state === "blocked" ? "blocked" : i.dueAt < now ? "overdue" : "on track",
-      href: openHref(i, { rotaHref: shift ? `/scheduling?week=${mondayOf(ukDate(shift.startsAt))}&post=${shift.postId}&day=${ukDate(shift.startsAt)}` : null }),
+      href: openHref(i, { rotaHref: shift ? `/scheduling?week=${mondayOf(ukDate(shift.startsAt))}&post=${shift.postId}&day=${ukDate(shift.startsAt)}` : null, personHref: personHref(i) }),
       department: itsDept?.label ?? (i.adminItemId ? "Admin" : "Named person"),
       createdAt: i.createdAt.toISOString(),
       dueAt: i.dueAt.toISOString(),

@@ -63,16 +63,16 @@ const STAFF_BASELINE: ActionId[] = ["work_item.complete", "work_item.take", "ale
 const EXPECTED: Record<string, ActionId[]> = {
   control: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", "place.manage", "officer.exclude", "welfare.visit", ...STAFF_BASELINE],
   operations_manager: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", "place.manage", "officer.exclude", "welfare.visit", ...STAFF_BASELINE],
-  recruitment: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "stock.move", ...STAFF_BASELINE],
-  recruitment_manager: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "admin_item.approve", "admin_item.reject", "holiday.decide", "authority_matter.respond", ...STAFF_BASELINE],
-  admin_officer: ["admin_item.start", "admin_item.review", "admin_item.complete", "payment.record", "asset.maintain", "stock.move", "accreditation.evidence", ...STAFF_BASELINE],
-  admin_manager: ["admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "payment.record", "asset.maintain", "holiday.decide", "stock.move", "accreditation.evidence", "authority_matter.respond", "account.review", ...STAFF_BASELINE],
+  recruitment: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "stock.move", "candidate.invite", "candidacy.edit", "interview.book", "employee.edit", ...STAFF_BASELINE],
+  recruitment_manager: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "admin_item.approve", "admin_item.reject", "holiday.decide", "authority_matter.respond", "candidate.invite", "candidacy.edit", "interview.book", "employee.edit", "employee.payroll", "employee.leaver", ...STAFF_BASELINE],
+  admin_officer: ["admin_item.start", "admin_item.review", "admin_item.complete", "payment.record", "asset.maintain", "stock.move", "accreditation.evidence", "employee.edit", ...STAFF_BASELINE],
+  admin_manager: ["admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "payment.record", "asset.maintain", "holiday.decide", "stock.move", "accreditation.evidence", "authority_matter.respond", "account.review", "employee.edit", "employee.payroll", "employee.leaver", ...STAFF_BASELINE],
   // The Finance Officer approves money and records payments. Nothing else:
   // not holidays, not suspensions, not authority matters, not stock.
-  finance_officer: ["admin_item.approve", "admin_item.reject", "payment.record", ...STAFF_BASELINE],
+  finance_officer: ["admin_item.approve", "admin_item.reject", "payment.record", "employee.payroll", ...STAFF_BASELINE],
   vetting_admin: ["document.verify", "document.renew", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", ...STAFF_BASELINE],
   vetting_controller: ["document.verify", "document.renew", "disposal.run", "accreditation.evidence", "screening.assign", "screening.review", "screening.sweep", ...STAFF_BASELINE],
-  top_management: ["disposal.run", "admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "holiday.decide", "accreditation.evidence", "authority_matter.respond", "threshold.change", "role.delegate", "role.revoke_delegation", "account.review", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "screening.exception.decide", "screening.sweep", ...STAFF_BASELINE],
+  top_management: ["disposal.run", "admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "holiday.decide", "accreditation.evidence", "authority_matter.respond", "threshold.change", "role.delegate", "role.revoke_delegation", "account.review", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "screening.exception.decide", "screening.sweep", "employee.leaver", ...STAFF_BASELINE],
   auditor: [],
   // Sales and Client hold nothing: they read, and the route guard keeps the
   // client out of every internal screen.
@@ -997,7 +997,7 @@ check("a missing figure reads neutral, never good",
 
 // --- 2. every action guards ------------------------------------------------
 let actionCount = 0;
-for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me", "alerts", "work", "places", "officers", "welfare"]) {
+for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me", "alerts", "work", "places", "officers", "welfare", "candidates", "applicant", "employees", "references"]) {
   const src = readFileSync(new URL(`../lib/actions/${file}.ts`, import.meta.url), "utf8");
   const exported = [...src.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
   check(`${file}.ts has server actions to check`, exported.length > 0, `${exported.length} found`);

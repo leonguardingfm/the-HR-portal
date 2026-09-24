@@ -371,6 +371,8 @@ export async function recordInterview(
         notes: notes || null,
       },
     }),
+    // The booked slot for this interview has now been held.
+    db.interviewBooking.updateMany({ where: { candidacyId: c.id, stage, status: "booked" }, data: { status: "held" } }),
     db.event.create({
       data: {
         type: "interview.recorded",

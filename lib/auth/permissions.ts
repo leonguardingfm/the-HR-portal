@@ -75,7 +75,13 @@ export type ActionId =
   | "alerts.subscribe"
   | "place.manage"
   | "officer.exclude"
-  | "welfare.visit";
+  | "welfare.visit"
+  | "candidate.invite"
+  | "candidacy.edit"
+  | "interview.book"
+  | "employee.edit"
+  | "employee.payroll"
+  | "employee.leaver";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -214,6 +220,17 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "officer.exclude": { roles: ["control", "operations_manager"], owner: "Control", what: "Keeping an officer off a site, or lifting it" },
   // Step 3 of the ladder: sending a supervisor or the Operations Manager to
   // site, and recording what they found (25 September 2026).
+  // HR self-service (25 September 2026). Recruitment sends the candidate their
+  // application link, keeps their details right and books their interviews.
+  "candidate.invite": { roles: ["recruitment", "recruitment_manager"], owner: "Recruitment", what: "Sending a candidate their application form or welcome pack" },
+  "candidacy.edit": { roles: ["recruitment", "recruitment_manager"], owner: "Recruitment", what: "Correcting a candidate's details" },
+  "interview.book": { roles: ["recruitment", "recruitment_manager"], owner: "Recruitment", what: "Booking an interview" },
+  // The employee record is HR's and Admin's: contact, next of kin, contract,
+  // training, leave and documents. Pay and the payroll reference go further only
+  // to those who handle pay; ending someone's employment is a manager's decision.
+  "employee.edit": { roles: ["recruitment", "recruitment_manager", "admin_officer", "admin_manager"], owner: "HR or Admin", what: "Keeping an employee's record up to date" },
+  "employee.payroll": { roles: ["recruitment_manager", "admin_manager", "finance_officer"], owner: "the HR Manager, the Admin Manager or the Finance Officer", what: "Seeing or changing pay and the payroll reference" },
+  "employee.leaver": { roles: ["recruitment_manager", "admin_manager", "top_management"], owner: "the HR Manager or the Admin Manager", what: "Recording that an employee is leaving" },
   "welfare.visit": { roles: ["control", "operations_manager"], owner: "Control or the Operations Manager", what: "Sending someone to site and recording what they found" },
   "screening.sweep": { roles: ["vetting_controller", "top_management"], owner: "a Screening Controller or higher management", what: "Running the screening clock check" },
   "account.review": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager", what: "Approving, suspending or reactivating an account" },

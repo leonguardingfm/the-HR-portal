@@ -299,27 +299,11 @@ export const NAV: NavItem[] = [
   // --- HR ------------------------------------------------------------------
   {
     href: "/candidates",
-    label: "Recruitment & candidates",
-    purpose: "The single candidate record and the pipeline, with duplicate checks at the point of entry.",
+    label: "Candidates",
+    purpose: "Every candidate from first contact to onboarding: application by email link, interviews, offers. Interviews are a filter here, not a screen of their own.",
     group: "HR",
     roles: HR,
     built: true,
-  },
-  {
-    href: "/candidates?stage=interviews",
-    label: "Interviews",
-    purpose: "The pipeline narrowed to the interview stages. An interview is required before any offer [7.3.4].",
-    group: "HR",
-    roles: HR,
-    built: true,
-  },
-  {
-    href: "/forms",
-    label: "Forms & packs",
-    purpose: "Application forms, welcome packs and document collection — one forms engine, three things it is used for.",
-    group: "HR",
-    roles: HR,
-    built: false,
   },
   {
     href: "/vetting",
@@ -336,14 +320,6 @@ export const NAV: NavItem[] = [
     built: true,
   },
   {
-    href: "/compliance",
-    label: "Right to work & SIA",
-    purpose: "Every licence, right to work and document with an expiry date, and who it blocks.",
-    group: "HR",
-    roles: [...MANAGEMENT, "control", "vetting_admin", "recruitment"],
-    built: true,
-  },
-  {
     href: "/onboarding",
     label: "Onboarding",
     purpose: "The post-offer admin checklist: Recruitment Sheet, PIN, Casper, Watch List, Maps, notification.",
@@ -353,20 +329,20 @@ export const NAV: NavItem[] = [
   },
   {
     href: "/people",
-    label: "Officer & employee records",
-    purpose: "The person record for life: applicant through officer to leaver and rehire.",
+    label: "Employees",
+    purpose: "Everyone employed: contact details, next of kin, contract, payroll, training, leave, documents — and the leaver process.",
     group: "HR",
-    roles: [...HR, "operations_manager"],
-    built: false,
-  },
-  {
-    href: "/tasks?department=recruitment",
-    label: "HR tasks",
-    purpose: "The one work queue, filtered to HR.",
+    roles: ["recruitment", "recruitment_manager", "admin_officer", "admin_manager", "operations_manager", "top_management", "auditor"],
+    built: true,
+  },  {
+    href: "/compliance",
+    label: "Right to work & SIA",
+    purpose: "Every licence, right to work and document with an expiry date, and who it blocks.",
     group: "HR",
-    roles: HR,
+    roles: [...MANAGEMENT, "control", "vetting_admin", "recruitment"],
     built: true,
   },
+
 
   // --- Sales ---------------------------------------------------------------
   {

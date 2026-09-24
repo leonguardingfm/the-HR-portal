@@ -5,6 +5,9 @@ import { StatusPill } from "@/components/ui/StatusPill";
 import { AdvanceButton, InterviewForm, WithdrawForm } from "@/components/recruitment/CandidateActions";
 import { InterviewChips } from "@/components/recruitment/InterviewChips";
 import { OnboardingChecklist } from "@/components/recruitment/OnboardingChecklist";
+import { ApplicationPanel, ApplicationSummary, EditDetails, InterviewDiary, WelcomePackPanel, type ApplicationState, type PackState } from "@/components/recruitment/SelfService";
+import { db } from "@/lib/db/client";
+import { usersHolding } from "@/lib/db/push";
 import { canAccessPath } from "@/components/layout/nav";
 import { requireSession } from "@/lib/auth/server";
 import { deniedReason } from "@/lib/auth/ui";
@@ -52,6 +55,34 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
   const { id } = await params;
   const c = await getCandidacy(id);
   if (!c) notFound();
+  // The self-service: the application link, the emails sent, the interview diary.
+  const [invite, pack, emails, bookings, interviewerIds, personRow] = await Promise.all([
+    db.candidateInvite.findFirst({ where: { candidacyId: c.id, purpose: "application" }, orderBy: { createdAt: "desc" } }),
+    db.candidateInvite.findFirst({ where: { candidacyId: c.id, purpose: "welcome_pack" }, orderBy: { createdAt: "desc" } }),
+    db.emailMessage.findMany({ where: { candidacyId: c.id }, orderBy: { createdAt: "desc" }, take: 20 }),
+    db.interviewBooking.findMany({ where: { candidacyId: c.id }, orderBy: { startsAt: "desc" } }),
+    usersHolding(["recruitment", "recruitment_manager", "top_management"]),
+    db.person.findUnique({ where: { id: c.person.id }, select: { nationalInsurance: true, address: true, postcode: true } }),
+  ]);
+  const people = await db.user.findMany({ where: { id: { in: [...interviewerIds, ...bookings.map((b) => b.interviewerUserId).filter((x): x is string => !!x)] } }, select: { id: true, displayName: true } });
+  const nameOf = new Map(people.map((u) => [u.id, u.displayName]));
+  const appState: ApplicationState = {
+    state: !invite ? "none" : invite.submittedAt ? "submitted" : invite.revokedAt ? "none" : invite.expiresAt < new Date() ? "expired" : invite.openedAt ? "opened" : "sent",
+    sentAt: invite?.createdAt.toISOString() ?? null,
+    openedAt: invite?.openedAt?.toISOString() ?? null,
+    submittedAt: invite?.submittedAt?.toISOString() ?? null,
+    expiresAt: invite?.expiresAt.toISOString() ?? null,
+    reminders: invite?.reminders ?? 0,
+    stepsDone: ((invite?.draft as { done?: string[] } | null)?.done ?? []).length,
+  };
+  const packState: PackState = {
+    state: !pack ? "none" : pack.submittedAt ? "signed" : pack.revokedAt ? "none" : pack.expiresAt < new Date() ? "expired" : pack.openedAt ? "opened" : "sent",
+    sentAt: pack?.createdAt.toISOString() ?? null,
+    openedAt: pack?.openedAt?.toISOString() ?? null,
+    signed: pack?.signedAt ? `as “${pack.signedName}”, ${formatDate(pack.signedAt)} ${formatTime(pack.signedAt)}` : null,
+    expiresAt: pack?.expiresAt.toISOString() ?? null,
+    reminders: pack?.reminders ?? 0,
+  };
 
   const now = new Date();
   const days = daysIn(c.stageSince, now);
@@ -98,7 +129,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
     <div className="space-y-5">
       <nav className="text-[12px]" style={{ color: "var(--text-muted)" }}>
         <Link href="/candidates" className="hover:underline">
-          Recruitment
+          Candidates
         </Link>{" "}
         / {c.person.fullName}
       </nav>
@@ -214,6 +245,34 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
             )}
           </Card>
 
+          {c.stage !== "withdrawn" && (
+            <ApplicationPanel
+              candidacyId={c.id}
+              app={appState}
+              emails={emails.map((e) => ({ id: e.id, to: e.to, subject: e.subject, body: e.body, status: e.status, createdAt: e.createdAt.toISOString() }))}
+              denied={deniedReason(session.activeRole, "candidate.invite")}
+              hasEmail={!!c.person.email}
+            />
+          )}
+
+          {c.stage !== "withdrawn" && (pack || ["conditional_offer", "welcome_pack"].includes(c.stage)) && (
+            <WelcomePackPanel
+              candidacyId={c.id}
+              pack={packState}
+              ready={
+                !["conditional_offer", "welcome_pack"].includes(c.stage)
+                  ? "The pack goes out at the conditional offer or welcome pack stage."
+                  : c.onboardingSteps.some((x) => x.step === "offer_issued")
+                    ? null
+                    : "Tick “Conditional offer issued” on the onboarding checklist first — the pack follows the offer."
+              }
+              denied={deniedReason(session.activeRole, "candidate.invite")}
+              hasEmail={!!c.person.email}
+            />
+          )}
+
+          {invite?.submission && <ApplicationSummary d={invite.submission as never} signed={invite.signedAt ? `as “${invite.signedName}”, ${formatDate(invite.signedAt)} ${formatTime(invite.signedAt)}` : null} />}
+
           {showChecklist && (
             <OnboardingChecklist
               candidacyId={c.id}
@@ -232,6 +291,14 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
               .join(", ")}.`}
             action={<InterviewChips required={requiredInterviews(c.requiresAdditional)} held={held} />}
           >
+            <div className="mb-4">
+              <InterviewDiary
+                candidacyId={c.id}
+                bookings={bookings.map((b) => ({ id: b.id, stage: b.stage, startsAt: b.startsAt.toISOString(), minutes: b.minutes, place: b.place, interviewer: b.interviewerUserId ? (nameOf.get(b.interviewerUserId) ?? null) : null, status: b.status, cancelledReason: b.cancelledReason }))}
+                interviewers={interviewerIds.map((id) => ({ id, name: nameOf.get(id) ?? "?" }))}
+                denied={closed ? "closed" : deniedReason(session.activeRole, "interview.book")}
+              />
+            </div>
             {c.interviews.length === 0 ? (
               <p className="text-[13px]" style={{ color: "var(--text-muted)" }}>
                 No interviews recorded yet.
@@ -261,12 +328,30 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
         </div>
 
         <div className="space-y-5">
-          <Card title="Details">
+          <Card
+            title="Details"
+            action={
+              <EditDetails
+                candidacyId={c.id}
+                person={{
+                  fullName: c.person.fullName,
+                  email: c.person.email,
+                  phone: c.person.phone,
+                  dateOfBirth: c.person.dateOfBirth ? new Date(c.person.dateOfBirth).toISOString().slice(0, 10) : null,
+                  nationalInsurance: personRow?.nationalInsurance ?? null,
+                  address: personRow?.address ?? null,
+                  postcode: personRow?.postcode ?? null,
+                }}
+                denied={deniedReason(session.activeRole, "candidacy.edit")}
+              />
+            }
+          >
             <dl className="grid grid-cols-1 gap-3 text-[13px]">
               {[
                 ["Email", c.person.email],
                 ["Phone", c.person.phone],
                 ["Date of birth", c.person.dateOfBirth ? formatDate(c.person.dateOfBirth) : null],
+                ["Address", personRow?.address ? `${personRow.address}${personRow.postcode ? `, ${personRow.postcode}` : ""}` : null],
                 ["Source", c.source ? SOURCE_LABELS[c.source] : null],
                 [
                   "Requirement",

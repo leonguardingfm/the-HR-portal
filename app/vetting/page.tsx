@@ -300,33 +300,9 @@ export default async function VettingPage({
       <VettingClockBoard files={clockRows} />
 
       <ModuleOutline
-        subtitle="Still to come. Files, checks, controller reviews, the clock and the offer gate are built above."
+        subtitle="Still to come. Files, checks, history periods with gap calculation, references by email, controller reviews, the clock, the offer gate and retention are built."
         note="Automation is explicitly recognised by the 2019 edition, but where any element of screening is automated the provisions of the standard still apply (clause 7.1) — so the portal chases, calculates and pre-fills freely, while the evidence trail and the human sign-offs stay intact."
         items={[
-          {
-            label: "One row per career-history period",
-            detail: "Dates as stated and as confirmed, the verifier's organisation, how their contact detail was independently verified, 1st and 2nd request dates, confirmation, and the documentary-evidence fallback.",
-            clause: "7.7",
-            phase: 1,
-          },
-          {
-            label: "Automatic gap calculation",
-            detail: "Unverified days computed from the declared timeline, every gap over 31 days flagged, and statutory declaration eligibility derived rather than judged by eye.",
-            clause: "7.7i",
-            phase: 2,
-          },
-          {
-            label: "Independent contact verification",
-            detail: "A telephone number supplied by the candidate must not be relied upon; the number called has to be established independently, and how that was done is recorded.",
-            clause: "7.5.2a",
-            phase: 1,
-          },
-          {
-            label: "Permission-to-contact flag per employer",
-            detail: "A current employer must not be approached without the individual's prior written permission. The flag drives whether a reference request can be sent at all.",
-            clause: "7.7b",
-            phase: 1,
-          },
           {
             label: "Sanctions list sync",
             detail: "The HM Treasury consolidated list is published as a downloadable file, so screening can re-run daily — which also catches someone appearing on the list after they were cleared.",
@@ -334,15 +310,9 @@ export default async function VettingPage({
             phase: 3,
           },
           {
-            label: "SIA register evidence",
-            detail: "No public API, so expect a prompted manual lookup with the search result uploaded and retained, plus automatic diarising of the expiry.",
+            label: "SIA register lookup prompt",
+            detail: "No public API, so a prompted manual lookup with the search result uploaded to the file. Licence expiry is already diarised and alerted.",
             clause: "7.4c1",
-            phase: 2,
-          },
-          {
-            label: "Retention and secure disposal",
-            detail: "Twelve months for those unsuccessful at preliminary screening, seven years after employment ends for the listed records, with a controller-approved disposal step.",
-            clause: "11.1, 11.3",
             phase: 2,
           },
         ]}

@@ -63,10 +63,16 @@ model Person {
   /// the strongest duplicate key we have.
   nationalInsurance String? @unique
 
-  nextOfKinName  String?
-  nextOfKinPhone String?
+  nextOfKinName     String?
+  nextOfKinPhone    String?
+  nextOfKinRelation String?
+
+  /// Where they live now. The five-year address history they give in their
+  /// application is kept with the application.
+  address    String?
+  postcode   String?
   /// Held for the payroll export only. Never rendered in a list view.
-  payrollRef     String?
+  payrollRef String?
 
   firstContactAt DateTime @default(now()) @db.Timestamptz(3)
   createdAt      DateTime @default(now()) @db.Timestamptz(3)
@@ -96,6 +102,8 @@ model Person {
   siteExclusions SiteExclusion[]
   availability   Availability[]
   volunteered    ShiftVolunteer[]
+  training       TrainingRecord[]
+  emails         EmailMessage[]
 
   @@index([fullName])
   @@index([lifecycle])
@@ -529,6 +537,21 @@ model Employment {
   /// Typed, so retention reporting works. Free text belongs in the exit form.
   leaverReason String?
 
+  /// The contract (HR, 25 September 2026).
+  contractType     ContractType?
+  jobTitle         String?
+  /// Pay per hour, in pence, so nothing is ever rounded.
+  payRatePence     Int?
+  noticeWeeks      Int?
+  contractSignedAt DateTime?     @db.Date
+
+  /// The leaver: their last working day, what happened, and who recorded it.
+  /// Portal access ends after the last day; the seven-year retention clock
+  /// runs from it [11.3].
+  lastWorkingDay     DateTime? @db.Date
+  leaverNote         String?
+  leaverRecordedById String?
+
   person         Person          @relation(fields: [personId], references: [id])
   siteReferences SiteReference[]
 
@@ -652,6 +675,7 @@ model DocumentRecord {
   site          Site?           @relation(fields: [siteId], references: [id])
   client        Client?         @relation(fields: [clientId], references: [id])
   screeningFile ScreeningFile?  @relation(fields: [screeningFileId], references: [id])
+  training      TrainingRecord?
 
   @@index([expiresAt])
   @@index([typeId, verification])
@@ -1115,10 +1139,16 @@ model Candidacy {
   ownerUserId     String?
   withdrawnReason String?
 
-  person          Person           @relation(fields: [personId], references: [id])
-  requirement     Requirement?     @relation(fields: [requirementId], references: [id])
+  person          Person             @relation(fields: [personId], references: [id])
+  requirement     Requirement?       @relation(fields: [requirementId], references: [id])
   interviews      Interview[]
   onboardingSteps OnboardingStep[]
+  invites         CandidateInvite[]
+  bookings        InterviewBooking[]
+  emails          EmailMessage[]
+
+  /// When the candidate sent their application in, through the emailed link.
+  applicationSubmittedAt DateTime? @db.Timestamptz(3)
 
   @@unique([personId, requirementId])
   @@index([stage, stageSince])
@@ -1415,8 +1445,9 @@ model HistoryPeriod {
   notes     String?
   createdAt DateTime @default(now()) @db.Timestamptz(3)
 
-  file      ScreeningFile    @relation(fields: [fileId], references: [id], onDelete: Cascade)
-  documents DocumentRecord[]
+  file              ScreeningFile      @relation(fields: [fileId], references: [id], onDelete: Cascade)
+  documents         DocumentRecord[]
+  referenceRequests ReferenceRequest[]
 
   @@index([fileId, statedFrom])
 }
@@ -1990,6 +2021,162 @@ model Incident {
 
   @@index([at])
   @@index([severity, clientNotified])
+}
+
+enum ContractType {
+  full_time
+  part_time
+  zero_hours
+  casual
+  fixed_term
+}
+
+/// A course an employee has done — first aid, fire marshal, the SIA
+/// refresher — with when it runs out. The certificate is a document on the
+/// person, linked here.
+model TrainingRecord {
+  id          String    @id @default(cuid())
+  personId    String
+  course      String
+  provider    String?
+  completedOn DateTime  @db.Date
+  expiresOn   DateTime? @db.Date
+  documentId  String?   @unique
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  createdById String
+
+  person   Person          @relation(fields: [personId], references: [id])
+  document DocumentRecord? @relation(fields: [documentId], references: [id])
+
+  @@index([personId])
+  @@index([expiresOn])
+}
+
+enum EmailStatus {
+  sent
+  failed
+  /// No mail server is set up here: kept, with its link, for someone to send by hand.
+  not_configured
+}
+
+/// Every email the portal sends — application links, reminders, interview
+/// invitations, reference requests. Kept whether or not it went, so what a
+/// candidate or referee was sent, and when, is a record rather than a memory.
+model EmailMessage {
+  id          String      @id @default(cuid())
+  to          String
+  subject     String
+  body        String
+  /// What it was for: application_invite, application_reminder, interview_invite…
+  purpose     String
+  personId    String?
+  candidacyId String?
+  status      EmailStatus
+  error       String?
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  createdById String?
+
+  person    Person?    @relation(fields: [personId], references: [id])
+  candidacy Candidacy? @relation(fields: [candidacyId], references: [id])
+
+  @@index([personId, createdAt])
+  @@index([candidacyId, createdAt])
+}
+
+enum InvitePurpose {
+  application
+  welcome_pack
+}
+
+/// A link emailed to a candidate to fill in their application (or sign their
+/// welcome pack) themselves, on any device, without an account. Only the hash
+/// of the token is kept; the link works until it expires, is used, or is
+/// withdrawn. Progress is saved as they go, so they can come back to it.
+model CandidateInvite {
+  id             String        @id @default(cuid())
+  candidacyId    String
+  purpose        InvitePurpose
+  tokenHash      String        @unique
+  /// The link itself, sealed with the server\'s secret, so a reminder can carry
+  /// it again. The database alone opens nothing.
+  tokenSealed    String?
+  sentTo         String
+  createdAt      DateTime      @default(now()) @db.Timestamptz(3)
+  createdById    String
+  expiresAt      DateTime      @db.Timestamptz(3)
+  openedAt       DateTime?     @db.Timestamptz(3)
+  submittedAt    DateTime?     @db.Timestamptz(3)
+  revokedAt      DateTime?     @db.Timestamptz(3)
+  reminders      Int           @default(0)
+  lastReminderAt DateTime?     @db.Timestamptz(3)
+  /// What they have filled in so far, saved step by step.
+  draft          Json?
+  /// What they sent, as sent — the evidence of what the individual declared.
+  submission     Json?
+  /// The e-signature on the declarations: the name typed, when, and from where.
+  signedName     String?
+  signedAt       DateTime?     @db.Timestamptz(3)
+  signedIp       String?
+
+  candidacy Candidacy @relation(fields: [candidacyId], references: [id], onDelete: Cascade)
+
+  @@index([candidacyId])
+}
+
+enum BookingStatus {
+  booked
+  held
+  cancelled
+  no_show
+}
+
+/// An interview in the diary: when, where, with whom — booked ahead, the
+/// candidate emailed an invitation and a reminder the day before. The outcome
+/// is recorded as an Interview when it has happened.
+model InterviewBooking {
+  id                String         @id @default(cuid())
+  candidacyId       String
+  stage             InterviewStage
+  startsAt          DateTime       @db.Timestamptz(3)
+  minutes           Int            @default(30)
+  /// An address, "Phone", or a video link.
+  place             String
+  interviewerUserId String?
+  status            BookingStatus  @default(booked)
+  createdAt         DateTime       @default(now()) @db.Timestamptz(3)
+  createdById       String
+  reminderSentAt    DateTime?      @db.Timestamptz(3)
+  cancelledReason   String?
+
+  candidacy Candidacy @relation(fields: [candidacyId], references: [id], onDelete: Cascade)
+
+  @@index([startsAt])
+  @@index([candidacyId])
+}
+
+/// A reference request emailed to a referee, with a link to answer it online.
+/// Sent only to a contact established independently of the individual
+/// [7.5.2a]; chased automatically; the answer lands on the history period for
+/// the administrator to verify.
+model ReferenceRequest {
+  id           String    @id @default(cuid())
+  periodId     String
+  tokenHash    String    @unique
+  tokenSealed  String?
+  sentTo       String
+  refereeName  String
+  sentAt       DateTime  @default(now()) @db.Timestamptz(3)
+  sentById     String
+  chases       Int       @default(0)
+  lastChasedAt DateTime? @db.Timestamptz(3)
+  respondedAt  DateTime? @db.Timestamptz(3)
+  /// The referee's answer, as given.
+  response     Json?
+  revokedAt    DateTime? @db.Timestamptz(3)
+
+  period HistoryPeriod @relation(fields: [periodId], references: [id], onDelete: Cascade)
+
+  @@index([periodId])
 }
 
 /// Who goes to site at step 3 of the escalation ladder (Control, 25 September 2026).

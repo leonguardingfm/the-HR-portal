@@ -10,6 +10,7 @@ import { metres, proofNeedsAttention } from "@/lib/core/proof";
 import { addDays, dayLabel, isDate, ukDate, ukTime } from "@/lib/core/rota";
 import { sweepDutyChecks } from "@/lib/db/duty-sweep";
 import { proofData, readProof, sitePlace, withStoredProof } from "@/lib/db/proofs";
+import { raiseLeave } from "@/lib/db/leave";
 import { whyCannotTake } from "@/lib/db/rota";
 import { refused, ok, type ActionResult } from "./types";
 
@@ -418,5 +419,52 @@ export async function withdrawOffer(openShiftId: string, _prev: ActionResult | n
   ]);
   revalidatePath("/me");
   revalidatePath("/scheduling");
+  return ok("Withdrawn.");
+}
+
+// ---------------------------------------------------------------------------
+// Leave
+// ---------------------------------------------------------------------------
+
+/**
+ * "I'd like these days off." Goes to Administration to decide; while it waits
+ * the rota warns anyone putting them on those days, and once approved it
+ * refuses it and takes them off shifts already given (HR, 25 September 2026).
+ */
+export async function requestMyLeave(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const { session, error } = await guard("duty.self");
+  if (error || !session) return error!;
+  const out = await raiseLeave({
+    personId: session.personId,
+    from: text(formData, "from"),
+    to: text(formData, "to") || text(formData, "from"),
+    note: text(formData, "note").slice(0, 300) || null,
+    by: { userId: session.userId, role: session.activeRole },
+    onBehalf: false,
+  });
+  if (!out.ok) return refused(out.message);
+  revalidatePath("/me");
+  revalidatePath("/admin/people");
+  revalidatePath(`/people/${session.personId}`);
+  return ok(out.message);
+}
+
+/** Withdraw a request Administration has not decided yet. Approved leave is changed by asking them. */
+export async function cancelMyLeave(requestId: string, _prev: ActionResult | null, _formData: FormData): Promise<ActionResult> {
+  const { session, error } = await guard("duty.self");
+  if (error || !session) return error!;
+  const r = await db.holidayRequest.findUnique({ where: { id: String(requestId) } });
+  if (!r || r.personId !== session.personId) return refused("That is not one of your leave requests.");
+  if (r.decision !== "pending") return refused(r.decision === "approved" ? "It is already approved — ask Administration to change it." : "That request is already closed.");
+  const now = new Date();
+  await db.$transaction([
+    db.holidayRequest.update({ where: { id: r.id }, data: { decision: "cancelled", decidedAt: now, decidedByUserId: session.userId, note: "Withdrawn by the officer" } }),
+    db.workItem.updateMany({ where: { personId: session.personId, state: "open", title: { startsWith: `Leave request: ${session.name},` } }, data: { state: "cancelled", doneAt: now } }),
+    db.event.create({
+      data: { type: "leave.withdrawn", actorUserId: session.userId, actorRole: session.activeRole, department: "administration", personId: session.personId, detail: `${session.name} withdrew their leave request for ${ukDate(r.startsOn)} to ${ukDate(new Date(r.endsOn.getTime() - 1))}.` },
+    }),
+  ]);
+  revalidatePath("/me");
+  revalidatePath("/admin/people");
   return ok("Withdrawn.");
 }

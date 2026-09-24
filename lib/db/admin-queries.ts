@@ -319,6 +319,8 @@ export async function getHolidayRequests(now = new Date()) {
     personId: r.personId,
     startsOn: r.startsOn.toISOString(),
     endsOn: r.endsOn.toISOString(),
+    // Leave runs to the start of the day after the last one.
+    lastDay: new Date(r.endsOn.getTime() - 1).toISOString(),
     hoursRequested: r.hoursRequested,
     decision: r.decision,
     raisedAt: r.raisedAt.toISOString(),

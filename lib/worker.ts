@@ -5,6 +5,7 @@
  */
 
 import { sweepDutyChecks } from "@/lib/db/duty-sweep";
+import { sweepHr } from "@/lib/db/hr-sweep";
 
 export const WORKER_EVERY_MS = 30_000;
 
@@ -13,7 +14,7 @@ const state = globalThis as unknown as { __dutyWorker?: ReturnType<typeof setInt
 export function startDutyWorker() {
   if (state.__dutyWorker) return;
   const tick = () => {
-    sweepDutyChecks()
+    Promise.all([sweepDutyChecks(), sweepHr()])
       .then(() => {
         state.__dutyWorkerLastError = undefined;
       })

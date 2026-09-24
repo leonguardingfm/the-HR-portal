@@ -252,6 +252,30 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
         </div>
       </header>
 
+      {/* A long file: every section one tap away, on a phone too. */}
+      <nav aria-label="Sections of this file" className="sticky top-0 z-10 -mx-1 overflow-x-auto py-1" style={{ background: "var(--page)" }}>
+        <ol className="flex min-w-max gap-1.5 px-1 text-[12px]">
+          {(
+            [
+              ["review", "Review"],
+              ["documents", "Documents"],
+              ["gates", "Gates"],
+              ["clock", "Clock"],
+              ...(hasHistory || editable ? [["career", "Career history"]] : []),
+              ["checks", "Checks"],
+              ["log", "Decisions & log"],
+            ] as [string, string][]
+          ).map(([id, label]) => (
+            <li key={id}>
+              <a href={`#${id}`} className="block rounded-md border px-2.5 py-1 hover:bg-[var(--wash)]" style={{ borderColor: "var(--hairline)", background: "var(--surface-1)" }}>
+                {label}
+              </a>
+            </li>
+          ))}
+        </ol>
+      </nav>
+
+      <span id="review" aria-hidden className="-mb-5 block scroll-mt-12" />
       <div className="grid gap-5 lg:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
         {/* Whose move */}
         <Card title={f.status === "unsuccessful" ? "Outcome" : "Review"} subtitle={f.status === "unsuccessful" ? "Screening ended unsuccessfully. The file is kept for 12 months (11.1, C14)." : limited ? "First review: limited screening, before the conditional offer (7.5.2b)." : "Second review: the completed file, before confirmed employment (7.7)."}>
@@ -424,6 +448,7 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
         </Card>
       )}
 
+      <span id="documents" aria-hidden className="-mb-5 block scroll-mt-12" />
       <ScreeningDocuments
         fileId={f.id}
         rows={documentRows}
@@ -434,6 +459,7 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
         evidence={evidenceOptions}
       />
 
+      <span id="gates" aria-hidden className="-mb-5 block scroll-mt-12" />
       {/* The three gates */}
       <div className="grid gap-5 xl:grid-cols-3">
         {(
@@ -458,6 +484,7 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
         ))}
       </div>
 
+      <span id="clock" aria-hidden className="-mb-5 block scroll-mt-12" />
       <Card
         title="Screening clock"
         subtitle={`${weeksAllowed(core.screeningPeriodYears)} weeks from the start of conditional employment${f.extensionWeeks ? `, plus a ${f.extensionWeeks}-week extension` : ""} (7.6).`}
@@ -485,6 +512,7 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
         )}
       </Card>
 
+      <span id="career" aria-hidden className="-mb-5 block scroll-mt-12" />
       {(hasHistory || editable) && (
         <CareerHistory
           fileId={f.id}
@@ -495,6 +523,7 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
         />
       )}
 
+      <span id="checks" aria-hidden className="-mb-5 block scroll-mt-12" />
       <Card
         title="Verification progress sheet"
         subtitle={editable ? "Annex A, Form 2. Update each check as it moves; request dates are stamped for you." : "Annex A, Form 2."}
@@ -587,6 +616,7 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
         ))}
       </Card>
 
+      <span id="log" aria-hidden className="-mb-5 block scroll-mt-12" />
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title="Decisions" subtitle="Risk acceptances, extensions and statutory declarations, with their grounds.">
           {f.decisions.length === 0 ? (

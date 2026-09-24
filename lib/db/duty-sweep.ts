@@ -78,9 +78,14 @@ async function runSweep(now: Date): Promise<SweepResult> {
   const uncovered = await sweepUncovered(now);
   const licences = await sweepLicences(now);
   const welfare = await sweepWelfare(now);
-  // News for the officer — "Control has put you on…" — is news for half a day.
+  // News for the officer — "Control has put you on…", "Your leave is approved" — is news for half a day.
   await db.workItem.updateMany({
-    where: { state: "open", ownerRole: null, title: { startsWith: ALERT_KIND_SPECS.officer_decision.prefix }, createdAt: { lt: new Date(now.getTime() - 12 * 3_600_000) } },
+    where: {
+      state: "open",
+      ownerRole: null,
+      OR: [{ title: { startsWith: ALERT_KIND_SPECS.officer_decision.prefix } }, { title: { startsWith: ALERT_KIND_SPECS.officer_leave.prefix } }],
+      createdAt: { lt: new Date(now.getTime() - 12 * 3_600_000) },
+    },
     data: { state: "done", doneAt: now },
   });
   const pushed = await deliverAlerts(now);

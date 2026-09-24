@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- One hundred and ninety-eight assertions. Each one names a rule the platform claims to
+-- Two hundred and twenty-two assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -739,3 +739,73 @@ SELECT expect_failure('not found, and the police not told',
   $$UPDATE "WelfareVisit" SET outcome = 'not_found_police', "outcomeNote" = 'Nowhere on site', "closedAt" = now() WHERE id = 'wv4'$$);
 SELECT expect_success('not found, police told',
   $$UPDATE "WelfareVisit" SET outcome = 'not_found_police', "outcomeNote" = 'Nowhere on site', "policeCalled" = true, "policeReference" = 'CAD 4411', "closedAt" = now() WHERE id = 'wv4'$$);
+
+-- ---------------------------------------------------------------------------
+-- 23. HR self-service, the employee record and leavers
+-- ---------------------------------------------------------------------------
+
+INSERT INTO "Candidacy"(id,"personId") VALUES ('cand23','p2');
+SELECT expect_success('an application link sent',
+  $$INSERT INTO "CandidateInvite"(id,"candidacyId",purpose,"tokenHash","sentTo","createdById","expiresAt")
+    VALUES ('ci1','cand23','application','hash1','a@example.com','u3',now() + interval '14 days')$$);
+SELECT expect_failure('two live application links for one candidate',
+  $$INSERT INTO "CandidateInvite"(id,"candidacyId",purpose,"tokenHash","sentTo","createdById","expiresAt")
+    VALUES ('ci2','cand23','application','hash2','a@example.com','u3',now() + interval '14 days')$$);
+SELECT expect_success('a welcome pack link alongside the application link',
+  $$INSERT INTO "CandidateInvite"(id,"candidacyId",purpose,"tokenHash","sentTo","createdById","expiresAt")
+    VALUES ('ci3','cand23','welcome_pack','hash3','a@example.com','u3',now() + interval '14 days')$$);
+SELECT expect_failure('submitted without a signature',
+  $$UPDATE "CandidateInvite" SET "submittedAt" = now() WHERE id = 'ci1'$$);
+SELECT expect_failure('a signature with no time',
+  $$UPDATE "CandidateInvite" SET "signedName" = 'Second Officer' WHERE id = 'ci1'$$);
+SELECT expect_success('signed and submitted',
+  $$UPDATE "CandidateInvite" SET "signedName" = 'Second Officer', "signedAt" = now(), "submittedAt" = now() WHERE id = 'ci1'$$);
+SELECT expect_success('a new link once the first was submitted',
+  $$INSERT INTO "CandidateInvite"(id,"candidacyId",purpose,"tokenHash","sentTo","createdById","expiresAt")
+    VALUES ('ci4','cand23','application','hash4','a@example.com','u3',now() + interval '14 days')$$);
+
+SELECT expect_success('an interview booked',
+  $$INSERT INTO "InterviewBooking"(id,"candidacyId",stage,"startsAt",minutes,place,"createdById")
+    VALUES ('ib1','cand23','first','2026-10-01 10:00+01',30,'Head office','u3')$$);
+SELECT expect_failure('a second first interview booked while one stands',
+  $$INSERT INTO "InterviewBooking"(id,"candidacyId",stage,"startsAt",minutes,place,"createdById")
+    VALUES ('ib2','cand23','first','2026-10-02 10:00+01',30,'Head office','u3')$$);
+SELECT expect_failure('an interview lasting two minutes',
+  $$INSERT INTO "InterviewBooking"(id,"candidacyId",stage,"startsAt",minutes,place,"createdById")
+    VALUES ('ib3','cand23','second','2026-10-02 10:00+01',2,'Head office','u3')$$);
+SELECT expect_failure('cancelled without saying why',
+  $$UPDATE "InterviewBooking" SET status = 'cancelled' WHERE id = 'ib1'$$);
+SELECT expect_success('cancelled, with why',
+  $$UPDATE "InterviewBooking" SET status = 'cancelled', "cancelledReason" = 'Candidate asked to move it' WHERE id = 'ib1'$$);
+SELECT expect_success('rebooked once the first was cancelled',
+  $$INSERT INTO "InterviewBooking"(id,"candidacyId",stage,"startsAt",minutes,place,"createdById")
+    VALUES ('ib4','cand23','first','2026-10-03 10:00+01',30,'Head office','u3')$$);
+
+SELECT expect_success('a reference request emailed',
+  $$INSERT INTO "ReferenceRequest"(id,"periodId","tokenHash","sentTo","refereeName","sentById")
+    VALUES ('rr1','h1','rhash1','hr@brightwater.example','HR team','u1')$$);
+SELECT expect_failure('two reference requests out for one period',
+  $$INSERT INTO "ReferenceRequest"(id,"periodId","tokenHash","sentTo","refereeName","sentById")
+    VALUES ('rr2','h1','rhash2','hr@brightwater.example','HR team','u1')$$);
+
+SELECT expect_success('a training course, with its expiry',
+  $$INSERT INTO "TrainingRecord"(id,"personId",course,"completedOn","expiresOn","createdById")
+    VALUES ('tr1','p1','Emergency First Aid at Work','2026-03-01','2029-03-01','u3')$$);
+SELECT expect_failure('a course with no name',
+  $$INSERT INTO "TrainingRecord"(id,"personId",course,"completedOn","createdById") VALUES ('tr2','p1','  ','2026-03-01','u3')$$);
+SELECT expect_failure('a course that ran out before it was done',
+  $$INSERT INTO "TrainingRecord"(id,"personId",course,"completedOn","expiresOn","createdById")
+    VALUES ('tr3','p1','Fire marshal','2026-03-01','2025-03-01','u3')$$);
+
+SELECT expect_failure('paid nothing an hour',
+  $$UPDATE "Employment" SET "payRatePence" = 0 WHERE id = 'e1'$$);
+SELECT expect_failure('a year''s notice',
+  $$UPDATE "Employment" SET "noticeWeeks" = 52 WHERE id = 'e1'$$);
+SELECT expect_success('a contract with pay and notice',
+  $$UPDATE "Employment" SET "payRatePence" = 1260, "noticeWeeks" = 1, "contractType" = 'full_time' WHERE id = 'e1'$$);
+SELECT expect_failure('a leaver with no reason',
+  $$UPDATE "Employment" SET "lastWorkingDay" = '2026-12-31' WHERE id = 'e1'$$);
+SELECT expect_failure('employment ended with no leaving date',
+  $$UPDATE "Employment" SET state = 'ended', "lastWorkingDay" = '2026-12-31', "leaverReason" = 'resigned' WHERE id = 'e1'$$);
+SELECT expect_success('a leaver, with the last day, the reason and the date it ended',
+  $$UPDATE "Employment" SET state = 'ended', "lastWorkingDay" = '2026-12-31', "leaverReason" = 'resigned', "endedAt" = '2027-01-01' WHERE id = 'e1'$$);

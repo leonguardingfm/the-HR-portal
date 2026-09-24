@@ -14,7 +14,8 @@ import {
   requiredInterviews,
   stageSeverity,
 } from "@/lib/core/recruitment";
-import { getPipeline } from "@/lib/db/recruitment";
+import { getPipeline, getRecruiterToday } from "@/lib/db/recruitment";
+import { RecruiterToday } from "@/components/recruitment/RecruiterToday";
 import { formatDays } from "@/lib/format";
 import { RECRUITMENT_STAGE_LABELS, VETTING_STATUS_LABELS } from "@/lib/labels";
 import type { RecruitmentStage, VettingStatus } from "@/lib/types";
@@ -44,8 +45,8 @@ const SHORT: Partial<Record<RecruitmentStage, string>> = {
  * progress and vetting status are separate columns and never merged into one
  * number: they answer different questions and are owned by different people.
  *
- * "Interviews" in the sidebar arrives here with `?stage=interviews` — this list
- * narrowed to the interview stages, not a screen of its own.
+ * "Interviews" is a filter here (`?stage=interviews`) — this list narrowed to
+ * the interview stages, not a screen of its own.
  */
 export default async function CandidatesPage({
   searchParams,
@@ -54,7 +55,7 @@ export default async function CandidatesPage({
 }) {
   const session = await requireSession();
   const sp = await searchParams;
-  const rows = await getPipeline();
+  const [rows, today] = await Promise.all([getPipeline(), getRecruiterToday()]);
   const now = new Date();
 
   const stageFilter =
@@ -127,7 +128,7 @@ export default async function CandidatesPage({
   return (
     <div className="space-y-5">
       <PageHeader
-        title={stageFilter === "interviews" ? "Interviews" : "Recruitment"}
+        title={stageFilter === "interviews" ? "Candidates in interview" : "Candidates"}
         description={
           stageFilter === "interviews"
             ? "The pipeline narrowed to the interview stages. An interview is required before any offer of employment is made [7.3.4], so this is a gate rather than a courtesy."
@@ -158,6 +159,8 @@ export default async function CandidatesPage({
         <StatTile label="In interview" value={inInterview.length} detail="First, second or client" href={href({ stage: "interviews", show: undefined })} />
         <StatTile label="Offer to signed docs" value={offers.length} detail="Conditional offer onwards" />
       </div>
+
+      {!stageFilter && !showClosed && !q && <RecruiterToday t={today} />}
 
       {/* The stage strip: where everyone is, and a one-click filter. */}
       <nav aria-label="Stages" className="-mx-1 overflow-x-auto pb-1">
@@ -209,6 +212,7 @@ export default async function CandidatesPage({
               />
             </form>
             {[
+              { label: "Interviews", on: stageFilter === "interviews", to: href({ stage: stageFilter === "interviews" ? undefined : "interviews", show: undefined }) },
               { label: "Mine", on: mine, to: href({ mine: mine ? undefined : "1" }) },
               { label: "Closed", on: showClosed, to: href({ show: showClosed ? undefined : "closed", stage: undefined }) },
             ].map((t) => (
@@ -228,7 +232,33 @@ export default async function CandidatesPage({
           </div>
         }
       >
-        <div className="-mx-5 overflow-x-auto">
+        {/* On a phone: one line per candidate, no sideways scrolling. */}
+        <ul className="divide-y sm:hidden" style={{ borderColor: "var(--hairline)" }}>
+          {listed.map((r) => {
+            const d = daysIn(r.stageSince, now);
+            const sev = stageSeverity(r.stage, d);
+            return (
+              <li key={r.id} style={{ borderColor: "var(--hairline)" }}>
+                <Link href={`/candidates/${r.id}`} className="flex items-center justify-between gap-3 py-2.5">
+                  <span className="min-w-0">
+                    <span className="block truncate text-[13px] font-medium">{r.name}</span>
+                    <span className="block truncate text-[11px]" style={{ color: "var(--text-muted)" }}>
+                      {RECRUITMENT_STAGE_LABELS[r.stage]}
+                      {r.requirement ? ` · ${r.requirement.client}` : ""}
+                    </span>
+                  </span>
+                  <StatusPill severity={sev} label={formatDays(d)} />
+                </Link>
+              </li>
+            );
+          })}
+          {listed.length === 0 && (
+            <li className="py-6 text-center text-[12px]" style={{ color: "var(--text-muted)" }}>
+              No candidates match.
+            </li>
+          )}
+        </ul>
+        <div className="-mx-5 hidden overflow-x-auto sm:block">
           <table className="w-full min-w-[900px] text-left text-[12px]">
             <thead>
               <tr style={{ color: "var(--text-muted)" }}>

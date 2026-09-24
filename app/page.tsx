@@ -5,6 +5,7 @@ import { alertSeverity, isAlarm, openHref } from "@/lib/core/alerts";
 import { mondayOf, ukDate } from "@/lib/core/rota";
 import { departmentOfRole } from "@/lib/core/work";
 import { db } from "@/lib/db/client";
+import { personTaskLinks } from "@/lib/db/employees";
 import { getLiveRows, getPresence, getRecentEvents } from "@/lib/db/queries";
 import { getClockRows } from "@/lib/db/screening";
 import { getUncovered } from "@/lib/db/uncovered";
@@ -38,6 +39,7 @@ export default async function DashboardPage() {
     }),
   ]);
 
+  const personHref = await personTaskLinks(items);
   const rows: TaskSummaryRow[] = items
     .map((i) => {
       const alarm = isAlarm(i);
@@ -48,7 +50,7 @@ export default async function DashboardPage() {
         title: i.title,
         severity: alarm ? alertSeverity(i) : i.state === "blocked" ? ("neutral" as const) : overdue ? ("serious" as const) : ("good" as const),
         label: alarm ? "Alert" : i.state === "blocked" ? "blocked" : overdue ? "overdue" : "on track",
-        href: openHref(i, { rotaHref: shift ? `/scheduling?week=${mondayOf(ukDate(shift.startsAt))}&post=${shift.postId}&day=${ukDate(shift.startsAt)}` : null }),
+        href: openHref(i, { rotaHref: shift ? `/scheduling?week=${mondayOf(ukDate(shift.startsAt))}&post=${shift.postId}&day=${ukDate(shift.startsAt)}` : null, personHref: personHref(i) }),
         owner: i.owner?.displayName ?? null,
         alarm,
       };

@@ -1057,3 +1057,57 @@ ALTER TABLE "WelfareVisit"
 ALTER TABLE "WelfareVisit"
   ADD CONSTRAINT welfare_visit_not_found_police
   CHECK ("outcome" IS DISTINCT FROM 'not_found_police' OR "policeCalled");
+
+-- ---------------------------------------------------------------------------
+-- 23. HR self-service, the employee record and leavers  [HR, 25 September 2026]
+-- ---------------------------------------------------------------------------
+
+-- 23a. One live link per candidate per purpose: a new one withdraws the old.
+CREATE UNIQUE INDEX candidate_invite_one_live
+  ON "CandidateInvite" ("candidacyId", "purpose") WHERE "revokedAt" IS NULL AND "submittedAt" IS NULL;
+
+-- 23b. An e-signature is a name and a time together; a submitted application is signed.
+ALTER TABLE "CandidateInvite"
+  ADD CONSTRAINT candidate_invite_signature_whole
+  CHECK (("signedAt" IS NULL) = ("signedName" IS NULL));
+ALTER TABLE "CandidateInvite"
+  ADD CONSTRAINT candidate_invite_submitted_signed
+  CHECK ("submittedAt" IS NULL OR "signedAt" IS NOT NULL);
+
+-- 23c. An interview lasts a sensible time; a cancellation says why; one booked per stage.
+ALTER TABLE "InterviewBooking"
+  ADD CONSTRAINT interview_booking_length
+  CHECK ("minutes" BETWEEN 5 AND 480);
+ALTER TABLE "InterviewBooking"
+  ADD CONSTRAINT interview_booking_cancel_says_why
+  CHECK ("status" <> 'cancelled' OR length(btrim(coalesce("cancelledReason", ''))) > 0);
+CREATE UNIQUE INDEX interview_booking_one_per_stage
+  ON "InterviewBooking" ("candidacyId", "stage") WHERE "status" = 'booked';
+
+-- 23d. One reference request out per history period at a time.
+CREATE UNIQUE INDEX reference_request_one_open
+  ON "ReferenceRequest" ("periodId") WHERE "respondedAt" IS NULL AND "revokedAt" IS NULL;
+
+-- 23e. A training record names the course and runs out after it was done.
+ALTER TABLE "TrainingRecord"
+  ADD CONSTRAINT training_names_course
+  CHECK (length(btrim("course")) > 0);
+ALTER TABLE "TrainingRecord"
+  ADD CONSTRAINT training_expires_after_done
+  CHECK ("expiresOn" IS NULL OR "expiresOn" > "completedOn");
+
+-- 23f. The contract's numbers are real ones.
+ALTER TABLE "Employment"
+  ADD CONSTRAINT employment_pay_positive
+  CHECK ("payRatePence" IS NULL OR "payRatePence" > 0);
+ALTER TABLE "Employment"
+  ADD CONSTRAINT employment_notice_sensible
+  CHECK ("noticeWeeks" IS NULL OR "noticeWeeks" BETWEEN 0 AND 26);
+
+-- 23g. A leaver has a last day and a reason, and ended employment has a leaving date.
+ALTER TABLE "Employment"
+  ADD CONSTRAINT employment_leaver_has_reason
+  CHECK ("lastWorkingDay" IS NULL OR length(btrim(coalesce("leaverReason", ''))) > 0);
+ALTER TABLE "Employment"
+  ADD CONSTRAINT employment_ended_when
+  CHECK ("state" <> 'ended' OR "endedAt" IS NOT NULL);

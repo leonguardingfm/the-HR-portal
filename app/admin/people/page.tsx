@@ -95,7 +95,7 @@ export default async function AdminPeoplePage() {
 
       <Card
         title="Holiday requests"
-        subtitle="The rostered-shift count comes from the rota at the moment of the decision and is stored on the request. It is the evidence that cover was considered, which is what an argument three months later actually turns on."
+        subtitle="Officers ask from their portal. While a request waits, the rota warns anyone putting them on those days; approving takes them off any shifts they were already on — those go on Control's cover list — and tells the officer. The shift count is stored with the decision as the evidence that cover was considered."
       >
         <div className="-mx-1 overflow-x-auto">
           <table className="w-full min-w-[46rem] border-collapse text-[12px]">
@@ -121,7 +121,7 @@ export default async function AdminPeoplePage() {
                     )}
                   </td>
                   <td className="px-1 py-2.5 whitespace-nowrap">
-                    {formatShortDate(h.startsOn)} — {formatShortDate(h.endsOn)}
+                    {formatShortDate(h.startsOn)} — {formatShortDate(h.lastDay)}
                   </td>
                   <td className="px-1 py-2.5 whitespace-nowrap">{h.hoursRequested}h</td>
                   <td className="px-1 py-2.5 whitespace-nowrap">
@@ -168,7 +168,7 @@ export default async function AdminPeoplePage() {
                     ) : (
                       <div className="flex flex-col gap-1">
                         <StatusPill
-                          severity={h.decision === "approved" ? "good" : "critical"}
+                          severity={h.decision === "approved" ? "good" : h.decision === "cancelled" ? "neutral" : "critical"}
                           label={h.decision}
                         />
                         {h.note && (

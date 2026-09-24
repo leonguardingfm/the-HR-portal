@@ -20,6 +20,7 @@ import {
 } from "@/lib/core/admin";
 import { actingNote } from "@/lib/auth/delegation";
 import { getEffectiveRoles } from "@/lib/db/roles";
+import { applyApprovedLeave, tellOfficerAboutLeave } from "@/lib/db/leave";
 import { refused, ok, type ActionResult } from "./types";
 import type { Role } from "@/lib/types";
 
@@ -873,21 +874,28 @@ export async function decideHoliday(
     where: {
       personId: request.personId,
       state: { not: "cancelled" },
-      startsAt: { lte: request.endsOn },
-      endsAt: { gte: request.startsOn },
+      startsAt: { lt: request.endsOn },
+      endsAt: { gt: request.startsOn },
     },
   });
+  const now = new Date();
 
   await db.$transaction([
     db.holidayRequest.update({
       where: { id: request.id },
       data: {
         decision: verdict,
-        decidedAt: new Date(),
+        decidedAt: now,
         decidedByUserId: session.userId,
-        note,
+        // What the officer wrote stays unless the decision says something.
+        note: note ?? request.note,
         shiftsAffected,
       },
+    }),
+    // The request's task on Admin's list is settled by the decision.
+    db.workItem.updateMany({
+      where: { personId: request.personId, state: "open", title: { startsWith: `Leave request: ${request.person.fullName},` } },
+      data: { state: "done", doneAt: now },
     }),
     db.event.create({
       data: {
@@ -898,17 +906,24 @@ export async function decideHoliday(
         personId: request.personId,
         detail:
           `${request.hoursRequested} hours, ${request.startsOn.toISOString().slice(0, 10)} to ${request.endsOn.toISOString().slice(0, 10)}, ${verdict}. ` +
-          `${shiftsAffected} rostered shift${shiftsAffected === 1 ? "" : "s"} in that window.` +
+          `${shiftsAffected} rostered shift${shiftsAffected === 1 ? "" : "s"} in that window` +
+          (verdict === "approved" && shiftsAffected ? " — taken off the rota and put on the cover list." : ".") +
           (note ? ` ${note}` : ""),
       },
     }),
   ]);
+  // Approved leave changes the rota at once, so Control sees it without being told.
+  const moved = verdict === "approved" ? await applyApprovedLeave(request.id, { userId: session.userId, role: session.activeRole }, now) : { off: 0, cover: 0 };
+  await tellOfficerAboutLeave(request.id, now);
 
   refreshAdmin();
+  revalidatePath("/scheduling");
+  revalidatePath("/me");
+  revalidatePath(`/people/${request.personId}`);
   return ok(
     verdict === "approved"
-      ? `Approved. ${shiftsAffected > 0 ? `${shiftsAffected} rostered shift${shiftsAffected === 1 ? "" : "s"} in that window need cover — Control has been told.` : "No rostered shifts in that window."}`
-      : "Rejected, with your reason on the record.",
+      ? `Approved. ${moved.off > 0 ? `${moved.off} shift${moved.off === 1 ? "" : "s"} in that window came off the rota${moved.cover ? ` and ${moved.cover === 1 ? "is" : "are"} on Control's cover list` : ""}.` : "No rostered shifts in that window."} ${request.person.fullName} has been told.`
+      : `Rejected, with your reason on the record. ${request.person.fullName} has been told.`,
   );
 }
 

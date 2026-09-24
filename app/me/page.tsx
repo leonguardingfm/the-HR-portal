@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { MyDuties } from "@/components/me/MyDuties";
 import { roleHome } from "@/lib/accounts";
 import { requireSession } from "@/lib/auth/server";
-import { getControlPhone, getMyAlerts, getMyAvailability, getMyOpenShifts } from "@/lib/db/me";
+import { getControlPhone, getMyAlerts, getMyAvailability, getMyLeave, getMyOpenShifts } from "@/lib/db/me";
 import { vapidPublicKey } from "@/lib/db/push";
 import { getMyDuties } from "@/lib/db/queries";
 
@@ -16,12 +16,13 @@ export const dynamic = "force-dynamic";
 export default async function MyDutiesPage() {
   const session = await requireSession();
   if (session.activeRole !== "officer") redirect(roleHome(session.activeRole));
-  const [rows, alerts, openShifts, availability, controlPhone] = await Promise.all([
+  const [rows, alerts, openShifts, availability, controlPhone, leave] = await Promise.all([
     getMyDuties(session.personId),
     getMyAlerts(session.userId),
     getMyOpenShifts(session.personId),
     getMyAvailability(session.personId),
     getControlPhone(),
+    getMyLeave(session.personId),
   ]);
   return (
     <MyDuties
@@ -33,6 +34,7 @@ export default async function MyDutiesPage() {
       vapidKey={vapidPublicKey()}
       openShifts={openShifts}
       availability={availability}
+      leave={leave}
     />
   );
 }

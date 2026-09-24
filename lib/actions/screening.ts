@@ -3,6 +3,7 @@
 import { Prisma } from "@prisma/client";
 import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
+import { importApplication } from "@/lib/db/application";
 import { getSession } from "@/lib/auth/server";
 import { canDo, ACTIONS, type ActionId } from "@/lib/auth/permissions";
 import { canSignOff } from "@/lib/bs7858";
@@ -149,6 +150,17 @@ export async function openScreeningFile(
         },
       });
       await fileEvent(tx, session, f, "screening.file_opened", `Screening file opened for ${c.person.fullName}.`);
+      // What the candidate sent in their own application lands here, so
+      // nobody types it in again.
+      const sent = await tx.candidateInvite.findFirst({
+        where: { purpose: "application", submittedAt: { not: null }, candidacy: { personId: c.personId } },
+        orderBy: { submittedAt: "desc" },
+        select: { submission: true },
+      });
+      if (sent?.submission) {
+        const got = await importApplication(tx, { fileId: f.id, personId: c.personId, submission: sent.submission as never, actorUserId: session.userId });
+        await fileEvent(tx, session, f, "screening.application_imported", `From ${c.person.fullName}'s own application: ${got.periods} history period${got.periods === 1 ? "" : "s"} and ${got.documents} document${got.documents === 1 ? "" : "s"} added, consent recorded as e-signed.`);
+      }
       await settleStatus(tx, f.id);
       return f;
     });

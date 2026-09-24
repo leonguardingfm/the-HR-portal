@@ -5,7 +5,7 @@
  * session — never by anything the page sends.
  */
 
-import { addDays, clashWith, dayLabel, ukDate, ukTime } from "@/lib/core/rota";
+import { addDays, clashWith, dayLabel, ukDate, ukInstant, ukTime } from "@/lib/core/rota";
 import { db } from "./client";
 
 /** Open alerts addressed to this account — a missed book-on, an overdue check call, news from Control. */
@@ -72,7 +72,7 @@ export async function getMyOpenShifts(personId: string, now = new Date()): Promi
 export async function getMyAvailability(personId: string, now = new Date()) {
   const today = ukDate(now);
   const days = Array.from({ length: 28 }, (_, i) => addDays(today, i));
-  const [rows, shifts] = await Promise.all([
+  const [rows, shifts, leave] = await Promise.all([
     db.availability.findMany({
       where: { personId, date: { gte: new Date(`${days[0]}T00:00:00Z`), lte: new Date(`${days[days.length - 1]}T00:00:00Z`) } },
       select: { date: true, kind: true },
@@ -81,16 +81,49 @@ export async function getMyAvailability(personId: string, now = new Date()) {
       where: { personId, state: { notIn: ["cancelled", "draft"] }, endsAt: { gt: now }, startsAt: { lt: new Date(now.getTime() + 29 * 86_400_000) } },
       select: { startsAt: true, endsAt: true, post: { select: { name: true } } },
     }),
+    db.holidayRequest.findMany({
+      where: { personId, decision: { in: ["approved", "pending"] }, endsOn: { gt: now }, startsOn: { lt: new Date(now.getTime() + 29 * 86_400_000) } },
+      select: { startsOn: true, endsOn: true, decision: true },
+    }),
   ]);
+  const leaveOn = (d: string) => {
+    const at = ukInstant(d, "12:00");
+    return leave.find((l) => l.startsOn <= at && at < l.endsOn)?.decision ?? null;
+  };
   const said: Record<string, "available" | "unavailable"> = {};
   for (const r of rows) said[r.date.toISOString().slice(0, 10)] = r.kind;
   const shiftOn = new Map<string, string>();
   for (const s of shifts) shiftOn.set(ukDate(s.startsAt), `${s.post.name} ${ukTime(s.startsAt)}–${ukTime(s.endsAt)}`);
   return {
     said,
-    days: days.map((d) => ({ date: d, label: dayLabel(d), weekday: dayLabel(d).slice(0, 3), shift: shiftOn.get(d) ?? null })),
+    days: days.map((d) => ({ date: d, label: dayLabel(d), weekday: dayLabel(d).slice(0, 3), shift: shiftOn.get(d) ?? null, leave: leaveOn(d) as "approved" | "pending" | null })),
   };
 }
+
+/** Their leave this year: what they have, what is taken and waiting, and their requests. */
+export async function getMyLeave(personId: string, now = new Date()) {
+  const [ent, requests] = await Promise.all([
+    db.holidayEntitlement.findFirst({ where: { personId, leaveYearStart: { lte: now }, leaveYearEnd: { gt: now } } }),
+    db.holidayRequest.findMany({
+      where: { personId, OR: [{ endsOn: { gt: new Date(now.getTime() - 60 * 86_400_000) } }, { decision: "pending" }] },
+      orderBy: { startsOn: "asc" },
+      take: 12,
+    }),
+  ]);
+  const inYear = ent ? await db.holidayRequest.findMany({ where: { personId, decision: { in: ["approved", "pending"] }, startsOn: { gte: ent.leaveYearStart, lt: ent.leaveYearEnd } }, select: { decision: true, hoursRequested: true } }) : [];
+  const sum = (d: string) => inYear.filter((r) => r.decision === d).reduce((n, r) => n + r.hoursRequested, 0);
+  return {
+    entitlement: ent ? ent.entitlementHours + ent.carriedOverHours : null,
+    taken: sum("approved"),
+    waiting: sum("pending"),
+    yearEnds: ent ? ukDate(new Date(ent.leaveYearEnd.getTime() - 1)) : null,
+    requests: requests
+      .filter((r) => r.decision !== "cancelled" || r.endsOn > now)
+      .map((r) => ({ id: r.id, from: ukDate(r.startsOn), to: ukDate(new Date(r.endsOn.getTime() - 1)), hours: r.hoursRequested, decision: r.decision, note: r.note })),
+  };
+}
+
+export type MyLeave = Awaited<ReturnType<typeof getMyLeave>>;
 
 /** Control's number, which officers ring from their portal. */
 export async function getControlPhone(): Promise<string | null> {

@@ -1,3 +1,4 @@
+import { headers } from "next/headers";
 import { Suspense } from "react";
 import { AlertBar } from "@/components/live/AlertBar";
 import { LiveProvider } from "@/components/live/Live";
@@ -17,6 +18,9 @@ import { Topbar } from "./Topbar";
  * but if one did, it renders the page bare rather than a shell with no user.
  */
 export async function AppShell({ children }: { children: React.ReactNode }) {
+  // A candidate's or referee's link: their own page, never the staff shell —
+  // even when somebody signed in opens it to check it.
+  if ((await headers()).get("x-leon-by-link") === "1") return <>{children}</>;
   const session = await getSession();
   if (!session) return <>{children}</>;
   const [, pulse] = await Promise.all([touchSession(session.workSessionId), getPulse(session)]);
