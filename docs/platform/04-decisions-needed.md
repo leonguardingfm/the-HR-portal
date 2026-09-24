@@ -498,6 +498,78 @@ needs to be recorded ahead of the rota rather than at the moment of asking, it i
   instead" for officers with a portal, and stay open for those without, because an app cannot be made
   mandatory (E3). The dashboard shows how much the officers did themselves.
 
+### E24 — The Control Room runs live, and alerts reach people — **answered, and built**
+> **Control's screens must stay current whether anyone reloads them or not, and the checks must run
+> whether anyone is signed in or not. Officers and Control must get alerts that grab their
+> attention.** *(25 September 2026.)*
+
+- **The server runs the duty sweep itself**, every 30 seconds from start-up (`instrumentation.ts`).
+  Where the portal is hosted on a platform that does not keep a server running, set `DUTY_WORKER=off`
+  and have its scheduler run `npm run sweep:duty` every minute instead.
+- **Screens update themselves**: every open page asks a pulse (`/api/pulse`) every few seconds and
+  refetches its data the moment anything has been written — every write goes to the event log, so the
+  log is the signal. What is being typed is never pulled away; the refresh waits until typing stops.
+  *Nothing may write to the event log while a page renders*, or every open screen would refresh in a loop.
+- **The alarm**: a red bar on every Control page with the count, the next uncovered shift and a siren
+  that repeats every 20 seconds until acknowledged (per screen); the tab flashes. Officers get the same
+  for their own alerts, with vibration.
+- **Web push** to phones and desks, through the browser (no text-message provider needed): officers
+  reminded every 5 minutes, 3 times at most; Control desks once per alert. Every delivery is recorded
+  against its alert. iPhones need the portal added to the home screen. *Needs `VAPID_PUBLIC_KEY`,
+  `VAPID_PRIVATE_KEY` and `VAPID_SUBJECT` — a fresh pair and a real company address for production.*
+  Text messages or phone calls remain E16: the same place, another channel.
+
+### E25 — Uncovered shifts, and tasks that can be worked — **answered, and built**
+> **Make uncovered shifts easy to see. Tasks need Open, "I'll take it" and Done, and the two Control
+> desks need to see who is handling what.** *(25 September 2026.)*
+
+- A shift nobody is on that starts within 24 hours raises an alert and a task; uncovered shifts lead the
+  dashboard and the Live board, and the alarm bar names the next one with a countdown.
+- Tasks open where their work is done, can be taken (and taken over, which is logged), handed back, and
+  closed with a note. Alerts close themselves when put right; a missed check call closed by hand must
+  say how the officer was reached.
+- The dashboard shows only real data. The hard-coded sample sections are gone.
+
+### E26 — Clients, sites and posts entered by Control — **answered, and built**
+> **Clients, sites and posts must be added in the portal.** *(25 September 2026.)*
+
+Control holds `place.manage`. A site carries its location and on-site radius, its on-site contact and
+address; a post its check-call rule, signal, phone and the instructions its officers read. Nothing is
+deleted — made inactive, and not while shifts are still ahead. Sales and management can read it.
+
+### E27 — Selfie proof on book-ons and check calls — **answered, and built**
+> **Officers book on and make check calls with a selfie through the portal's camera, with the details,
+> the location and a QR code on the picture itself.** *(25 September 2026.)*
+
+- The live camera, not the gallery; the phone's location read at the same time. The portal stamps the
+  photo with who, the post, the UK date and time, the coordinates and accuracy, a reference and a QR code
+  that opens the server's own record (`/duty/verify/<code>`), so an edited stamp is caught.
+- The server judges the distance from the site against its radius. Away from the site raises an alert to
+  Control; no location, a vague fix or a gallery photo is shown as weaker evidence.
+- A broken camera does not stop a real officer booking on: "Camera not working?" still books on, and
+  tells Control to ring them. Reporting a problem never waits for a photo.
+- *To decide before go-live*: how long selfies are kept (a proposal: 90 days, longer when attached to an
+  incident), and the privacy notice officers are given. Location and photos are personal data (E6).
+
+### E28 — The rest of "make it easier for everyone" — **answered, and built**
+> **Agreed, 25 September 2026.**
+
+- **Officers**: tap to call Control (the number is the `control.phone` setting — a placeholder until the
+  real one is set), a map of the site, the post's phone and instructions, "I'm running late", report an
+  incident, offer for open shifts, and say which days they are free.
+- **Control**: offers accepted or declined on the rota (accepted exactly as a yes on the phone, and the
+  officer told either way); availability shown on the candidates and used for suggestions; eleven hours'
+  rest between shifts **enforced**; officers kept off a site, with the reason, enforced everywhere; an
+  officer's own page; searchable history lists; hours for payroll as a spreadsheet; an Operations Manager
+  login (`olivia`).
+
+### E29 — Escalation step 3, the welfare visit — **open: proposal made**
+Step 3 of the ladder — somebody attends site — has no record yet. The proposal is a welfare-visit record
+on the shift: who was sent and when, arrival, what was found (safe and well / unwell, ambulance called /
+not on site, police told / post abandoned), what the client was told, and a clock that alerts the
+Operations Manager if nobody has arrived within a set time. Waiting on the outcomes list, who can be
+sent, and the times.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

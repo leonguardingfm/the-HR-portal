@@ -9,6 +9,7 @@ import { useNow } from "@/components/ui/useNow";
 import { formatShiftWindow, formatTime } from "@/lib/format";
 import type { UncoveredShift } from "@/lib/db/uncovered";
 import { UncoveredPanel } from "./UncoveredPanel";
+import { ProofBadge } from "@/components/duty/DutyShared";
 import {
   CHANNEL_EVIDENCE,
   ESCALATION_LADDER,
@@ -471,7 +472,10 @@ export function LiveBoard({
                       <StatusPill severity={r.call.severity} label={r.call.label} />
                     </td>
                     <td className="px-1 py-2.5">
-                      {evidence ? (
+                      {r.bookOn?.byOfficer ? (
+                        // The officer's own book-on: its selfie is the evidence.
+                        <ProofBadge proof={r.bookOn.proof} byOfficer siteHasLocation={r.site.hasLocation} />
+                      ) : evidence ? (
                         <>
                           <p>{evidence.label}</p>
                           <p
@@ -539,7 +543,7 @@ export function LiveBoard({
         </div>
       </Card>
 
-      <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
+      <div id="incidents" className="grid scroll-mt-32 grid-cols-1 gap-5 xl:grid-cols-2">
         <Card
           title="Incidents"
           subtitle="Reported from site. Severity decides whether the client is notified and how fast."

@@ -14,11 +14,20 @@
  * with is cancelled with a note in the event log.
  */
 
+import { createHash, randomBytes } from "node:crypto";
+import { readFileSync } from "node:fs";
 import type { ChaseUpOutcome, ContactChannel, AskChannel } from "@prisma/client";
 import { DEV_SEED_PASSWORD } from "../lib/accounts";
 import { hashPassword } from "../lib/auth/password";
+import { judgeLocation, newProofCode } from "../lib/core/proof";
+import { addDays, ukDate, ukTime } from "../lib/core/rota";
 import { db } from "../lib/db/client";
 import { loadLive, officerOffWrites } from "../lib/db/cover";
+import { putObject } from "../lib/storage";
+
+/** One generic picture stands in for every demonstration selfie. */
+const DEMO_SELFIE = readFileSync(new URL("./demo-selfie.jpg", import.meta.url));
+const DEMO_SHA = createHash("sha256").update(DEMO_SELFIE).digest("hex");
 
 const MIN = 60_000;
 const H = 60 * MIN;
@@ -36,6 +45,9 @@ interface Scenario {
   attempts?: { at: number; channel: ContactChannel; note: string }[];
   clientTold?: { at: number; contact: string };
   cannotAttend?: { note: string };
+  /** The last check call's selfie was taken this far (metres, roughly north) from the site. */
+  awayOnLastCall?: number;
+  runningLate?: { at: number; minutes: number; note: string };
   what: string;
 }
 
@@ -54,7 +66,7 @@ async function main() {
       calls: [-2 * H - 15 * MIN, -1 * H - 15 * MIN] },
     { what: "Missed, one failed try — step 2", portal: true, post: "Concourse, retail hours", officer: "Liam Corrigan", from: -4 * H, to: 8 * H,
       chase: [{ at: -6 * H, outcome: "confirmed", channel: "phone" }], bookOn: { at: -4 * H - 5 * MIN, channel: "app" },
-      calls: [-3 * H - 2 * MIN, -2 * H - 5 * MIN, -1 * H - 40 * MIN],
+      calls: [-3 * H - 2 * MIN, -2 * H - 5 * MIN, -1 * H - 40 * MIN], awayOnLastCall: 2300,
       attempts: [{ at: -25 * MIN, channel: "phone", note: "Rang out, no voicemail" }] },
     { what: "No signal at the post — client holding contact", portal: true, post: "Perimeter, nights", officer: "Grace Mbeki", from: -2 * H, to: 10 * H,
       chase: [{ at: -4 * H, outcome: "confirmed", channel: "phone" }], bookOn: { at: -2 * H - 10 * MIN, channel: "phone" },
@@ -64,8 +76,9 @@ async function main() {
       calls: [-43 * MIN] },
     { what: "Due on site now, confirmed in the portal", portal: true, post: "Day patrol", officer: "Shanice Bennett", from: -10 * MIN, to: 1 * H + 30 * MIN,
       chase: [{ at: -2 * H, outcome: "confirmed" }] },
-    { what: "No show — two unanswered chase-ups", portal: true, post: "Vehicle gate, relief", officer: "Callum Reid", from: -40 * MIN, to: 11 * H + 20 * MIN,
-      chase: [{ at: -2 * H - 40 * MIN, outcome: "no_answer", channel: "phone" }, { at: -1 * H - 40 * MIN, outcome: "no_answer", channel: "phone" }] },
+    { what: "No show — two unanswered chase-ups, then said he is running late", portal: true, post: "Vehicle gate, relief", officer: "Callum Reid", from: -40 * MIN, to: 11 * H + 20 * MIN,
+      chase: [{ at: -2 * H - 40 * MIN, outcome: "no_answer", channel: "phone" }, { at: -1 * H - 40 * MIN, outcome: "no_answer", channel: "phone" }],
+      runningLate: { at: -35 * MIN, minutes: 75, note: "Car broken down on the M6" } },
     { what: "Cannot attend — off, cover needed", portal: true, post: "Concierge desk", officer: "Marta Kowalczyk", from: 1 * H + 30 * MIN, to: 13 * H + 30 * MIN,
       cannotAttend: { note: "Rang in with a temperature" } },
     { what: "Chase-up due, no answer yet", portal: true, post: "Day patrol", officer: "Elena Petrova", from: 1 * H + 40 * MIN, to: 9 * H + 40 * MIN,
@@ -144,6 +157,29 @@ async function main() {
         publishCheckNote: "Passed with no warnings",
       },
     });
+    const post = posts.find((p) => p.name === s.post)!;
+    const place = post.site.latitude == null ? null : { lat: Number(post.site.latitude), lng: Number(post.site.longitude), radiusMetres: post.site.radiusMetres };
+    // A selfie as an officer's portal would send it: near the site, or this far off it.
+    const selfie = async (link: { bookOnId: string } | { checkCallId: string }, at: Date, away = 0) => {
+      if (!place) return null;
+      const fix = { lat: place.lat + (away || 25 + Math.random() * 40) / 111_320, lng: place.lng, accuracy: 12 + Math.round(Math.random() * 20) };
+      const code = newProofCode((n) => randomBytes(n));
+      const key = `proofs/demo/${code}.jpg`;
+      await putObject(key, DEMO_SELFIE);
+      const judged = judgeLocation(fix, place);
+      // The row's data only: it is written after the book-on or call it proves.
+      return {
+        code, assignmentId: a.id, kind: ("bookOnId" in link ? "book_on" : "check_call") as "book_on" | "check_call", receivedAt: at, deviceAt: at,
+        latitude: fix.lat, longitude: fix.lng, accuracyMetres: fix.accuracy, distanceMetres: judged.distance, atSite: judged.atSite,
+        liveCamera: true, storageKey: key, mimeType: "image/jpeg", bytes: DEMO_SELFIE.length, sha256: DEMO_SHA, ...link,
+      };
+    };
+    const selfBookOn = s.bookOn && s.portal && s.officer !== "Grace Mbeki";
+    const selfCall = (i: number) => s.portal && !(s.officer === "Liam Corrigan" && i === 1);
+    const proofs = [
+      ...(selfBookOn ? [await selfie({ bookOnId: `demo-bo-${a.id}` }, at(s.bookOn!.at))] : []),
+      ...(await Promise.all((s.calls ?? []).map((c, i) => (selfCall(i) ? selfie({ checkCallId: `demo-cc-${a.id}-${i}` }, at(c), i === s.calls!.length - 1 ? s.awayOnLastCall : 0) : null)))),
+    ].filter((x): x is NonNullable<typeof x> => x !== null);
     const writes = [
       db.event.create({ data: { type: "demo.duty_shift", actorSystem: "demo", department: "control", assignmentId: a.id, detail: `Demonstration: ${s.what}.` } }),
       ...(s.chase ?? []).map((c) =>
@@ -152,8 +188,8 @@ async function main() {
       ...(s.bookOn
         ? [
             db.bookOn.create({
-              data: s.portal && s.officer !== "Grace Mbeki"
-                ? { assignmentId: a.id, at: at(s.bookOn.at), channel: "app" }
+              data: selfBookOn
+                ? { id: `demo-bo-${a.id}`, assignmentId: a.id, at: at(s.bookOn.at), channel: "app", locationVerified: !!place }
                 : { assignmentId: a.id, at: at(s.bookOn.at), channel: s.bookOn.channel, recordedByUserId: control.id },
             }),
           ]
@@ -161,8 +197,8 @@ async function main() {
       ...(s.calls ?? []).map((c, i) =>
         db.checkCall.create({
           // Officers with a portal make their own; one of Liam's came in by phone.
-          data: s.portal && !(s.officer === "Liam Corrigan" && i === 1)
-            ? { assignmentId: a.id, at: at(c), channel: "app", allWell: true }
+          data: selfCall(i)
+            ? { id: `demo-cc-${a.id}-${i}`, assignmentId: a.id, at: at(c), channel: "app", allWell: true }
             : { assignmentId: a.id, at: at(c), channel: "phone", allWell: true, takenByUserId: control.id },
         }),
       ),
@@ -172,8 +208,23 @@ async function main() {
       ...(s.clientTold
         ? [db.noSignalHandover.create({ data: { assignmentId: a.id, notifiedAt: at(s.clientTold.at), notifiedByUserId: control.id, notifiedContact: s.clientTold.contact } })]
         : []),
+      ...(s.runningLate
+        ? [
+            db.runningLate.create({ data: { assignmentId: a.id, at: at(s.runningLate.at), minutes: s.runningLate.minutes, note: s.runningLate.note } }),
+            db.workItem.create({
+              data: { title: `Running late: ${s.officer}, ${s.post} — expects to arrive about ${ukTime(new Date(T + s.from + s.runningLate.minutes * MIN))} (${s.runningLate.minutes} min late) — “${s.runningLate.note}”`, assignmentId: a.id, ownerRole: "control", dueAt: at(s.runningLate.at), slaDays: 0 },
+            }),
+          ]
+        : []),
     ];
+    // The book-ons and calls first, then the selfies that prove them.
     await db.$transaction(writes);
+    if (proofs.length) await db.dutyProof.createMany({ data: proofs });
+    if (s.awayOnLastCall && s.calls?.length) {
+      await db.workItem.create({
+        data: { title: `Selfie away from the site: ${s.officer}'s check call was taken ${(s.awayOnLastCall / 1000).toFixed(1)} km from ${post.site.name} — ${s.post}. Ring them`, assignmentId: a.id, ownerRole: "control", dueAt: at(s.calls[s.calls.length - 1]), slaDays: 0 },
+      });
+    }
 
     if (s.cannotAttend) {
       const live = (await loadLive(a.id))!;
@@ -186,6 +237,24 @@ async function main() {
     }
     console.log(`  ${s.what}: ${s.officer}, ${s.post}`);
   }
+  // 5. Ahead: what two officers said about their days, and an offer for an open shift.
+  const today = ukDate(now);
+  const say = async (name: string, days: number[], kind: "available" | "unavailable", note: string | null) => {
+    for (const d of days) {
+      const date = new Date(`${addDays(today, d)}T00:00:00Z`);
+      await db.availability.upsert({ where: { personId_date: { personId: personId(name), date } }, create: { personId: personId(name), date, kind, note }, update: { kind, note } });
+    }
+  };
+  await say("Wesley Anand", [1, 2, 3, 5, 6], "available", null);
+  await say("Marta Kowalczyk", [1, 2], "unavailable", "Recovering — back on the 27th");
+  await say("Elena Petrova", [2, 4], "available", "Nights preferred");
+  const gap = await db.openShift.findFirst({ where: { assignmentId: null, cancelledAt: null, startsAt: { gt: new Date(T + 20 * H) } }, orderBy: { startsAt: "asc" }, include: { post: { include: { site: true } } } });
+  if (gap && !(await db.shiftVolunteer.findUnique({ where: { openShiftId_personId: { openShiftId: gap.id, personId: personId("Elena Petrova") } } }))) {
+    await db.shiftVolunteer.create({ data: { openShiftId: gap.id, personId: personId("Elena Petrova"), at: now, note: "Happy to do nights this week" } });
+    await db.workItem.create({ data: { title: `Offered to work: Elena Petrova — ${gap.post.name} at ${gap.post.site.name}. Accept or decline on the rota`, openShiftId: gap.id, ownerRole: "control", dueAt: new Date(T + 86_400_000), slaDays: 1 } });
+    console.log(`  Elena Petrova offered for ${gap.post.name}, ${gap.startsAt.toISOString()}`);
+  }
+
   console.log(`\nTen demonstration shifts built around ${now.toISOString()}. Open /duty/chase-ups, /duty/book-ons, /duty/check-calls or the dashboard.`);
 }
 

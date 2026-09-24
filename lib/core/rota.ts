@@ -17,8 +17,9 @@
 
 export const OPERATION_TZ = "Europe/London";
 
-/** Daily rest under the Working Time Regulations. Security work can be a
- *  special case with compensatory rest, so a short gap is shown, not refused. */
+/** Daily rest under the Working Time Regulations: at least eleven hours
+ *  between one shift and the next. Enforced — the rota refuses a shift that
+ *  leaves less (Control, 25 September 2026). */
 export const MIN_REST_HOURS = 11;
 
 /** How far back "has worked this post" looks. */
@@ -208,6 +209,28 @@ export function shortestRest(shifts: Busy[], w: Busy): number | null {
   return best;
 }
 
+/**
+ * Why these shifts would leave an officer less than eleven hours' rest, or
+ * null. `busy` is what they already hold; the windows are checked against it
+ * and against each other. Back-to-back shifts that touch (a relief handing
+ * straight over) are one stretch of work, not a gap, and are left to the
+ * hours limit.
+ */
+export function restProblem(busy: Busy[], windows: Busy[]): string | null {
+  for (const [i, w] of windows.entries()) {
+    const others = [...busy, ...windows.filter((_, j) => j !== i)].filter((s) => s.endsAt.getTime() !== w.startsAt.getTime() && s.startsAt.getTime() !== w.endsAt.getTime());
+    const rest = shortestRest(others, w);
+    if (rest !== null && rest < MIN_REST_HOURS) {
+      const near = others.find((s) => {
+        const gap = s.endsAt <= w.startsAt ? w.startsAt.getTime() - s.endsAt.getTime() : s.startsAt.getTime() - w.endsAt.getTime();
+        return Math.abs(gap / HOUR - rest) < 0.01;
+      });
+      return `Only ${Math.round(rest * 10) / 10}h rest ${near && near.endsAt <= w.startsAt ? "after" : "before"} ${near?.label ?? "another shift"} — at least ${MIN_REST_HOURS}h is needed between shifts.`;
+    }
+  }
+  return null;
+}
+
 /** Hours worked inside a window, counting only the part of each shift inside it. */
 export function hoursWithin(shifts: Busy[], from: Date, to: Date): number {
   let ms = 0;
@@ -228,11 +251,13 @@ export type AskChannel = (typeof ASK_CHANNELS)[number];
 export const ASK_ANSWERS = ["yes", "no", "no_answer"] as const;
 export type AskAnswer = (typeof ASK_ANSWERS)[number];
 
-export const CHANNEL_LABELS: Record<AskChannel, string> = {
+export const CHANNEL_LABELS: Record<AskChannel | "portal", string> = {
   phone: "Phone",
   whatsapp: "WhatsApp",
   sms: "Text",
   in_person: "In person",
+  // Not one Control picks: the officer offered in their portal, and Control accepted.
+  portal: "Their portal",
 };
 
 export const ANSWER_LABELS: Record<AskAnswer, string> = {
@@ -287,19 +312,29 @@ export interface CandidateFacts {
   /** Shifts on this post in the last four weeks. */
   shiftsHere: number;
   saidNo: boolean;
+  /** What they said about the day in their portal, if anything. */
+  said?: "available" | "unavailable" | null;
 }
 
 /**
  * The order Control would ask in: the post's regular officer, anyone allocated
- * to it through a client requirement, then whoever knows the post best. Anyone
- * who has already said no drops to the bottom rather than off the list — the
- * answer can change, and the record should show they were tried.
+ * to it through a client requirement, then anyone who said in their portal
+ * that they are free that day, then whoever knows the post best. Anyone who
+ * has already said no — on the phone, or "not free" in their portal — drops
+ * to the bottom rather than off the list: the answer can change, and the
+ * record should show they were tried.
  */
 export function candidateOrder(a: CandidateFacts, b: CandidateFacts): number {
+  const away = (f: CandidateFacts) => Number(f.said === "unavailable");
+  const free = (f: CandidateFacts) => Number(f.said === "available");
   return (
     Number(a.saidNo) - Number(b.saidNo) ||
+    // Said in their portal they are not free that day: tried last.
+    away(a) - away(b) ||
     Number(b.regular) - Number(a.regular) ||
     Number(b.allocatedHere) - Number(a.allocatedHere) ||
+    // Said they are free: before anyone who has said nothing.
+    free(b) - free(a) ||
     b.shiftsHere - a.shiftsHere ||
     a.name.localeCompare(b.name)
   );
@@ -508,6 +543,7 @@ export function planBatch(
     }
     if (!reason && clashWith(onPost, item)) reason = "Somebody is already on this post then.";
     if (!reason) reason = hoursProblem(theirs, [item], ctx.weeklyHoursOf(item.personId));
+    if (!reason) reason = restProblem(theirs, [item]);
     if (reason) {
       refused.push({ item, reason });
       continue;
@@ -651,7 +687,7 @@ export function suggestOfficers(
     for (const id of ranked) {
       const theirs = person.get(id) ?? [];
       const item = { key: slot.key, postId: slot.postId, personId: id, startsAt: slot.startsAt, endsAt: slot.endsAt, label: slot.label };
-      if (ctx.blockerFor(item) || clashWith(theirs, slot) || hoursProblem(theirs, [slot], ctx.weeklyHoursOf(id))) continue;
+      if (ctx.blockerFor(item) || clashWith(theirs, slot) || hoursProblem(theirs, [slot], ctx.weeklyHoursOf(id)) || restProblem(theirs, [slot])) continue;
       out.set(slot.key, id);
       const mine = { startsAt: slot.startsAt, endsAt: slot.endsAt, label: slot.label ?? "another suggested shift" };
       person.set(id, [...theirs, mine]);

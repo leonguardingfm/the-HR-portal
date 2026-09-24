@@ -76,6 +76,9 @@ export const users: User[] = [
   // rung above the Finance Officer still needs a different person — so this row
   // is what makes the separation testable rather than theoretical.
   { id: "u10", personId: "hr8", name: "Vivien", roles: ["finance_officer", "top_management"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(30) },
+  // The Operations Manager: Control's manager, and step 3 of the escalation
+  // ladder by name. A login so what that role sees can be reviewed.
+  { id: "u11", personId: "ct3", name: "Olivia", roles: ["operations_manager"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(100) },
 ];
 
 export const userById = (id: string) => users.find((u) => u.id === id);

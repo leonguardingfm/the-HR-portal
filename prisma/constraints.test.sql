@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- One hundred and sixty-three assertions. Each one names a rule the platform claims to
+-- One hundred and eighty-nine assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -646,3 +646,69 @@ SELECT expect_failure('cannot attend without saying why',
   $$INSERT INTO "ChaseUp"(id,"assignmentId",channel,outcome) VALUES ('cu4','rf1','phone','cannot_attend')$$);
 SELECT expect_success('cannot attend, with what they said',
   $$INSERT INTO "ChaseUp"(id,"assignmentId",channel,outcome,note) VALUES ('cu5','rf1','whatsapp','cannot_attend','Rang in sick')$$);
+
+-- ---------------------------------------------------------------------------
+-- 21. The Control Room, live
+-- ---------------------------------------------------------------------------
+
+INSERT INTO "CoverNeed"(id,"postId","startsAt","endsAt",reason,"fromAssignmentId","raisedById")
+  VALUES ('cn21','post2','2026-10-12 09:00+01','2026-10-12 17:00+01','sick','rf2','u3');
+SELECT expect_success('an uncovered-shift task about a cover need',
+  $$INSERT INTO "WorkItem"(id,title,"coverNeedId","ownerRole","dueAt","slaDays") VALUES ('w21a','Uncovered shift: x','cn21','control',now(),0)$$);
+SELECT expect_failure('a task about two things at once',
+  $$INSERT INTO "WorkItem"(id,title,"coverNeedId","openShiftId","ownerRole","dueAt","slaDays") VALUES ('w21b','x','cn21','os5','control',now(),0)$$);
+SELECT expect_failure('a task about nothing',
+  $$INSERT INTO "WorkItem"(id,title,"ownerRole","dueAt","slaDays") VALUES ('w21c','x','control',now(),0)$$);
+SELECT expect_failure('taken, with nobody named',
+  $$UPDATE "WorkItem" SET "takenAt" = now() WHERE id = 'w21a'$$);
+SELECT expect_success('taken by somebody',
+  $$UPDATE "WorkItem" SET "takenAt" = now(), "ownerUserId" = 'u3' WHERE id = 'w21a'$$);
+
+SELECT expect_failure('a site with half a location',
+  $$UPDATE "Site" SET latitude = 51.5 WHERE id = 's1'$$);
+SELECT expect_failure('a site off the planet',
+  $$UPDATE "Site" SET latitude = 95, longitude = 0 WHERE id = 's1'$$);
+SELECT expect_failure('a radius of ten metres',
+  $$UPDATE "Site" SET "radiusMetres" = 10 WHERE id = 's1'$$);
+SELECT expect_success('a site located, with a radius',
+  $$UPDATE "Site" SET latitude = 51.5155, longitude = -0.0922, "radiusMetres" = 300 WHERE id = 's1'$$);
+
+SELECT expect_success('an officer kept off a site, with why',
+  $$INSERT INTO "SiteExclusion"(id,"siteId","personId",reason,"addedById") VALUES ('x1','s1','p1','The client asked','u3')$$);
+SELECT expect_failure('kept off the same site twice',
+  $$INSERT INTO "SiteExclusion"(id,"siteId","personId",reason,"addedById") VALUES ('x2','s1','p1','Again','u3')$$);
+SELECT expect_failure('kept off without saying why',
+  $$INSERT INTO "SiteExclusion"(id,"siteId","personId",reason,"addedById") VALUES ('x3','s1','p2','  ','u3')$$);
+SELECT expect_failure('lifted without saying why',
+  $$UPDATE "SiteExclusion" SET "liftedAt" = now(), "liftedById" = 'u3' WHERE id = 'x1'$$);
+SELECT expect_success('lifted, with why',
+  $$UPDATE "SiteExclusion" SET "liftedAt" = now(), "liftedById" = 'u3', "liftedReason" = 'Client relented' WHERE id = 'x1'$$);
+SELECT expect_success('kept off again after it was lifted',
+  $$INSERT INTO "SiteExclusion"(id,"siteId","personId",reason,"addedById") VALUES ('x4','s1','p1','A second complaint','u3')$$);
+
+SELECT expect_success('an officer offers for an open shift',
+  $$INSERT INTO "ShiftVolunteer"(id,"openShiftId","personId") VALUES ('v1','os5','p2')$$);
+SELECT expect_failure('offered twice for the same shift',
+  $$INSERT INTO "ShiftVolunteer"(id,"openShiftId","personId") VALUES ('v2','os5','p2')$$);
+SELECT expect_failure('decided, with no time it was decided',
+  $$UPDATE "ShiftVolunteer" SET state = 'declined' WHERE id = 'v1'$$);
+SELECT expect_success('declined, when',
+  $$UPDATE "ShiftVolunteer" SET state = 'declined', "decidedAt" = now(), "decidedById" = 'u3' WHERE id = 'v1'$$);
+
+INSERT INTO "BookOn"(id,"assignmentId",at,channel) VALUES ('bo21','rf1','2026-10-12 08:55+01','app');
+INSERT INTO "CheckCall"(id,"assignmentId",at,channel) VALUES ('cc21','rf1','2026-10-12 09:50+01','app');
+SELECT expect_success('a selfie proving a book-on',
+  $$INSERT INTO "DutyProof"(id,code,"assignmentId",kind,"liveCamera","storageKey","mimeType",bytes,sha256,"bookOnId") VALUES ('dp1','K7QM-2XRD-9T','rf1','book_on',true,'k','image/jpeg',1,'h','bo21')$$);
+SELECT expect_failure('a selfie proving nothing',
+  $$INSERT INTO "DutyProof"(id,code,"assignmentId",kind,"liveCamera","storageKey","mimeType",bytes,sha256) VALUES ('dp2','K7QM-2XRD-9U','rf1','book_on',true,'k','image/jpeg',1,'h')$$);
+SELECT expect_failure('a book-on selfie tied to a check call',
+  $$INSERT INTO "DutyProof"(id,code,"assignmentId",kind,"liveCamera","storageKey","mimeType",bytes,sha256,"checkCallId") VALUES ('dp3','K7QM-2XRD-9V','rf1','book_on',true,'k','image/jpeg',1,'h','cc21')$$);
+SELECT expect_failure('the same code on two photos',
+  $$INSERT INTO "DutyProof"(id,code,"assignmentId",kind,"liveCamera","storageKey","mimeType",bytes,sha256,"checkCallId") VALUES ('dp4','K7QM-2XRD-9T','rf1','check_call',true,'k','image/jpeg',1,'h','cc21')$$);
+SELECT expect_failure('a selfie changed after it arrived',
+  $$UPDATE "DutyProof" SET "atSite" = true WHERE id = 'dp1'$$);
+
+SELECT expect_failure('running late by a day',
+  $$INSERT INTO "RunningLate"(id,"assignmentId",minutes) VALUES ('rl1','rf1',1440)$$);
+SELECT expect_success('running twenty minutes late',
+  $$INSERT INTO "RunningLate"(id,"assignmentId",minutes,note) VALUES ('rl2','rf1',20,'Train cancelled')$$);

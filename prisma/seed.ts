@@ -104,6 +104,9 @@ async function reset() {
       "Event", "DisposalRecord",
       // Admin first, because its rows point at WorkItem, Setting and Person.
       ...ADMIN_TABLES,
+      // The Control Room's own tables, children before the shifts they hang on.
+      "AlertDelivery", "PushSubscription", "DutyProof", "RunningLate", "ChaseUp", "NoSignalHandover",
+      "ShiftVolunteer", "Availability", "SiteExclusion", "ShiftAsk", "CoverNeed", "OpenShift",
       "FormAnswer", "FormResponse", "FormField", "FormDefinition",
       "ContactAttempt", "CheckCall", "BookOff", "BookOn", "Incident",
       "AssignmentAmendment", "Assignment",
@@ -304,6 +307,33 @@ async function seedPeople() {
   });
 }
 
+/**
+ * Demonstration details for the sites and posts: where each site is (so an
+ * officer's selfie can be checked against it), who to ring there, the post's
+ * own phone and the instructions its officer reads in their portal. Invented,
+ * like the rest; the phone numbers are Ofcom's drama range.
+ */
+const SITE_DETAILS: Record<string, { address: string; latitude: number; longitude: number; radiusMetres: number; contactName: string; contactPhone: string }> = {
+  s1: { address: "Unit 4, Meridian Park, Birmingham B11 2BE", latitude: 52.4631, longitude: -1.8595, radiusMetres: 300, contactName: "Dan Hughes, site manager", contactPhone: "0121 496 0114" },
+  s2: { address: "Unit 7, Meridian Park, Birmingham B11 2BE", latitude: 52.4618, longitude: -1.8572, radiusMetres: 250, contactName: "Priti Shah, transport office", contactPhone: "0121 496 0187" },
+  s3: { address: "Northgate Retail Park, Leeds LS2 7HY", latitude: 53.8018, longitude: -1.5431, radiusMetres: 400, contactName: "Centre management office", contactPhone: "0113 496 0321" },
+  s4: { address: "Halton Data Centre DC1, Runcorn WA7 1TP", latitude: 53.3291, longitude: -2.7019, radiusMetres: 350, contactName: "Sam Price, gatehouse", contactPhone: "01928 960 440" },
+  s5: { address: "Riverside Block A, Salford M50 3AZ", latitude: 53.4722, longitude: -2.2981, radiusMetres: 150, contactName: "Lena Ortiz, estate manager", contactPhone: "0161 496 0652" },
+  s6: { address: "Clearwater Pharma, Gate 2, Macclesfield SK10 2NA", latitude: 53.2688, longitude: -2.1402, radiusMetres: 250, contactName: "Security supervisor", contactPhone: "01625 960 219" },
+};
+
+const POST_DETAILS: Record<string, { phone?: string; instructions: string }> = {
+  post1: { phone: "0121 496 0100", instructions: "Gatehouse at the main entrance. Check every vehicle in against the booking sheet; no booking, no entry — ring the site manager.\nPatrol the yard at 23:00, 02:00 and 05:00; the keys for the fence gates are in the red key box.\nFire alarm panel is behind the gatehouse door. On alarm: call 999, then Control." },
+  post2: { instructions: "Mobile patrol of both depots, starting at Depot 4 reception. Check the loading bays and the perimeter fence each round and note anything in the occurrence book." },
+  post3: { phone: "0121 496 0170", instructions: "Lone-working gatehouse. Barrier stays down after 20:00; drivers sign in at the window. Do not leave the gatehouse unattended — ring Control if you have to." },
+  post4: { instructions: "Visible patrol of the concourse and car park. Shoplifting: observe and report to the store; do not detain alone. Radio channel 2 to centre management." },
+  post5: { instructions: "Second officer on the concourse, Friday to Sunday. Work with the first officer; take the car park while they take the malls." },
+  post6: { phone: "01928 960 441", instructions: "No mobile signal inside the perimeter: book on at the gatehouse before you go in. Patrol the fence line hourly; use the site phone at checkpoint C for anything urgent." },
+  post7: { phone: "0161 496 0650", instructions: "Front desk of Block A. Sign residents' visitors in, hold parcels, and walk the car park at 22:00 and 04:00. The CCTV screens are in the back office." },
+  post8: { phone: "01625 960 210", instructions: "Vehicle gate 2. Every vehicle in and out is logged; hazardous goods need the permit from the goods-in office before the barrier is raised." },
+  post9: { instructions: "Relief at vehicle gate 2 at weekends. Same rules as the main gate: log every vehicle, permits for hazardous goods." },
+};
+
 async function seedPlaces() {
   await db.client.createMany({
     data: clients.map((c) => ({
@@ -315,7 +345,7 @@ async function seedPlaces() {
     })),
   });
   await db.site.createMany({
-    data: sites.map((s) => ({ id: s.id, clientId: s.clientId, name: s.name })),
+    data: sites.map((s) => ({ id: s.id, clientId: s.clientId, name: s.name, ...SITE_DETAILS[s.id] })),
   });
   await db.post.createMany({
     data: posts.map((p) => ({
@@ -329,6 +359,7 @@ async function seedPlaces() {
       checkCalls: p.checkCallsRequired ? "always" : "nights_and_weekends",
       loneWorking: p.loneWorking,
       mobileSignal: p.mobileSignal,
+      ...POST_DETAILS[p.id],
     })),
   });
   await db.siteReference.createMany({

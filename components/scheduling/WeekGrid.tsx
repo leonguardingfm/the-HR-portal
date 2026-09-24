@@ -30,6 +30,8 @@ import {
   rosterState,
   suggestOfficers,
   shortestRest,
+  restProblem,
+  ukDate,
   weekday,
   type AskChannel,
   type Busy,
@@ -261,6 +263,7 @@ export function WeekGrid({
   changeDenied,
   hoursDenied,
   openCover,
+  openPost: openAt,
 }: {
   week: RotaWeek;
   today: string;
@@ -269,11 +272,15 @@ export function WeekGrid({
   changeDenied: string | null;
   hoursDenied: string | null;
   openCover?: string | null;
+  /** A post and day to open on arrival — from an alert, a task or the uncovered list. */
+  openPost?: { postId: string; date: string } | null;
 }) {
   // The server's clock, so the page and the browser agree on what is live.
   const now = useMemo(() => new Date(nowIso), [nowIso]);
   const [view, setView] = useState<"post" | "officer">("post");
-  const [open, setOpen] = useState<Open | null>(openCover ? { kind: "cover", id: openCover } : null);
+  const [open, setOpen] = useState<Open | null>(
+    openCover ? { kind: "cover", id: openCover } : openAt ? { kind: "post", postId: openAt.postId, date: openAt.date } : null,
+  );
 
   // Which view to read by is a per-person convenience, kept in this browser.
   useEffect(() => {
@@ -292,13 +299,23 @@ export function WeekGrid({
   useEffect(() => {
     if (openCover) setOpen({ kind: "cover", id: openCover });
   }, [openCover]);
+  const openPostKey = openAt ? `${openAt.postId}|${openAt.date}` : null;
+  useEffect(() => {
+    if (openPostKey) {
+      const [postId, date] = openPostKey.split("|");
+      setOpen({ kind: "post", postId, date });
+      setView("post");
+    }
+  }, [openPostKey]);
 
   const close = useCallback(() => {
     setOpen(null);
     // A ?cover= link has done its job once the panel is closed.
     const url = new URL(window.location.href);
-    if (url.searchParams.has("cover")) {
+    if (url.searchParams.has("cover") || url.searchParams.has("post")) {
       url.searchParams.delete("cover");
+      url.searchParams.delete("post");
+      url.searchParams.delete("day");
       window.history.replaceState(null, "", url.toString());
     }
   }, []);
@@ -407,12 +424,22 @@ export function WeekGrid({
         if (!o) return "Only officers on the books can be put on the rota.";
         const away = leaveProblem(leaveOf.get(item.personId) ?? [], item);
         if (away) return away;
-        const d = evaluateDeployability({ ...o.input, postRequiresSiaLicence: postOf.get(item.postId)?.requiresSiaLicence ?? true }, item.endsAt);
+        const post = postOf.get(item.postId);
+        if (post && o.excludedSites.includes(post.siteId)) return `Kept off ${post.siteName}.`;
+        const d = evaluateDeployability({ ...o.input, postRequiresSiaLicence: post?.requiresSiaLicence ?? true }, item.endsAt);
         return d.deployable ? null : d.blockers[0].label;
       },
       preference: (personId: string, postId: string) => {
         const p = postOf.get(postId);
-        return (p?.regular?.id === personId ? 100 : 0) + (p?.allocated.some((a) => a.personId === personId) ? 50 : 0) + (officerOf.get(personId)?.shiftsHere[postId] ?? 0);
+        const o = officerOf.get(personId);
+        return (
+          (p?.regular?.id === personId ? 100 : 0) +
+          (p?.allocated.some((a) => a.personId === personId) ? 50 : 0) +
+          // Offered for a shift on this post, or said they are free: asked early.
+          (week.openShifts.some((x) => x.postId === postId && x.offeredBy.includes(personId)) ? 40 : 0) +
+          (o && Object.values(o.said).includes("available") ? 5 : 0) +
+          (o?.shiftsHere[postId] ?? 0)
+        );
       },
     };
   }, [week]);
@@ -524,7 +551,18 @@ export function WeekGrid({
     }
     const picks = suggestOfficers(
       open.map((g) => ({ key: g.key, postId: g.post.id, ...fromNow({ startsAt: g.startsAt, endsAt: g.endsAt }, now), label: `${g.post.name}, ${dayLabel(g.date)}` })),
-      { officerIds: week.officers.map((o) => o.id), busyByPerson, busyByPost, weeklyHoursOf: availability.weeklyHoursOf, blockerFor: availability.blockerFor, preference: availability.preference, now },
+      {
+        officerIds: week.officers.map((o) => o.id),
+        busyByPerson,
+        busyByPost,
+        weeklyHoursOf: availability.weeklyHoursOf,
+        // Somebody who said in their portal they are not free that day is not
+        // suggested; Control can still type them in after a call.
+        blockerFor: (item) =>
+          availability.blockerFor(item) ?? (week.officers.find((o) => o.id === item.personId)?.said[ukDate(item.startsAt)] === "unavailable" ? "Said they are not free that day." : null),
+        preference: availability.preference,
+        now,
+      },
     );
     const officerOf = new Map(week.officers.map((o) => [o.id, o]));
     setTypedAll((t) => {
@@ -1762,6 +1800,10 @@ interface Candidate {
   shiftsHere: number;
   saidNo: boolean;
   asked: RotaWeek["asks"];
+  /** What they said in their portal about the day(s): free, not free, or nothing. */
+  said: "available" | "unavailable" | null;
+  /** Offered for this very shift in their portal. */
+  offered: boolean;
 }
 
 function CandidateList({
@@ -1815,9 +1857,15 @@ function CandidateList({
       if (windows.some((w) => leavePending(leave, w))) warnings.add("Has asked for leave then — not decided yet");
       const clash = windows.map((w) => clashWith(busy, w)).find(Boolean);
       if (!cannot && clash) cannot = `Already on ${clash.label} ${formatTime(clash.startsAt)}–${formatTime(clash.endsAt)}`;
+      if (!cannot && o.excludedSites.includes(post.siteId)) cannot = `Kept off ${post.siteName}`;
       const overHours = !cannot && hoursProblem(busy, windows, o.weeklyHours);
       if (overHours) cannot = overHours;
+      // Eleven hours' rest is enforced, like the hours.
+      if (!cannot) cannot = restProblem(busy, windows);
       const rests = windows.map((w, i) => shortestRest([...busy, ...windows.filter((_, j) => j !== i)], w)).filter((r): r is number => r !== null);
+      const days = windows.map((w) => ukDate(w.startsAt));
+      const sayings = days.map((d) => o.said[d]).filter(Boolean);
+      const said = sayings.includes("unavailable") ? "unavailable" : sayings.length === days.length && sayings.length > 0 ? "available" : null;
       return {
         officer: o,
         cannot,
@@ -1834,6 +1882,8 @@ function CandidateList({
         shiftsHere: o.shiftsHere[post.id] ?? 0,
         saidNo: saidNo(o),
         asked: asked(o),
+        said,
+        offered: week.openShifts.some((x) => x.offeredBy.includes(o.id) && windows.some((w) => new Date(x.startsAt).getTime() === w.startsAt.getTime() && x.postId === post.id)),
       };
     });
 
@@ -1841,8 +1891,11 @@ function CandidateList({
   const match = (c: Candidate) => !q || c.officer.name.toLowerCase().includes(q) || (c.officer.pin ?? "").includes(q);
   const askable = candidates
     .filter((c) => !c.cannot && match(c))
-    .sort((a, b) =>
-      candidateOrder({ name: a.officer.name, allocatedHere: !!a.allocation, ...a }, { name: b.officer.name, allocatedHere: !!b.allocation, ...b }),
+    .sort(
+      (a, b) =>
+        // Somebody who offered for this shift is the first call to make.
+        Number(b.offered) - Number(a.offered) ||
+        candidateOrder({ name: a.officer.name, allocatedHere: !!a.allocation, ...a }, { name: b.officer.name, allocatedHere: !!b.allocation, ...b }),
     );
   const cannot = candidates.filter((c) => c.cannot && match(c));
 
@@ -1878,6 +1931,9 @@ function CandidateList({
                       )}
                     </p>
                     <div className="mt-1 flex flex-wrap gap-1">
+                      {c.offered && <Tag>Offered in their portal</Tag>}
+                      {c.said === "available" && <Tag>Said they are free</Tag>}
+                      {c.said === "unavailable" && <Tag>Said they are not free</Tag>}
                       {c.regular && <Tag>Regular officer</Tag>}
                       {c.allocation && <Tag>Allocated · {c.allocation}</Tag>}
                       {c.shiftsHere > 0 && <Tag>Worked here {c.shiftsHere}× in 4 weeks</Tag>}

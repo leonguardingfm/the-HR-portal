@@ -1,15 +1,17 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useTransition } from "react";
 import { field, inputStyle } from "@/components/scheduling/RotaForms";
 import { useFormAction } from "@/components/ui/useFormAction";
-import { bookMeOn, cannotMakeIt, confirmMyShift, myCheckCall } from "@/lib/actions/me";
+import { bookMeOn, cannotMakeIt, confirmMyShift, myCheckCall, offerForShift, reportIncident, runningLate, setMyAvailability, withdrawOffer } from "@/lib/actions/me";
 import type { ActionResult } from "@/lib/actions/types";
+import { ProofCamera, type ProofShot } from "./ProofCamera";
 
 type OnResult = { onResult: (r: ActionResult) => void };
 
 /** Big enough for a thumb, on a phone, in the dark. */
 const big = "h-12 w-full rounded-lg px-4 text-[15px] font-semibold text-white disabled:opacity-60";
+const link = "text-[13px] underline underline-offset-2";
 
 function useLifted(action: (prev: ActionResult | null, data: FormData) => Promise<ActionResult>, onResult: (r: ActionResult) => void) {
   return useFormAction(async (prev: ActionResult | null, data: FormData) => {
@@ -35,7 +37,7 @@ export function CannotMakeItForm({ assignmentId, onResult }: { assignmentId: str
   const [open, setOpen] = useState(false);
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="text-[13px] underline underline-offset-2" style={{ color: "var(--status-critical)" }}>
+      <button type="button" onClick={() => setOpen(true)} className={link} style={{ color: "var(--status-critical)" }}>
         I can’t make this shift
       </button>
     );
@@ -53,35 +55,299 @@ export function CannotMakeItForm({ assignmentId, onResult }: { assignmentId: str
   );
 }
 
-export function BookOnButton({ assignmentId, late, onResult }: { assignmentId: string; late: boolean } & OnResult) {
-  const { pending, form } = useLifted(bookMeOn.bind(null, assignmentId), onResult);
+/** A selfie as the form the server action reads. */
+function proofForm(shot: ProofShot, extra: Record<string, string> = {}) {
+  const fd = new FormData();
+  fd.set("photo", new File([shot.photo], `${shot.code}.jpg`, { type: "image/jpeg" }));
+  fd.set("code", shot.code);
+  fd.set("deviceAt", String(shot.deviceAt));
+  fd.set("live", shot.live ? "1" : "0");
+  if (shot.lat !== null && shot.lng !== null && shot.accuracy !== null) {
+    fd.set("lat", String(shot.lat));
+    fd.set("lng", String(shot.lng));
+    fd.set("accuracy", String(shot.accuracy));
+  }
+  for (const [k, v] of Object.entries(extra)) fd.set(k, v);
+  return fd;
+}
+
+/** A form with no photo: a problem reported, or the camera would not work. */
+function plainForm(fields: Record<string, string>) {
+  const fd = new FormData();
+  for (const [k, v] of Object.entries(fields)) fd.set(k, v);
+  return fd;
+}
+
+interface ProofProps {
+  assignmentId: string;
+  officer: { name: string; pin: string | null };
+  place: { post: string; site: string };
+}
+
+/** "Camera not working?" — still able to book on or call in, and Control is told to ring. */
+function WithoutPhoto({ label, send }: { label: string; send: (reason: string) => Promise<void> }) {
+  const [open, setOpen] = useState(false);
+  const [reason, setReason] = useState("");
+  const [pending, start] = useTransition();
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className={link} style={{ color: "var(--text-secondary)" }}>
+        Camera not working?
+      </button>
+    );
+  }
   return (
-    <form {...form}>
-      <button type="submit" disabled={pending} className={big} style={{ background: late ? "var(--status-critical)" : "var(--series-1)" }}>
-        {pending ? "Booking on…" : "Book on — I’m at the site"}
+    <div className="space-y-2 rounded-lg border p-3" style={{ borderColor: "var(--hairline)" }}>
+      <p className="text-[13px]">Without a selfie, Control will ring you to confirm you are on site.</p>
+      <input value={reason} onChange={(e) => setReason(e.target.value)} placeholder="What is wrong with the camera?" className={`${field} h-11 w-full text-[15px]`} style={inputStyle} />
+      <button type="button" disabled={pending} onClick={() => start(() => send(reason || "Camera would not work"))} className={big} style={{ background: "var(--text-secondary)" }}>
+        {pending ? "Sending…" : label}
+      </button>
+    </div>
+  );
+}
+
+export function BookOnButton({ assignmentId, late, officer, place, onResult }: ProofProps & { late: boolean } & OnResult) {
+  const [camera, setCamera] = useState(false);
+  const [pending, start] = useTransition();
+  const send = (fd: FormData) =>
+    new Promise<void>((resolve) =>
+      start(async () => {
+        const r = await bookMeOn(assignmentId, null, fd);
+        onResult(r);
+        if (r.ok) setCamera(false);
+        resolve();
+      }),
+    );
+  return (
+    <div className="space-y-2">
+      <button type="button" onClick={() => setCamera(true)} disabled={pending} className={big} style={{ background: late ? "var(--status-critical)" : "var(--series-1)" }}>
+        📷 Book on — take your selfie
+      </button>
+      <p className="text-[12px]" style={{ color: "var(--text-muted)" }}>
+        Your selfie is stamped with the time, where you are and a code, and goes to Control.
+      </p>
+      <WithoutPhoto label="Book on without a selfie" send={(reason) => send(plainForm({ noPhoto: "1", noPhotoReason: reason }))} />
+      {camera && <ProofCamera kind="book_on" officer={officer} place={place} sending={pending} onCancel={() => setCamera(false)} onUse={(shot) => void send(proofForm(shot))} />}
+    </div>
+  );
+}
+
+export function CheckCallButtons({ assignmentId, overdue, officer, place, onResult }: ProofProps & { overdue: boolean } & OnResult) {
+  const [camera, setCamera] = useState(false);
+  const [problem, setProblem] = useState(false);
+  const [note, setNote] = useState("");
+  const [pending, start] = useTransition();
+  const send = (fd: FormData) =>
+    new Promise<void>((resolve) =>
+      start(async () => {
+        const r = await myCheckCall(assignmentId, null, fd);
+        onResult(r);
+        if (r.ok) {
+          setCamera(false);
+          setProblem(false);
+          setNote("");
+        }
+        resolve();
+      }),
+    );
+  return (
+    <div className="space-y-2">
+      {problem ? (
+        <div className="space-y-2 rounded-lg border p-3" style={{ borderColor: "var(--status-critical)", background: "var(--wash-critical)" }}>
+          <label className="block text-[13px] font-medium">
+            What is wrong?
+            <input value={note} onChange={(e) => setNote(e.target.value)} required autoComplete="off" placeholder="Tell Control what is happening" className={`${field} mt-1 h-11 w-full text-[15px]`} style={inputStyle} />
+          </label>
+          {/* Help does not wait for a photo. */}
+          <button type="button" disabled={pending || note.trim().length === 0} onClick={() => void send(plainForm({ allWell: "no", note }))} className={big} style={{ background: "var(--status-critical)" }}>
+            {pending ? "Sending…" : "Send to Control now"}
+          </button>
+          <button type="button" onClick={() => setProblem(false)} className={link} style={{ color: "var(--text-secondary)" }}>
+            Everything is fine after all
+          </button>
+        </div>
+      ) : (
+        <>
+          <button type="button" onClick={() => setCamera(true)} disabled={pending} className={big} style={{ background: overdue ? "var(--status-critical)" : "var(--status-good)" }}>
+            📷 Check call — all well
+          </button>
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <button type="button" onClick={() => setProblem(true)} className={link} style={{ color: "var(--status-critical)" }}>
+              Something is wrong
+            </button>
+            <WithoutPhoto label="Check call without a selfie" send={(reason) => send(plainForm({ allWell: "yes", noPhoto: "1", noPhotoReason: reason }))} />
+          </div>
+        </>
+      )}
+      {camera && <ProofCamera kind="check_call" officer={officer} place={place} sending={pending} onCancel={() => setCamera(false)} onUse={(shot) => void send(proofForm(shot, { allWell: "yes" }))} />}
+    </div>
+  );
+}
+
+export function RunningLateForm({ assignmentId, onResult }: { assignmentId: string } & OnResult) {
+  const { pending, form } = useLifted(runningLate.bind(null, assignmentId), onResult);
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className={link} style={{ color: "var(--status-serious)" }}>
+        I’m running late
+      </button>
+    );
+  }
+  return (
+    <form {...form} className="space-y-2 rounded-lg border p-3" style={{ borderColor: "var(--status-serious)", background: "var(--wash-serious)" }}>
+      <label className="block text-[13px] font-medium">
+        I’ll be there in
+        <select name="minutes" defaultValue="15" className={`${field} mt-1 h-11 w-full text-[15px]`} style={inputStyle}>
+          {[5, 10, 15, 20, 30, 45, 60, 90, 120].map((m) => (
+            <option key={m} value={m}>
+              {m < 60 ? `${m} minutes` : `${m / 60} hour${m === 60 ? "" : "s"}`}
+            </option>
+          ))}
+        </select>
+      </label>
+      <input name="note" autoComplete="off" placeholder="Why? (optional) — e.g. train cancelled" className={`${field} h-11 w-full text-[15px]`} style={inputStyle} />
+      <button type="submit" disabled={pending} className={big} style={{ background: "var(--status-serious)" }}>
+        {pending ? "Sending…" : "Tell Control"}
+      </button>
+      <button type="button" onClick={() => setOpen(false)} className={link} style={{ color: "var(--text-secondary)" }}>
+        Cancel
       </button>
     </form>
   );
 }
 
-export function CheckCallButtons({ assignmentId, overdue, onResult }: { assignmentId: string; overdue: boolean } & OnResult) {
-  const { pending, form } = useLifted(myCheckCall.bind(null, assignmentId), onResult);
-  const [problem, setProblem] = useState(false);
-  return (
-    <form {...form} className="space-y-2">
-      <input type="hidden" name="allWell" value={problem ? "no" : "yes"} />
-      {problem && (
-        <label className="block text-[13px] font-medium">
-          What is wrong?
-          <input name="note" required autoComplete="off" placeholder="Tell Control what is happening" className={`${field} mt-1 h-11 w-full text-[15px]`} style={inputStyle} />
-        </label>
-      )}
-      <button type="submit" disabled={pending} className={big} style={{ background: problem ? "var(--status-critical)" : overdue ? "var(--status-critical)" : "var(--status-good)" }}>
-        {pending ? "Sending…" : problem ? "Send to Control" : "Check call — all well"}
+export function IncidentForm({ assignmentId, onResult }: { assignmentId: string } & OnResult) {
+  const { pending, form } = useLifted(reportIncident.bind(null, assignmentId), onResult);
+  const [open, setOpen] = useState(false);
+  if (!open) {
+    return (
+      <button type="button" onClick={() => setOpen(true)} className="h-11 w-full rounded-lg border text-[14px] font-semibold" style={{ borderColor: "var(--status-critical)", color: "var(--status-critical)" }}>
+        Report an incident
       </button>
-      <button type="button" onClick={() => setProblem((v) => !v)} className="text-[13px] underline underline-offset-2" style={{ color: problem ? "var(--text-secondary)" : "var(--status-critical)" }}>
-        {problem ? "Everything is fine after all" : "Something is wrong"}
+    );
+  }
+  return (
+    <form {...form} className="space-y-2 rounded-lg border p-3" style={{ borderColor: "var(--status-critical)" }}>
+      <p className="text-[13px] font-semibold" style={{ color: "var(--status-critical)" }}>
+        If anyone is in danger, ring 999 first.
+      </p>
+      <fieldset className="space-y-1.5">
+        <legend className="text-[13px] font-medium">How serious?</legend>
+        {(
+          [
+            ["serious", "Serious — Control needs to act now"],
+            ["notable", "Notable — Control should know"],
+            ["log_only", "For the record only"],
+          ] as const
+        ).map(([v, l]) => (
+          <label key={v} className="flex items-center gap-2 text-[14px]">
+            <input type="radio" name="severity" value={v} defaultChecked={v === "notable"} className="h-4 w-4" />
+            {l}
+          </label>
+        ))}
+      </fieldset>
+      <label className="block text-[13px] font-medium">
+        What happened?
+        <textarea name="summary" required rows={4} placeholder="What, where, who was involved, and what you did" className={`${field} mt-1 h-auto w-full py-2 text-[15px]`} style={inputStyle} />
+      </label>
+      <button type="submit" disabled={pending} className={big} style={{ background: "var(--status-critical)" }}>
+        {pending ? "Sending…" : "Send to Control"}
+      </button>
+      <button type="button" onClick={() => setOpen(false)} className={link} style={{ color: "var(--text-secondary)" }}>
+        Cancel
       </button>
     </form>
+  );
+}
+
+export function OfferButton({ openShiftId, onResult }: { openShiftId: string } & OnResult) {
+  const { pending, form } = useLifted(offerForShift.bind(null, openShiftId), onResult);
+  return (
+    <form {...form}>
+      <button type="submit" disabled={pending} className="h-10 rounded-lg px-4 text-[14px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--series-1)" }}>
+        {pending ? "Offering…" : "I can do this"}
+      </button>
+    </form>
+  );
+}
+
+export function WithdrawOfferButton({ openShiftId, onResult }: { openShiftId: string } & OnResult) {
+  const { pending, form } = useLifted(withdrawOffer.bind(null, openShiftId), onResult);
+  return (
+    <form {...form}>
+      <button type="submit" disabled={pending} className={link} style={{ color: "var(--text-secondary)" }}>
+        {pending ? "Withdrawing…" : "Withdraw my offer"}
+      </button>
+    </form>
+  );
+}
+
+/**
+ * The next four weeks: tap a day to say free, again for not free, again to
+ * say nothing. Saved as it is tapped.
+ */
+export function AvailabilityCalendar({ days, said, onResult }: { days: { date: string; label: string; weekday: string; shift: string | null }[]; said: Record<string, "available" | "unavailable">; onResult: (r: ActionResult) => void }) {
+  const [local, setLocal] = useState(said);
+  const [pending, start] = useTransition();
+  const cycle = (date: string) => {
+    const now = local[date];
+    const next = now === undefined ? "available" : now === "available" ? "unavailable" : "clear";
+    setLocal((l) => {
+      const copy = { ...l };
+      if (next === "clear") delete copy[date];
+      else copy[date] = next;
+      return copy;
+    });
+    start(async () => {
+      const fd = new FormData();
+      fd.set("date", date);
+      fd.set("kind", next);
+      const r = await setMyAvailability(null, fd);
+      if (!r.ok) {
+        onResult(r);
+        setLocal(said);
+      }
+    });
+  };
+  return (
+    <div>
+      <div className="grid grid-cols-7 gap-1 text-center text-[11px]" style={{ color: "var(--text-muted)" }}>
+        {["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].map((d) => (
+          <span key={d}>{d}</span>
+        ))}
+      </div>
+      <div className="mt-1 grid grid-cols-7 gap-1">
+        {days.map((d, i) => {
+          const s = local[d.date];
+          const offset = i === 0 ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"].indexOf(d.weekday) : 0;
+          return (
+            <button
+              key={d.date}
+              type="button"
+              onClick={() => !d.shift && cycle(d.date)}
+              disabled={!!d.shift}
+              title={d.shift ? `On shift: ${d.shift}` : s === "available" ? "Free — tap for not free" : s === "unavailable" ? "Not free — tap to clear" : "Tap if you are free"}
+              aria-label={`${d.label}: ${d.shift ? `on shift, ${d.shift}` : s === "available" ? "free" : s === "unavailable" ? "not free" : "not said"}`}
+              className="flex h-12 flex-col items-center justify-center rounded-md border text-[13px] font-semibold"
+              style={{
+                gridColumnStart: offset ? offset + 1 : undefined,
+                borderColor: s === "available" ? "var(--status-good)" : s === "unavailable" ? "var(--status-critical)" : "var(--hairline)",
+                background: d.shift ? "var(--wash-neutral)" : s === "available" ? "var(--wash-good)" : s === "unavailable" ? "var(--wash-critical)" : "transparent",
+                color: d.shift ? "var(--text-muted)" : undefined,
+              }}
+            >
+              {Number(d.date.slice(8))}
+              <span className="text-[9px] font-normal">{d.shift ? "on" : s === "available" ? "free" : s === "unavailable" ? "not free" : ""}</span>
+            </button>
+          );
+        })}
+      </div>
+      <p className="mt-2 text-[12px]" style={{ color: "var(--text-muted)" }}>
+        Tap once for <span style={{ color: "var(--status-good)" }}>free</span>, twice for <span style={{ color: "var(--status-critical)" }}>not free</span>, three times to clear.
+        {pending && " Saving…"}
+      </p>
+    </div>
   );
 }

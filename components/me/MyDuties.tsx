@@ -2,23 +2,51 @@
 
 import { useMemo, useState } from "react";
 import { CallTimeline, relative } from "@/components/duty/DutyShared";
+import { DeviceAlertsCard } from "@/components/live/DeviceAlerts";
 import { useNow } from "@/components/ui/useNow";
 import type { ActionResult } from "@/lib/actions/types";
+import { alertKind } from "@/lib/core/alerts";
 import { DUTY_RULES, dutyStatus, type DutyStatus } from "@/lib/core/duty";
+import { mapLink } from "@/lib/core/proof";
 import { dayLabel, ukDate } from "@/lib/core/rota";
+import type { MyOpenShift } from "@/lib/db/me";
 import type { LiveRow } from "@/lib/db/queries";
 import { formatTime } from "@/lib/format";
-import { BookOnButton, CannotMakeItForm, CheckCallButtons, ConfirmButton } from "./MyForms";
+import {
+  AvailabilityCalendar,
+  BookOnButton,
+  CannotMakeItForm,
+  CheckCallButtons,
+  ConfirmButton,
+  IncidentForm,
+  OfferButton,
+  RunningLateForm,
+  WithdrawOfferButton,
+} from "./MyForms";
 
 type Duty = LiveRow & { s: DutyStatus; start: Date; end: Date };
+
+interface Props {
+  rows: LiveRow[];
+  alerts: { id: string; title: string; at: string }[];
+  name: string;
+  pin: string | null;
+  controlPhone: string | null;
+  vapidKey: string | null;
+  openShifts: MyOpenShift[];
+  availability: { said: Record<string, "available" | "unavailable">; days: { date: string; label: string; weekday: string; shift: string | null }[] };
+}
+
+const tel = (n: string) => `tel:${n.replace(/[^\d+]/g, "")}`;
 
 /**
  * The officer's own portal: their duties and nothing else. The shift that is
  * on now — or the next one — is at the top with the one thing to do next:
- * confirm, book on, or make the check call. Below it, what is coming and what
- * is done. Built for a phone, in a car park, at night.
+ * confirm, book on with a selfie, or make the check call. Below it, open
+ * shifts they could take, which days they are free, and what is coming and
+ * done. Built for a phone, in a car park, at night.
  */
-export function MyDuties({ rows, alerts, name, pin }: { rows: LiveRow[]; alerts: { id: string; title: string; at: string }[]; name: string; pin: string | null }) {
+export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, openShifts, availability }: Props) {
   const now = useNow(30_000);
   const [notice, setNotice] = useState<ActionResult | null>(null);
   const duties = useMemo<Duty[]>(
@@ -36,15 +64,26 @@ export function MyDuties({ rows, alerts, name, pin }: { rows: LiveRow[]; alerts:
   const later = upcoming.filter((d) => d !== next);
   const done = live.filter((d) => d.end <= now).sort((a, b) => b.start.getTime() - a.start.getTime());
   const off = duties.filter((d) => d.state === "cancelled" && d.end > now);
+  // An incident can be reported on the shift it happened on, up to twelve hours after.
+  const justFinished = !current ? done.find((d) => now.getTime() - d.end.getTime() < 12 * 3_600_000) : undefined;
+  const action = alerts.filter((a) => alertKind(a.title) !== "officer_decision");
+  const news = alerts.filter((a) => alertKind(a.title) === "officer_decision");
 
   return (
     <div className="mx-auto max-w-xl space-y-5">
-      <header>
-        <h1 className="text-[22px] font-semibold tracking-tight">My duties</h1>
-        <p className="text-[14px]" style={{ color: "var(--text-secondary)" }}>
-          {name.split(" ")[0]}
-          {pin && ` · PIN ${pin}`} · {dayLabel(ukDate(now))} {formatTime(now)}
-        </p>
+      <header className="flex items-start justify-between gap-3">
+        <div>
+          <h1 className="text-[22px] font-semibold tracking-tight">My duties</h1>
+          <p className="text-[14px]" style={{ color: "var(--text-secondary)" }}>
+            {name.split(" ")[0]}
+            {pin && ` · PIN ${pin}`} · {dayLabel(ukDate(now))} {formatTime(now)}
+          </p>
+        </div>
+        {controlPhone && (
+          <a href={tel(controlPhone)} className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg px-4 text-[14px] font-semibold text-white" style={{ background: "var(--status-good)" }}>
+            📞 Call Control
+          </a>
+        )}
       </header>
 
       {notice && (
@@ -56,13 +95,15 @@ export function MyDuties({ rows, alerts, name, pin }: { rows: LiveRow[]; alerts:
         </div>
       )}
 
-      {alerts.length > 0 && (
+      <DeviceAlertsCard vapidKey={vapidKey} />
+
+      {action.length > 0 && (
         <section aria-labelledby="alerts-h" className="rounded-lg border-2 px-4 py-3" style={{ borderColor: "var(--status-critical)", background: "var(--wash-critical)" }}>
           <h2 id="alerts-h" className="text-[14px] font-semibold" style={{ color: "var(--status-critical)" }}>
-            Needs your action · {alerts.length}
+            Needs your action · {action.length}
           </h2>
           <ul className="mt-1 space-y-1.5">
-            {alerts.map((a) => (
+            {action.map((a) => (
               <li key={a.id} className="text-[14px]">
                 {a.title}
                 <span className="ml-1 text-[12px]" style={{ color: "var(--text-muted)" }}>
@@ -74,9 +115,38 @@ export function MyDuties({ rows, alerts, name, pin }: { rows: LiveRow[]; alerts:
         </section>
       )}
 
-      {next ? <NowCard d={next} now={now} onResult={setNotice} /> : (
+      {news.length > 0 && (
+        <section aria-labelledby="news-h" className="rounded-lg border px-4 py-3" style={{ borderColor: "var(--series-1)" }}>
+          <h2 id="news-h" className="text-[14px] font-semibold" style={{ color: "var(--series-1)" }}>
+            From Control
+          </h2>
+          <ul className="mt-1 space-y-1.5">
+            {news.map((a) => (
+              <li key={a.id} className="text-[14px]">
+                {a.title}
+                <span className="ml-1 text-[12px]" style={{ color: "var(--text-muted)" }}>
+                  · {formatTime(a.at)}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </section>
+      )}
+
+      {next ? (
+        <NowCard d={next} now={now} name={name} pin={pin} onResult={setNotice} />
+      ) : (
         <section className="rounded-lg border px-4 py-6 text-center text-[14px]" style={{ borderColor: "var(--hairline)", color: "var(--text-secondary)" }}>
           No duties in the next two weeks.
+        </section>
+      )}
+
+      {justFinished && (
+        <section className="space-y-2 rounded-lg border px-4 py-3" style={{ borderColor: "var(--hairline)" }}>
+          <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+            Something to report from {justFinished.post.name}, {justFinished.siteName}?
+          </p>
+          <IncidentForm assignmentId={justFinished.assignment.id} onResult={setNotice} />
         </section>
       )}
 
@@ -123,6 +193,59 @@ export function MyDuties({ rows, alerts, name, pin }: { rows: LiveRow[]; alerts:
         )}
       </section>
 
+      <section aria-labelledby="open-h">
+        <h2 id="open-h" className="text-[15px] font-semibold">
+          Shifts you could take · {openShifts.length}
+        </h2>
+        <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+          Nobody is on these yet. Offer, and Control will accept or decline — you get an alert either way.
+        </p>
+        {openShifts.length === 0 ? (
+          <p className="mt-1 text-[13px]" style={{ color: "var(--text-muted)" }}>
+            None in the next two weeks.
+          </p>
+        ) : (
+          <ul className="mt-2 divide-y rounded-lg border" style={{ borderColor: "var(--hairline)" }}>
+            {openShifts.slice(0, 12).map((o) => (
+              <li key={o.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3" style={{ borderColor: "var(--hairline)" }}>
+                <div className="min-w-0">
+                  <p className="text-[14px] font-semibold">
+                    {o.postName} <span className="font-normal" style={{ color: "var(--text-secondary)" }}>· {o.siteName}</span>
+                  </p>
+                  <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+                    {o.label}
+                  </p>
+                </div>
+                {o.offered === "waiting" ? (
+                  <div className="text-right">
+                    <p className="text-[13px] font-medium" style={{ color: "var(--series-1)" }}>
+                      Offered — waiting for Control
+                    </p>
+                    <WithdrawOfferButton openShiftId={o.id} onResult={setNotice} />
+                  </div>
+                ) : o.offered === "declined" ? (
+                  <p className="text-[13px]" style={{ color: "var(--text-muted)" }}>
+                    Control went with someone else
+                  </p>
+                ) : (
+                  <OfferButton openShiftId={o.id} onResult={setNotice} />
+                )}
+              </li>
+            ))}
+          </ul>
+        )}
+      </section>
+
+      <section aria-labelledby="free-h" className="space-y-2">
+        <h2 id="free-h" className="text-[15px] font-semibold">
+          When I’m free
+        </h2>
+        <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+          Tell Control which days you can work, and which you cannot. They ask the people who are free first.
+        </p>
+        <AvailabilityCalendar days={availability.days} said={availability.said} onResult={setNotice} />
+      </section>
+
       <section aria-labelledby="done-h">
         <h2 id="done-h" className="text-[15px] font-semibold">
           Completed · {done.length}
@@ -139,7 +262,7 @@ export function MyDuties({ rows, alerts, name, pin }: { rows: LiveRow[]; alerts:
                 <li key={d.assignment.id} className="px-4 py-3" style={{ borderColor: "var(--hairline)" }}>
                   <Where d={d} now={now} />
                   <p className="mt-1 text-[13px]" style={{ color: "var(--text-secondary)" }}>
-                    {d.bookOn ? `Booked on ${formatTime(d.bookOn.at)}` : "No book-on recorded"}
+                    {d.bookOn ? `Booked on ${formatTime(d.bookOn.at)}${d.bookOn.proof ? " with a selfie" : ""}` : "No book-on recorded"}
                     {d.post.checkCallsRequired && d.post.mobileSignal ? ` · ${made} check call${made === 1 ? "" : "s"}` : ""}
                   </p>
                 </li>
@@ -152,16 +275,25 @@ export function MyDuties({ rows, alerts, name, pin }: { rows: LiveRow[]; alerts:
   );
 }
 
-/** Where and when: the site, its address, the post, the times. */
+/** Where and when: the site, its address and a map, the post, the times. */
 function Where({ d, now }: { d: Duty; now: Date }) {
+  const map = mapLink({ lat: d.site.lat, lng: d.site.lng, address: d.siteAddress });
   return (
     <div>
       <p className="text-[15px] font-semibold">
         {d.post.name} <span className="font-normal" style={{ color: "var(--text-secondary)" }}>· {d.siteName}</span>
       </p>
-      {d.siteAddress && (
+      {(d.siteAddress || map) && (
         <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
           {d.siteAddress}
+          {map && (
+            <>
+              {d.siteAddress ? " · " : ""}
+              <a href={map} target="_blank" rel="noreferrer" className="underline">
+                Map
+              </a>
+            </>
+          )}
         </p>
       )}
       <p className="tnum text-[13px] tabular-nums" style={{ color: "var(--text-secondary)" }}>
@@ -175,7 +307,7 @@ function Where({ d, now }: { d: Duty; now: Date }) {
 const STEPS = ["Confirmed", "Booked on", "Check calls", "Duty ends"];
 
 /** The shift on now, or next: where it is in the flow, and the one thing to do. */
-function NowCard({ d, now, onResult }: { d: Duty; now: Date; onResult: (r: ActionResult) => void }) {
+function NowCard({ d, now, name, pin, onResult }: { d: Duty; now: Date; name: string; pin: string | null; onResult: (r: ActionResult) => void }) {
   const s = d.s;
   const started = d.start <= now;
   const bookOnFrom = new Date(d.start.getTime() - DUTY_RULES.bookOnEarliestMinutes * 60_000);
@@ -185,6 +317,9 @@ function NowCard({ d, now, onResult }: { d: Duty; now: Date; onResult: (r: Actio
   const current = d.bookOn ? (calls ? 2 : 3) : doneUpTo + 1;
   const overdue = s.stage === "alert";
   const late = !d.bookOn && (s.stage === "late" || s.stage === "no_show");
+  const officer = { name, pin };
+  const place = { post: d.post.name, site: d.siteName };
+  const canSayLate = !d.bookOn && s.chase.state !== "cannot_attend" && d.start.getTime() - now.getTime() <= 3 * 3_600_000;
 
   return (
     <section aria-labelledby="now-h" className="space-y-4 rounded-xl border-2 p-4" style={{ borderColor: late || overdue ? "var(--status-critical)" : "var(--series-1)", background: "var(--surface-1)" }}>
@@ -193,7 +328,22 @@ function NowCard({ d, now, onResult }: { d: Duty; now: Date; onResult: (r: Actio
           {started ? "On duty now" : "Your next duty"}
         </p>
         <Where d={d} now={now} />
+        {d.post.phone && (
+          <p className="mt-1 text-[13px]">
+            Post phone:{" "}
+            <a href={tel(d.post.phone)} className="font-medium underline">
+              {d.post.phone}
+            </a>
+          </p>
+        )}
       </div>
+
+      {d.post.instructions && (
+        <details className="rounded-lg border px-3 py-2" style={{ borderColor: "var(--hairline)" }} open={!started && !d.bookOn}>
+          <summary className="cursor-pointer text-[14px] font-semibold select-none">Site instructions</summary>
+          <p className="mt-2 text-[14px] whitespace-pre-line">{d.post.instructions}</p>
+        </details>
+      )}
 
       <ol aria-label="Your duty checks" className="grid grid-cols-4 gap-1">
         {STEPS.map((label, i) => (
@@ -220,6 +370,7 @@ function NowCard({ d, now, onResult }: { d: Duty; now: Date; onResult: (r: Actio
       {late && (
         <p className="rounded-lg px-3 py-2 text-[14px] font-medium" style={{ background: "var(--wash-critical)", color: "var(--status-critical)" }}>
           You were due on site at {formatTime(d.start)} — {s.attendance.minutesLate} min ago. Book on now, or ring Control.
+          {d.runningLate && ` You said you would be there about ${formatTime(d.runningLate.eta)}.`}
         </p>
       )}
       {overdue && (
@@ -250,7 +401,7 @@ function NowCard({ d, now, onResult }: { d: Duty; now: Date; onResult: (r: Actio
                   There is no signal at this post — book on before you go in.
                 </p>
               )}
-              <BookOnButton assignmentId={d.assignment.id} late={late} onResult={onResult} />
+              <BookOnButton assignmentId={d.assignment.id} late={late} officer={officer} place={place} onResult={onResult} />
             </>
           ) : (
             <p className="text-[14px]" style={{ color: "var(--text-secondary)" }}>
@@ -259,10 +410,21 @@ function NowCard({ d, now, onResult }: { d: Duty; now: Date; onResult: (r: Actio
           )}
         </div>
       )}
+      {canSayLate && (
+        <div>
+          {d.runningLate && !late && (
+            <p className="mb-1 text-[13px]" style={{ color: "var(--status-serious)" }}>
+              Control knows you will be there about {formatTime(d.runningLate.eta)}.
+            </p>
+          )}
+          <RunningLateForm assignmentId={d.assignment.id} onResult={onResult} />
+        </div>
+      )}
       {d.bookOn && (
         <div className="space-y-3">
           <p className="text-[13px]" style={{ color: "var(--status-good)" }}>
             ✓ Booked on at {formatTime(d.bookOn.at)}
+            {d.bookOn.proof ? " with your selfie" : ""}
           </p>
           {calls ? (
             <>
@@ -275,7 +437,7 @@ function NowCard({ d, now, onResult }: { d: Duty; now: Date; onResult: (r: Actio
                   "No more check calls before your shift ends."
                 )}
               </p>
-              {s.schedule?.nextDue && <CheckCallButtons assignmentId={d.assignment.id} overdue={overdue} onResult={onResult} />}
+              {s.schedule?.nextDue && <CheckCallButtons assignmentId={d.assignment.id} overdue={overdue} officer={officer} place={place} onResult={onResult} />}
               {s.schedule && (
                 <div>
                   <p className="mb-1 text-[12px] font-medium" style={{ color: "var(--text-secondary)" }}>
@@ -296,6 +458,7 @@ function NowCard({ d, now, onResult }: { d: Duty; now: Date; onResult: (r: Actio
           )}
         </div>
       )}
+      {started && <IncidentForm assignmentId={d.assignment.id} onResult={onResult} />}
     </section>
   );
 }

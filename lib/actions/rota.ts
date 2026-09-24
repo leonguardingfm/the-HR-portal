@@ -21,6 +21,7 @@ import {
   MAX_BATCH,
   hoursOf,
   hoursProblem,
+  restProblem,
   leaveProblem,
   createProblem,
   slotsFor,
@@ -40,8 +41,10 @@ import {
   type OffReason,
 } from "@/lib/core/rota";
 import { getDeployabilityInputs, shiftDeployability } from "@/lib/db/queries";
-import { hoursProblemFor, leaveFor } from "@/lib/db/rota";
+import { exclusionsFor, leaveFor, whyCannotTake, workingTimeProblemFor } from "@/lib/db/rota";
+import { ALERT_KIND_SPECS } from "@/lib/core/alerts";
 import { liveProblem, loadLive, officerOffWrites } from "@/lib/db/cover";
+import { sweepDutyChecks } from "@/lib/db/duty-sweep";
 import type { Role } from "@/lib/types";
 import { refused, ok, type ActionResult } from "./types";
 
@@ -183,7 +186,7 @@ export async function recordAsk(_prev: ActionResult | null, formData: FormData):
         where: { postId, state: { not: "cancelled" }, startsAt: { lt: latest }, endsAt: { gt: earliest } },
         include: { person: true },
       }),
-      hoursProblemFor(personId, windows),
+      workingTimeProblemFor(personId, windows, [], post.siteId),
     ]);
     for (const w of windows) {
       const clash = theirs.find((s) => overlaps(s, w));
@@ -419,7 +422,7 @@ export async function changeHours(_prev: ActionResult | null, formData: FormData
       where: { postId: a.postId, id: { not: a.id }, state: { not: "cancelled" }, startsAt: { lt: next.endsAt }, endsAt: { gt: next.startsAt } },
       include: { person: true },
     }),
-    hoursProblemFor(a.personId, [next], [a.id]),
+    workingTimeProblemFor(a.personId, [next], [a.id]),
   ]);
   if (clash) return refused(`${a.person.fullName} is on ${clash.post.name}, ${clash.post.site.name} ${shiftLabel(clash)}, which the new hours would overlap.`);
   if (taken) return refused(`${taken.person.fullName} is on ${a.post.name} ${shiftLabel(taken)}, which the new hours would overlap.`);
@@ -581,7 +584,7 @@ async function publishDrafts(
   const personIds = [...new Set(drafts.map((d) => d.personId))];
   const earliest = drafts[0].startsAt.getTime();
   const latest = Math.max(...drafts.map((d) => d.endsAt.getTime()));
-  const [held, employments] = await Promise.all([
+  const [held, employments, excluded] = await Promise.all([
     db.assignment.findMany({
       where: {
         personId: { in: personIds },
@@ -589,9 +592,10 @@ async function publishDrafts(
         startsAt: { lt: new Date(latest + 8 * 86_400_000) },
         endsAt: { gt: new Date(earliest - 8 * 86_400_000) },
       },
-      select: { id: true, personId: true, startsAt: true, endsAt: true },
+      select: { id: true, personId: true, startsAt: true, endsAt: true, post: { select: { name: true, site: { select: { name: true } } } } },
     }),
     db.employment.findMany({ where: { personId: { in: personIds } }, select: { personId: true, weeklyHours: true } }),
+    exclusionsFor(personIds),
   ]);
   const limitOf = new Map(employments.map((e) => [e.personId, e.weeklyHours]));
 
@@ -599,12 +603,11 @@ async function publishDrafts(
   const blocked: string[] = [];
   for (const a of drafts) {
     const d = shiftDeployability(inputs, a.personId, a.post.requiresSiaLicence, a.endsAt);
+    const theirs = held.filter((h) => h.personId === a.personId && h.id !== a.id).map((h) => ({ ...h, label: `${h.post.name}, ${h.post.site.name}` }));
     const over = d.deployable
-      ? hoursProblem(
-          held.filter((h) => h.personId === a.personId && h.id !== a.id),
-          [a],
-          limitOf.get(a.personId) ?? DEFAULT_WEEKLY_HOURS,
-        )
+      ? hoursProblem(theirs, [a], limitOf.get(a.personId) ?? DEFAULT_WEEKLY_HOURS) ??
+        restProblem(theirs, [a]) ??
+        (excluded.get(a.personId)?.has(a.post.siteId) ? `kept off ${a.post.site.name}` : null)
       : null;
     if (!d.deployable) blocked.push(`${a.person.fullName}, ${shiftLabel(a)} (${d.blockers[0].label})`);
     else if (over) blocked.push(`${a.person.fullName}, ${shiftLabel(a)} (${over})`);
@@ -730,7 +733,7 @@ export async function bulkAssign(payload: { entries: BulkEntry[]; channel: strin
   const personIds = [...new Set(items.map((i) => i.personId))];
   const earliest = Math.min(...items.map((i) => i.startsAt.getTime()));
   const latest = Math.max(...items.map((i) => i.endsAt.getTime()));
-  const [inputs, people, theirs, onPosts, leave] = await Promise.all([
+  const [inputs, people, theirs, onPosts, leave, excluded] = await Promise.all([
     getDeployabilityInputs(),
     db.person.findMany({ where: { id: { in: personIds } }, select: { id: true, fullName: true, employment: { select: { weeklyHours: true } } } }),
     db.assignment.findMany({
@@ -747,6 +750,7 @@ export async function bulkAssign(payload: { entries: BulkEntry[]; channel: strin
       select: { postId: true, startsAt: true, endsAt: true },
     }),
     leaveFor(personIds, new Date(earliest), new Date(latest)),
+    exclusionsFor(personIds),
   ]);
   const personOf = new Map(people.map((p) => [p.id, p]));
   const postOf = new Map(open.map((o) => [o.postId, o.post]));
@@ -766,6 +770,7 @@ export async function bulkAssign(payload: { entries: BulkEntry[]; channel: strin
       if (!inputs.has(item.personId) || !personOf.has(item.personId)) return "Only officers on the books can be put on the rota.";
       const away = leaveProblem(leave.get(item.personId) ?? [], item);
       if (away) return away;
+      if (excluded.get(item.personId)?.has(post.siteId)) return `Kept off ${post.site.name}.`;
       const d = shiftDeployability(inputs, item.personId, post.requiresSiaLicence, item.endsAt);
       return d.deployable ? null : d.blockers[0].label;
     },
@@ -995,4 +1000,116 @@ export async function bulkTakeOff(ids: string[]): Promise<ActionResult> {
   refresh();
   const skipped = ids.length - drafts.length;
   return ok(`Took off ${drafts.length} draft${drafts.length === 1 ? "" : "s"}${skipped ? `; ${skipped} were already published or gone, and were left alone` : ""}.`);
+}
+
+// ---------------------------------------------------------------------------
+// Officers offering for open shifts
+// ---------------------------------------------------------------------------
+//
+// An officer offers for an open shift in their portal; Control decides
+// (25 September 2026). Accepting is a yes, exactly as on the phone — the same
+// checks, a draft (or published at once when the shift is within two days),
+// and the ask recorded as made through the portal. The officer is told either
+// way, in their portal and on their phone.
+
+/** Within this, an accepted offer goes on the rota published: there is no week to wait for. */
+const PUBLISH_OFFERS_WITHIN_MS = 48 * 3_600_000;
+
+async function loadOffer(volunteerId: string) {
+  return db.shiftVolunteer.findUnique({
+    where: { id: String(volunteerId) },
+    include: {
+      person: { select: { fullName: true, user: { select: { id: true } } } },
+      openShift: { include: { post: { include: { site: true } } } },
+    },
+  });
+}
+
+export async function acceptOffer(volunteerId: string, _prev: ActionResult | null, _formData: FormData): Promise<ActionResult> {
+  const { session, error } = await guard("rota.build");
+  if (error || !session) return error!;
+  const v = await loadOffer(volunteerId);
+  if (!v || v.state !== "waiting") return refused("That offer has already been decided or withdrawn.");
+  const o = v.openShift;
+  const now = new Date();
+  if (o.cancelledAt || o.assignmentId || o.endsAt <= now) return refused("That shift has already been filled or is no longer needed.");
+  const why = await whyCannotTake(v.personId, o);
+  if (why) return refused(`${v.person.fullName} cannot work it: ${why} Decline the offer, with the reason.`);
+
+  const window = fromNow({ startsAt: o.startsAt, endsAt: o.endsAt }, now);
+  const publishNow = window.startsAt.getTime() - now.getTime() <= PUBLISH_OFFERS_WITHIN_MS;
+  const inputs = await getDeployabilityInputs();
+  const d = shiftDeployability(inputs, v.personId, o.post.requiresSiaLicence, window.endsAt);
+  const checkNote = d.warnings.length ? `Passed with warnings: ${d.warnings.map((x) => x.label).join("; ")}` : "Passed with no warnings";
+  const label = `${o.post.name} at ${o.post.site.name}, ${shiftLabel(window)}`;
+  const others = await db.shiftVolunteer.findMany({
+    where: { openShiftId: o.id, state: "waiting", id: { not: v.id } },
+    include: { person: { select: { user: { select: { id: true } } } } },
+  });
+
+  try {
+    await db.$transaction(async (tx) => {
+      const a = await tx.assignment.create({
+        data: publishNow
+          ? { personId: v.personId, postId: o.postId, ...window, state: "published", publishedAt: now, publishedById: session.userId, publishCheckNote: checkNote }
+          : { personId: v.personId, postId: o.postId, ...window, state: "draft" },
+      });
+      await tx.openShift.update({ where: { id: o.id }, data: { assignmentId: a.id } });
+      await tx.shiftAsk.create({
+        data: { personId: v.personId, postId: o.postId, ...window, askedAt: now, askedById: session.userId, channel: "portal", answer: "yes", note: v.note ? `Offered in their portal: ${v.note}` : "Offered in their portal", assignmentId: a.id },
+      });
+      await tx.shiftVolunteer.update({ where: { id: v.id }, data: { state: "accepted", decidedAt: now, decidedById: session.userId } });
+      if (others.length) {
+        await tx.shiftVolunteer.updateMany({ where: { id: { in: others.map((x) => x.id) } }, data: { state: "declined", decidedAt: now, decidedById: session.userId, decisionNote: "Somebody else was put on it" } });
+      }
+      // Each told in their portal, about the shift itself.
+      const tell = [
+        v.person.user && { ownerUserId: v.person.user.id, assignmentId: a.id, title: `${ALERT_KIND_SPECS.officer_decision.prefix} put you on ${label}.${publishNow ? " It is on your duties now." : " It goes on your duties when the week is published."}` },
+        ...others.map((x) => x.person.user && { ownerUserId: x.person.user.id, openShiftId: o.id, title: `${ALERT_KIND_SPECS.officer_decision.prefix} put someone else on ${label}. Thank you for offering.` }),
+      ].filter(Boolean) as { ownerUserId: string; title: string; assignmentId?: string; openShiftId?: string }[];
+      if (tell.length) await tx.workItem.createMany({ data: tell.map((t) => ({ ...t, dueAt: now, slaDays: 0 })) });
+      await tx.event.create({
+        data: {
+          type: "rota.offer_accepted",
+          actorUserId: session.userId,
+          actorRole: session.activeRole,
+          department: "control",
+          personId: v.personId,
+          assignmentId: a.id,
+          detail: `${v.person.fullName}'s offer for ${label} accepted — ${publishNow ? "published at once after the deployability check passed" : "on the rota as a draft"}${others.length ? `; ${others.length} other offer${others.length === 1 ? "" : "s"} declined` : ""}.`,
+        },
+      });
+    });
+  } catch (e) {
+    if (String(e).includes("assignment_no_overlap")) return refused(`${v.person.fullName} has just been put on another shift at that time. Nothing was changed.`);
+    throw e;
+  }
+  await sweepDutyChecks();
+  refresh();
+  revalidatePath("/me");
+  return ok(`${v.person.fullName} is on ${label}${publishNow ? ", published now" : " as a draft"}. They have been told in their portal.`);
+}
+
+export async function declineOffer(volunteerId: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const { session, error } = await guard("rota.build");
+  if (error || !session) return error!;
+  const v = await loadOffer(volunteerId);
+  if (!v || v.state !== "waiting") return refused("That offer has already been decided or withdrawn.");
+  const note = text(formData, "note").slice(0, 200) || null;
+  const now = new Date();
+  const label = `${v.openShift.post.name} at ${v.openShift.post.site.name}, ${shiftLabel(v.openShift)}`;
+  await db.$transaction([
+    db.shiftVolunteer.update({ where: { id: v.id }, data: { state: "declined", decidedAt: now, decidedById: session.userId, decisionNote: note } }),
+    db.workItem.updateMany({ where: { openShiftId: v.openShiftId, state: "open", title: { startsWith: `${ALERT_KIND_SPECS.volunteer.prefix}: ${v.person.fullName} —` } }, data: { state: "done", doneAt: now } }),
+    ...(v.person.user
+      ? [db.workItem.create({ data: { ownerUserId: v.person.user.id, openShiftId: v.openShiftId, title: `${ALERT_KIND_SPECS.officer_decision.prefix} not put you on ${label}${note ? ` — ${note}` : ""}. Thank you for offering.`, dueAt: now, slaDays: 0 } })]
+      : []),
+    db.event.create({
+      data: { type: "rota.offer_declined", actorUserId: session.userId, actorRole: session.activeRole, department: "control", personId: v.personId, detail: `${v.person.fullName}'s offer for ${label} declined${note ? `: ${note}` : "."}` },
+    }),
+  ]);
+  await sweepDutyChecks();
+  refresh();
+  revalidatePath("/me");
+  return ok(`Declined. ${v.person.fullName} has been told.`);
 }

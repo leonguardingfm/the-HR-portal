@@ -8,7 +8,7 @@ import { ESCALATION_LADDER, OPS_RULES, escalationAction } from "@/lib/core/ops";
 import type { LiveRow } from "@/lib/db/queries";
 import { formatTime } from "@/lib/format";
 import { AttemptForm, CheckCallForm, LostContactForm, TellClientForm } from "./DutyForms";
-import { CallTimeline, DutyFlow, Notice, OfficerCell, OnTheirBehalf, Pill, Section, relative, useDuty } from "./DutyShared";
+import { CallTimeline, DutyFlow, Notice, OfficerCell, OnTheirBehalf, Pill, ProofBadge, Section, WhoElseToRing, relative, useDuty } from "./DutyShared";
 
 export interface CheckCallPerms {
   checkCall: string | null;
@@ -60,6 +60,7 @@ export function CheckCallBoard({ rows, perms }: { rows: LiveRow[]; perms: CheckC
               <p style={{ color: "var(--text-secondary)" }}>
                 {d.s.call.attemptsMade} failed tr{d.s.call.attemptsMade === 1 ? "y" : "ies"} since the call went missing
               </p>
+              <WhoElseToRing r={d} />
               {d.s.schedule && <CallTimeline slots={d.s.schedule.slots} now={now} />}
             </div>
             <div className="space-y-2">
@@ -87,6 +88,7 @@ export function CheckCallBoard({ rows, perms }: { rows: LiveRow[]; perms: CheckC
                 )}
               </p>
               {d.s.schedule && <CallTimeline slots={d.s.schedule.slots} now={now} />}
+              {d.calls[0] && <ProofBadge proof={d.calls[0].proof} byOfficer={d.calls[0].byOfficer} siteHasLocation={d.site.hasLocation} />}
               <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                 {d.calls.length ? `${d.calls.filter((c) => c.byOfficer).length} of ${d.calls.length} made by the officer in their portal · ` : ""}Check calls: {ruleLine(d)}
               </p>

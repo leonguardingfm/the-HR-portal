@@ -169,12 +169,14 @@ export default async function OfficersPage({
                   <tr key={o.personId} className="align-top">
                     <td className="border-b px-5 py-2.5">
                       <div className="flex flex-wrap items-center gap-1.5">
-                        {o.candidacy && seesCandidates ? (
-                          <Link href={`/candidates/${o.candidacy.id}`} className="font-medium hover:underline">
-                            {o.name}
+                        {/* The officer's own page: contact, shifts, record, availability, sites. */}
+                        <Link href={`/officers/${o.personId}`} className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+                          {o.name}
+                        </Link>
+                        {o.candidacy && seesCandidates && (
+                          <Link href={`/candidates/${o.candidacy.id}`} className="text-[11px] underline" style={{ color: "var(--text-muted)" }}>
+                            candidate record
                           </Link>
-                        ) : (
-                          <span className="font-medium">{o.name}</span>
                         )}
                         {isNew(o) && <Tag>New</Tag>}
                       </div>
@@ -304,18 +306,13 @@ export default async function OfficersPage({
       </Card>
 
       <ModuleOutline
-        subtitle="Still to come. The pool itself, deployability from the real record, and the handover from onboarding are built above."
+        subtitle="Still to come. The pool itself, deployability from the real record, each officer's own page, and SIA licence warnings at 90, 60 and 30 days are built."
         note="All of this follows from the candidate and screening record: the same person carries through rather than being re-created at deployment, which is the identity engine doing its job. The rota and the live board read from here — an officer's deployability is worked out once, in one place, and Scheduling is blocked by it."
         items={[
           {
             label: "Pool search for the requirement check",
             detail: "By site experience, availability, shift pattern, control and deployability, so Control's first action takes seconds rather than a scan of a spreadsheet.",
             phase: 1,
-          },
-          {
-            label: "Licence expiry pipeline",
-            detail: "Automatic warnings at 90, 60 and 30 days to the officer, Control and Recruitment — not on the day it lapses.",
-            phase: 2,
           },
           {
             label: "SIA status monitoring",

@@ -1,5 +1,7 @@
 import Link from "next/link";
 import { WeekGrid } from "@/components/scheduling/WeekGrid";
+import { AsksList, ChangesList } from "@/components/scheduling/HistoryLists";
+import { OfferList, type OfferRow } from "@/components/scheduling/OfferList";
 import { PublishWeekForm } from "@/components/scheduling/RotaForms";
 import { ActionButton } from "@/components/ui/ActionButton";
 import { Card } from "@/components/ui/Card";
@@ -10,8 +12,6 @@ import { publishAssignment } from "@/lib/actions/operations";
 import { requireSession } from "@/lib/auth/server";
 import { deniedReason } from "@/lib/auth/ui";
 import {
-  ANSWER_LABELS,
-  CHANNEL_LABELS,
   OFF_REASON_LABELS,
   addDays,
   dayLabel,
@@ -19,7 +19,8 @@ import {
   mondayOf,
   ukDate,
 } from "@/lib/core/rota";
-import { getOpenCoverNeeds, getRotaWeek, type RotaAsk } from "@/lib/db/rota";
+import { getOpenCoverNeeds, getRotaWeek, whyCannotTake, type RotaAsk } from "@/lib/db/rota";
+import { db } from "@/lib/db/client";
 import { formatDate, formatTime } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -69,18 +70,40 @@ function urgency(
 export default async function SchedulingPage({
   searchParams,
 }: {
-  searchParams: Promise<{ week?: string; cover?: string; span?: string }>;
+  searchParams: Promise<{ week?: string; cover?: string; span?: string; post?: string; day?: string }>;
 }) {
   const session = await requireSession();
-  const { week: asked, cover, span: spanParam } = await searchParams;
+  const { week: asked, cover, span: spanParam, post: openPostId, day: openDay } = await searchParams;
   const now = new Date();
   const today = ukDate(now);
   const monday = mondayOf(asked && isDate(asked) ? asked : today);
   const span = spanParam === "4" ? 4 : 1;
-  const [week, openNeeds] = await Promise.all([
+  const [week, openNeeds, waiting] = await Promise.all([
     getRotaWeek(monday, span),
     getOpenCoverNeeds(now),
+    // Officers who offered in their portal, still waiting for Control.
+    db.shiftVolunteer.findMany({
+      where: { state: "waiting", openShift: { assignmentId: null, cancelledAt: null, endsAt: { gt: now } } },
+      orderBy: { at: "asc" },
+      take: 60,
+      include: {
+        person: { select: { fullName: true, employment: { select: { pin: true } } } },
+        openShift: { include: { post: { include: { site: true } } } },
+      },
+    }),
   ]);
+  const offers: OfferRow[] = await Promise.all(
+    waiting.map(async (v) => ({
+      id: v.id,
+      person: v.person.fullName,
+      pin: v.person.employment?.pin ?? null,
+      shift: `${v.openShift.post.name} at ${v.openShift.post.site.name}, ${dayLabel(ukDate(v.openShift.startsAt))} ${formatTime(v.openShift.startsAt)}–${formatTime(v.openShift.endsAt)}`,
+      note: v.note,
+      at: `Offered ${formatDate(v.at)} ${formatTime(v.at)}`,
+      problem: await whyCannotTake(v.personId, v.openShift),
+      href: `/scheduling?week=${mondayOf(ukDate(v.openShift.startsAt))}&post=${v.openShift.postId}&day=${ukDate(v.openShift.startsAt)}`,
+    })),
+  );
   const href = (m: string, s: number = span) =>
     `/scheduling?week=${m}${s > 1 ? `&span=${s}` : ""}`;
 
@@ -243,6 +266,16 @@ export default async function SchedulingPage({
         </section>
       )}
 
+      {offers.length > 0 && (
+        <Card
+          className="print:hidden"
+          title={`Officers offering for shifts · ${offers.length}`}
+          subtitle="Offered in their portal. Accept to put them on it, exactly as a yes on the phone; decline and they are told. Oldest first."
+        >
+          <OfferList rows={offers} denied={buildDenied} />
+        </Card>
+      )}
+
       <div className="grid grid-cols-2 gap-3 xl:grid-cols-4 print:hidden">
         <StatTile
           label="Open shifts to fill"
@@ -299,6 +332,7 @@ export default async function SchedulingPage({
           changeDenied={changeDenied}
           hoursDenied={hoursDenied}
           openCover={cover ?? null}
+          openPost={openPostId && openDay && isDate(openDay) ? { postId: openPostId, date: openDay } : null}
         />
       </Card>
 
@@ -411,147 +445,47 @@ export default async function SchedulingPage({
       <Card
         className="print:hidden"
         title="Who was asked"
-        subtitle={`The ring-round for ${period}, newest first. Availability is known by asking, so this is the availability record — the no answers included.`}
+        subtitle={`The ring-round for ${period}, newest first — the no answers included, and the offers officers made in their portal.`}
       >
-        {asks.length === 0 ? (
-          <p
-            className="py-4 text-center text-[13px]"
-            style={{ color: "var(--text-secondary)" }}
-          >
-            Nobody has been asked about {period} yet.
-          </p>
-        ) : (
-          <>
-            <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
-              {asks.slice(0, LIST_LIMIT).map((group) => {
-                const a = group[0];
-                return (
-                  <li
-                    key={a.id}
-                    className="py-2.5"
-                    style={{ borderColor: "var(--hairline)" }}
-                  >
-                    <div className="flex flex-wrap items-baseline justify-between gap-2">
-                      <p className="text-[13px]">
-                        {a.coverNeedId && (
-                          <span
-                            className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase"
-                            style={{
-                              background: "var(--wash-critical)",
-                              color: "var(--status-critical)",
-                            }}
-                          >
-                            Cover
-                          </span>
-                        )}
-                        <span className="font-medium">{a.personName}</span>
-                        <span style={{ color: "var(--text-secondary)" }}>
-                          {" "}
-                          · {a.postName}, {a.siteName}
-                        </span>
-                      </p>
-                      <StatusPill
-                        severity={
-                          a.answer === "yes"
-                            ? "good"
-                            : a.answer === "no"
-                              ? "neutral"
-                              : "warning"
-                        }
-                        label={ANSWER_LABELS[a.answer]}
-                      />
-                    </div>
-                    <p
-                      className="text-[12px]"
-                      style={{ color: "var(--text-secondary)" }}
-                    >
-                      {group.map((g) => dayLabel(g.date)).join(", ")} ·{" "}
-                      {a.start}–{a.end}
-                    </p>
-                    <p
-                      className="text-[11px]"
-                      style={{ color: "var(--text-muted)" }}
-                    >
-                      Asked by {a.askedBy},{" "}
-                      {CHANNEL_LABELS[a.channel].toLowerCase()},{" "}
-                      {formatDate(a.askedAt)} {formatTime(a.askedAt)}
-                      {a.note && ` — “${a.note}”`}
-                    </p>
-                  </li>
-                );
-              })}
-            </ul>
-            {asks.length > LIST_LIMIT && (
-              <p
-                className="pt-2 text-[12px]"
-                style={{ color: "var(--text-muted)" }}
-              >
-                And {asks.length - LIST_LIMIT} earlier calls. Each officer's are
-                shown when you open the shift.
-              </p>
-            )}
-          </>
-        )}
+        <AsksList calls={asks} period={period} />
       </Card>
 
       {week.changes.length > 0 && (
         <Card
           className="print:hidden"
           title="Shift changes"
-          subtitle="Every amendment to a published shift this week, with its reason and its author. Nothing is overwritten."
+          subtitle={`Every amendment to a published shift ${period}, with its reason and its author, newest first. Nothing is overwritten.`}
         >
-          <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
-            {week.changes.map((m) => (
-              <li
-                key={m.id}
-                className="py-2.5"
-                style={{ borderColor: "var(--hairline)" }}
-              >
-                <p className="text-[13px] font-medium">{m.change}</p>
-                <p
-                  className="mt-0.5 text-[12px]"
-                  style={{ color: "var(--text-secondary)" }}
-                >
-                  {m.postName} · {m.siteName} —{" "}
-                  <span style={{ color: "var(--text-muted)" }}>Reason:</span>{" "}
-                  {m.reason}
-                </p>
-                <p
-                  className="mt-0.5 text-[11px]"
-                  style={{ color: "var(--text-muted)" }}
-                >
-                  {m.by} · {formatDate(m.at)}
-                </p>
-              </li>
-            ))}
-          </ul>
+          <ChangesList changes={week.changes} />
         </Card>
       )}
 
-      <Card className="print:hidden" title="Not built yet">
-        <ul
-          className="list-disc space-y-1.5 pl-5 text-[13px] leading-relaxed"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          <li>
-            <strong>Telling officers automatically.</strong> After every change
-            the page says who to tell. Sending it by message waits on the
-            in-built messaging (decision E16).
-          </li>
-          <li>
-            <strong>Officers kept off a site</strong>, and a hard limit on rest
-            between shifts. Rest is shown, not enforced (discovery questions
-            13–14).
-          </li>
-        </ul>
-        <p
-          className="mt-3 text-[13px] leading-relaxed"
-          style={{ color: "var(--text-secondary)" }}
-        >
-          A double-booking cannot be written at all: the database refuses two
-          overlapping shifts for one officer, whatever screen or job tries.
+      <Card
+        className="print:hidden"
+        title="Hours for payroll"
+        subtitle="Every shift between two dates as a spreadsheet: scheduled hours, when the officer booked on, and the hours from then to the end. Up to two months at a time."
+      >
+        <form action="/scheduling/hours" method="get" className="flex flex-wrap items-end gap-3">
+          <label className="text-[12px] font-medium">
+            From
+            <input type="date" name="from" required defaultValue={monday} className="mt-1 block h-9 rounded-md border px-2.5 text-[13px]" style={{ background: "var(--surface-1)", borderColor: "var(--hairline)" }} />
+          </label>
+          <label className="text-[12px] font-medium">
+            To
+            <input type="date" name="to" required defaultValue={addDays(monday, 7 * span - 1)} className="mt-1 block h-9 rounded-md border px-2.5 text-[13px]" style={{ background: "var(--surface-1)", borderColor: "var(--hairline)" }} />
+          </label>
+          <button type="submit" className="h-9 rounded-md px-3 text-[12px] font-semibold text-white" style={{ background: "var(--series-1)" }}>
+            Download spreadsheet
+          </button>
+        </form>
+        <p className="mt-2 text-[12px]" style={{ color: "var(--text-muted)" }}>
+          Until officers book off at the end of a shift, hours run to the scheduled end. A shift with no book-on is marked, not paid by default.
         </p>
       </Card>
+
+      <p className="text-[12px] print:hidden" style={{ color: "var(--text-muted)" }}>
+        A double-booking cannot be written at all: the database refuses two overlapping shifts for one officer, whatever screen or job tries. Eleven hours&apos; rest between shifts, weekly hours and sites an officer is kept off are enforced on every path.
+      </p>
     </div>
   );
 }

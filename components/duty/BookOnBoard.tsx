@@ -7,7 +7,7 @@ import { CHANNEL_EVIDENCE, OPS_RULES } from "@/lib/core/ops";
 import type { LiveRow } from "@/lib/db/queries";
 import { formatTime } from "@/lib/format";
 import { AttemptForm, BookOnForm, NoShowForm, TellClientForm } from "./DutyForms";
-import { ByWhom, DutyFlow, Notice, OfficerCell, OnTheirBehalf, Pill, Section, relative, useDuty, type DutyRow } from "./DutyShared";
+import { ByWhom, DutyFlow, Notice, OfficerCell, OnTheirBehalf, Pill, ProofBadge, Section, relative, useDuty, type DutyRow } from "./DutyShared";
 
 export interface BookOnPerms {
   bookOn: string | null;
@@ -61,6 +61,12 @@ export function BookOnBoard({ rows, perms }: { rows: LiveRow[]; perms: BookOnPer
               <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
                 Chase-up: {d.s.chase.state === "confirmed" ? `confirmed at ${formatTime(d.s.chase.confirmedAt!)}` : d.s.chase.noAnswers ? `no answer ×${d.s.chase.noAnswers}` : "not confirmed"}
               </p>
+              {d.runningLate && (
+                <p className="font-medium" style={{ color: "var(--status-serious)" }}>
+                  Said they are running late — there about {formatTime(d.runningLate.eta)}
+                  {d.runningLate.note ? ` (“${d.runningLate.note}”)` : ""}
+                </p>
+              )}
               {d.attempts.length > 0 && (
                 <p style={{ color: "var(--text-muted)" }}>
                   Tried {d.attempts.length}× since — last {formatTime(d.attempts[0].at)}
@@ -87,6 +93,12 @@ export function BookOnBoard({ rows, perms }: { rows: LiveRow[]; perms: BookOnPer
               <p className="mt-1" style={{ color: "var(--text-secondary)" }}>
                 Due on site {relative(start(d), now)}
               </p>
+              {d.runningLate && (
+                <p className="font-medium" style={{ color: "var(--status-serious)" }}>
+                  Running late — there about {formatTime(d.runningLate.eta)}
+                  {d.runningLate.note ? ` (“${d.runningLate.note}”)` : ""}
+                </p>
+              )}
             </div>
             <div>
               <OnTheirBehalf hasPortal={d.officerHasPortal}>
@@ -112,9 +124,11 @@ export function BookOnBoard({ rows, perms }: { rows: LiveRow[]; perms: BookOnPer
                 />
                 <p className="mt-1 flex flex-wrap items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
                   <ByWhom byOfficer={d.bookOn!.byOfficer} />
-                  {ev.label} · {STRENGTH[ev.strength]}
-                  {d.bookOn!.locationVerified && " · location checked"}
+                  {d.bookOn!.proof ? "Selfie in the portal" : `${ev.label} · ${STRENGTH[ev.strength]}`}
                 </p>
+                <div className="mt-1.5">
+                  <ProofBadge proof={d.bookOn!.proof} byOfficer={d.bookOn!.byOfficer} siteHasLocation={d.site.hasLocation} />
+                </div>
               </div>
               <div>
                 {!d.post.mobileSignal && !d.noSignal?.notifiedAt ? (

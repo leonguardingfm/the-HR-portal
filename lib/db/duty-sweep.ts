@@ -76,6 +76,11 @@ async function runSweep(now: Date): Promise<SweepResult> {
   const duty = await sweepDuty(now);
   const uncovered = await sweepUncovered(now);
   const licences = await sweepLicences(now);
+  // News for the officer — "Control has put you on…" — is news for half a day.
+  await db.workItem.updateMany({
+    where: { state: "open", ownerRole: null, title: { startsWith: ALERT_KIND_SPECS.officer_decision.prefix }, createdAt: { lt: new Date(now.getTime() - 12 * 3_600_000) } },
+    data: { state: "done", doneAt: now },
+  });
   const pushed = await deliverAlerts(now);
   return {
     checked: duty.checked,
@@ -374,7 +379,9 @@ export async function deliverAlerts(now = new Date()): Promise<number> {
   let pushed = 0;
   for (const w of alarms) {
     const officer = !w.ownerRole;
-    if (!pushDue({ sent: w.deliveries.map((d) => d.at), now, officer })) continue;
+    // An officer is reminded about what they must do; news is told once.
+    const nags = officer && ALERT_KIND_SPECS[alertKind(w.title)].severity !== "neutral";
+    if (!pushDue({ sent: w.deliveries.map((d) => d.at), now, officer: nags })) continue;
     const [head, ...rest] = w.title.split(": ");
     const shift = w.coverNeed ?? w.openShift;
     const url = officer

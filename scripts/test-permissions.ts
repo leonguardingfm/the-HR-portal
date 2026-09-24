@@ -38,7 +38,10 @@ import { canSignOff } from "../lib/bs7858";
 import { atRisk, fillProblem, headcount, nextReference, releaseProblem, statusAfterAllocation } from "../lib/core/requirements";
 import { isDue, retentionDue } from "../lib/core/retention";
 import { callsRequiredFor, chaseUpStatus, checkCallSchedule, dutyStatus, type DutyInput } from "../lib/core/duty";
-import { askProblem, busiestWeek, candidateOrder, clashWith, createProblem, datesBetween, fromNow, hoursProblem, leavePending, leaveProblem, planBatch, slotsFor, suggestOfficers, hoursWithin, mondayOf, newHoursProblem, offWindow, parsePattern, rosterState, shiftWindow, shortestRest, ukDate, ukInstant, ukTime, weeksOf } from "../lib/core/rota";
+import { askProblem, busiestWeek, candidateOrder, clashWith, createProblem, datesBetween, fromNow, hoursProblem, leavePending, leaveProblem, planBatch, restProblem, slotsFor, suggestOfficers, hoursWithin, mondayOf, newHoursProblem, offWindow, parsePattern, rosterState, shiftWindow, shortestRest, ukDate, ukInstant, ukTime, weeksOf } from "../lib/core/rota";
+import { isProofCode, judgeLocation, newProofCode, parseLatLng, proofVerdict } from "../lib/core/proof";
+import { alertKind, isAlarm, pushDue, uncoveredSeverity } from "../lib/core/alerts";
+import { clientProblem, postProblem, siteProblem } from "../lib/core/places";
 import { sniffMime, uploadProblem, uploadWarning } from "../lib/core/screening-documents";
 import { analyseHistory, chaseState, dateOf, merge, requestProblem, screeningWindow, verifyProblem, workingDaysBetween, type Period } from "../lib/core/history";
 import { declarationProblem, decisionProblem, extensionProblem, fileStatus, isExpiredOnClock, riskFindingProblem } from "../lib/core/screening-exceptions";
@@ -935,9 +938,66 @@ check("a missing figure reads neutral, never good",
   check("booked on and an hour silent, the alert", duty(on, "2026-09-24T19:05Z").stage === "alert");
 }
 
+// --- 1z. the Control Room, live (25 September 2026) ---------------------
+{
+  const t = (iso: string) => new Date(iso);
+  // Eleven hours' rest, enforced.
+  const early = { startsAt: t("2026-09-29T06:00:00Z"), endsAt: t("2026-09-29T14:00:00Z"), label: "Day gate" };
+  const late = { startsAt: t("2026-09-29T20:00:00Z"), endsAt: t("2026-09-30T04:00:00Z") };
+  check("six hours between shifts is refused", restProblem([early], [late])?.includes("Only 6h rest after Day gate") === true, String(restProblem([early], [late])));
+  check("eleven hours is enough", restProblem([early], [{ startsAt: t("2026-09-30T01:00:00Z"), endsAt: t("2026-09-30T09:00:00Z") }]) === null);
+  check("a relief that hands straight over is one stretch, not a gap", restProblem([early], [{ startsAt: t("2026-09-29T14:00:00Z"), endsAt: t("2026-09-29T18:00:00Z") }]) === null);
+  check("two shifts in one plan are checked against each other", restProblem([], [early, late]) !== null);
+  const nights = [0, 1, 2, 3].map((i) => ({ key: `n${i}`, postId: "gate", personId: "wes", startsAt: t(`2026-10-0${i + 1}T18:00:00Z`), endsAt: t(`2026-10-0${i + 2}T06:00:00Z`) }));
+  check("four back-to-back 12-hour nights still pass (12h rest each)", planBatch(nights, { busyByPerson: new Map(), busyByPost: new Map(), weeklyHoursOf: () => 60, blockerFor: () => null, now: t("2026-09-30T00:00:00Z") }).accepted.length === 4);
+  const tight = planBatch([nights[0], { key: "d", postId: "depot", personId: "wes", startsAt: t("2026-10-02T12:00:00Z"), endsAt: t("2026-10-02T17:00:00Z") }], { busyByPerson: new Map(), busyByPost: new Map(), weeklyHoursOf: () => 60, blockerFor: () => null, now: t("2026-09-30T00:00:00Z") });
+  check("a bulk plan refuses a shift six hours after a night", tight.refused.length === 1 && /rest/.test(tight.refused[0].reason), tight.refused.map((r) => r.reason).join());
+
+  // Who is asked first, with what officers said in their portal.
+  const base = { regular: false, allocatedHere: false, shiftsHere: 0, saidNo: false };
+  const order = [
+    { ...base, name: "Cara", said: "unavailable" as const },
+    { ...base, name: "Amir", said: null },
+    { ...base, name: "Bea", said: "available" as const },
+    { ...base, name: "Reg", regular: true, said: null },
+  ].sort(candidateOrder).map((c) => c.name);
+  check("the regular officer first, then who said they are free, then the rest; not free last", order.join() === "Reg,Bea,Amir,Cara", order.join());
+
+  // Selfie location.
+  const site = { lat: 51.5155, lng: -0.0922, radiusMetres: 200 };
+  check("a selfie 50 m away is at the site", judgeLocation({ lat: 51.5159, lng: -0.0922, accuracy: 15 }, site).atSite === true);
+  const home = judgeLocation({ lat: 51.55, lng: -0.1, accuracy: 15 }, site);
+  check("a selfie 3.9 km away is not", home.atSite === false && home.distance! > 3500 && home.distance! < 4200, String(home.distance));
+  check("a fix too vague to mean anything is not judged", judgeLocation({ lat: 51.52, lng: -0.09, accuracy: 900 }, site).atSite === null);
+  check("a site with no location is not judged", judgeLocation({ lat: 51.52, lng: -0.09, accuracy: 10 }, null).atSite === null);
+  check("away from the site is critical, in words", proofVerdict({ atSite: false, distanceMetres: 3900, accuracyMetres: 15, liveCamera: true, hasLocation: true, siteHasLocation: true }).label === "Selfie 3.9 km from the site");
+  check("a gallery photo is weaker whatever it shows", proofVerdict({ atSite: true, distanceMetres: 40, accuracyMetres: 15, liveCamera: false, hasLocation: true, siteHasLocation: true }).severity === "warning");
+  const code = newProofCode((n) => Uint8Array.from({ length: n }, (_, i) => i * 7));
+  check("a proof code reads cleanly and is recognised", isProofCode(code) && !/[01OIL]/.test(code), code);
+  check("a location is read from a Google Maps link", JSON.stringify(parseLatLng("https://www.google.com/maps/place/x/@51.5155,-0.0922,17z")) === JSON.stringify({ lat: 51.5155, lng: -0.0922 }));
+  check("…and from plain coordinates", parseLatLng("51.5074, -0.1278")?.lng === -0.1278);
+  check("…and nonsense is not a place", parseLatLng("the gatehouse") === null && parseLatLng("95, 10") === null);
+
+  // Alerts and the queue.
+  check("a missed check call is an alarm", isAlarm({ title: "Check call missed: Kieran Doyle, …", slaDays: 0 }));
+  check("an offer to work is not", !isAlarm({ title: "Offered to work: Wesley Anand — …", slaDays: 1 }));
+  check("an uncovered shift is recognised", alertKind("Uncovered shift: Night gatehouse at Meridian — Depot 4, …") === "uncovered");
+  check("an officer is reminded three times, five minutes apart", pushDue({ sent: [], now: t("2026-09-29T10:00:00Z"), officer: true }) &&
+    !pushDue({ sent: [t("2026-09-29T09:57:00Z")], now: t("2026-09-29T10:00:00Z"), officer: true }) &&
+    pushDue({ sent: [t("2026-09-29T09:54:00Z")], now: t("2026-09-29T10:00:00Z"), officer: true }) &&
+    !pushDue({ sent: [t("2026-09-29T09:40:00Z"), t("2026-09-29T09:45:00Z"), t("2026-09-29T09:50:00Z")], now: t("2026-09-29T10:00:00Z"), officer: true }));
+  check("a Control desk is pushed each alert once", !pushDue({ sent: [t("2026-09-29T09:40:00Z")], now: t("2026-09-29T10:00:00Z"), officer: false }));
+  check("an uncovered shift within two hours is critical", uncoveredSeverity(t("2026-09-29T11:30:00Z"), t("2026-09-29T10:00:00Z")) === "critical" && uncoveredSeverity(t("2026-09-30T08:00:00Z"), t("2026-09-29T10:00:00Z")) === "warning");
+
+  // Clients, sites and posts.
+  check("a client needs a name and a 5- or 10-year period", clientProblem({ name: "A", screeningPeriodYears: 5, contractStart: null, contractEnd: null }) !== null && clientProblem({ name: "Acme", screeningPeriodYears: 7, contractStart: null, contractEnd: null }) !== null && clientProblem({ name: "Acme", screeningPeriodYears: 10, contractStart: null, contractEnd: null }) === null);
+  check("a site's location must be readable", siteProblem({ name: "HQ", address: null, contactPhone: null, radiusMetres: 200, locationText: "near the station", location: null }) !== null);
+  check("a post's rule is one of the three", postProblem({ name: "Gate", pattern: null, screeningPeriodYears: 5, checkCalls: "sometimes", phone: null, instructions: null }) !== null);
+}
+
 // --- 2. every action guards ------------------------------------------------
 let actionCount = 0;
-for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me", "alerts", "work", "places"]) {
+for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me", "alerts", "work", "places", "officers"]) {
   const src = readFileSync(new URL(`../lib/actions/${file}.ts`, import.meta.url), "utf8");
   const exported = [...src.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
   check(`${file}.ts has server actions to check`, exported.length > 0, `${exported.length} found`);

@@ -15,6 +15,7 @@ import {
   KNOWS_POST_DAYS,
   addDays,
   hoursProblem,
+  restProblem,
   parsePattern,
   ukDate,
   ukInstant,
@@ -24,6 +25,8 @@ import {
   type AskChannel,
   type Leave,
   type OffReason,
+  clashWith,
+  leaveProblem,
   type Pattern,
 } from "@/lib/core/rota";
 import { db } from "./client";
@@ -31,6 +34,7 @@ import { getDeployabilityInputs, shiftDeployability } from "./queries";
 
 export interface RotaPost {
   id: string;
+  siteId: string;
   name: string;
   siteName: string;
   clientName: string;
@@ -98,6 +102,8 @@ export interface RotaOpenShift {
   end: string;
   startsAt: string;
   endsAt: string;
+  /** Officers who have offered for it in their portal, still waiting for Control. */
+  offeredBy: string[];
 }
 
 export interface RotaOfficer {
@@ -114,6 +120,10 @@ export interface RotaOfficer {
   shiftsHere: Record<string, number>;
   /** Leave across the span: approved is unavailable, pending is a warning. */
   leave: { startsAt: string; endsAt: string; approved: boolean }[];
+  /** Sites they are kept off: the rota refuses them there. */
+  excludedSites: string[];
+  /** What they said in their portal about each day of the span. */
+  said: Record<string, "available" | "unavailable">;
 }
 
 export interface RotaAsk {
@@ -128,7 +138,7 @@ export interface RotaAsk {
   end: string;
   askedAt: string;
   askedBy: string;
-  channel: AskChannel;
+  channel: AskChannel | "portal";
   answer: AskAnswer;
   note: string | null;
   coverNeedId: string | null;
@@ -192,13 +202,16 @@ export async function getRotaWeek(monday: string, weeks = 1) {
       include: { person: { select: { fullName: true } }, post: { include: { site: true } } },
     }),
   ]);
-  const [coverNeeds, openRows, leave] = await Promise.all([
+  const [coverNeeds, openRows, leave, excluded, said] = await Promise.all([
     getCoverNeeds({ startsAt: { gte: from, lt: to } }),
     db.openShift.findMany({
       where: { startsAt: { gte: from, lt: to }, cancelledAt: null, assignmentId: null },
       orderBy: { startsAt: "asc" },
+      include: { volunteers: { where: { state: "waiting" }, select: { personId: true } } },
     }),
     leaveFor([...inputs.keys()], around.from, around.to),
+    exclusionsFor([...inputs.keys()]),
+    availabilityFor([...inputs.keys()], days[0], days[days.length - 1]),
   ]);
 
   const poolIds = [...inputs.keys()];
@@ -224,6 +237,7 @@ export async function getRotaWeek(monday: string, weeks = 1) {
 
   const rotaPosts: RotaPost[] = posts.map((p) => ({
     id: p.id,
+    siteId: p.siteId,
     name: p.name,
     siteName: p.site.name,
     clientName: p.site.client.name,
@@ -244,14 +258,14 @@ export async function getRotaWeek(monday: string, weeks = 1) {
     .filter((s) => postIds.has(s.postId))
     .map((s) => {
       const d = s.state === "draft" ? shiftDeployability(inputs, s.personId, s.post.requiresSiaLicence, s.endsAt) : null;
-      // A draft over the officer's weekly hours is blocked like any other.
+      // A draft over the officer's weekly hours, short of rest, or on a site
+      // they are kept off is blocked like any other.
+      const theirs = nearShifts.filter((n) => n.personId === s.personId && n.id !== s.id).map((n) => ({ ...n, label: `${n.post.name}, ${n.post.site.name}` }));
       const over =
         s.state === "draft"
-          ? hoursProblem(
-              nearShifts.filter((n) => n.personId === s.personId && n.id !== s.id),
-              [s],
-              limitOf.get(s.personId) ?? DEFAULT_WEEKLY_HOURS,
-            )
+          ? hoursProblem(theirs, [s], limitOf.get(s.personId) ?? DEFAULT_WEEKLY_HOURS) ??
+            restProblem(theirs, [s]) ??
+            (excluded.get(s.personId)?.has(s.post.siteId) ? `Kept off ${s.post.site.name}.` : null)
           : null;
       return {
         id: s.id,
@@ -304,6 +318,8 @@ export async function getRotaWeek(monday: string, weeks = 1) {
         })),
       shiftsHere: shiftsHere.get(p.id) ?? {},
       leave: (leave.get(p.id) ?? []).map((l) => ({ startsAt: l.startsAt.toISOString(), endsAt: l.endsAt.toISOString(), approved: l.approved })),
+      excludedSites: [...(excluded.get(p.id) ?? [])],
+      said: said.get(p.id) ?? {},
     }))
     .sort((a, b) => a.name.localeCompare(b.name));
 
@@ -319,7 +335,7 @@ export async function getRotaWeek(monday: string, weeks = 1) {
     end: ukTime(a.endsAt),
     askedAt: a.askedAt.toISOString(),
     askedBy: userName.get(a.askedById) ?? "Control",
-    channel: a.channel as AskChannel,
+    channel: a.channel as AskChannel | "portal",
     answer: a.answer as AskAnswer,
     note: a.note,
     coverNeedId: a.coverNeedId,
@@ -360,6 +376,7 @@ export async function getRotaWeek(monday: string, weeks = 1) {
           end: ukTime(o.endsAt),
           startsAt: o.startsAt.toISOString(),
           endsAt: o.endsAt.toISOString(),
+          offeredBy: o.volunteers.map((v) => v.personId),
         }),
       ),
   };
@@ -425,6 +442,51 @@ export function getOpenCoverNeeds(now = new Date()) {
   return getCoverNeeds({ coverAssignmentId: null, closedAt: null, endsAt: { gt: now } });
 }
 
+/** The sites each officer is kept off, while the exclusion stands. */
+export async function exclusionsFor(personIds: string[]): Promise<Map<string, Set<string>>> {
+  const rows = await db.siteExclusion.findMany({ where: { personId: { in: personIds }, liftedAt: null }, select: { personId: true, siteId: true } });
+  const out = new Map<string, Set<string>>();
+  for (const r of rows) out.set(r.personId, new Set([...(out.get(r.personId) ?? []), r.siteId]));
+  return out;
+}
+
+/** What each officer said in their portal about each day, from one UK date to another. */
+export async function availabilityFor(personIds: string[], fromDate: string, toDate: string): Promise<Map<string, Record<string, "available" | "unavailable">>> {
+  const rows = await db.availability.findMany({
+    where: { personId: { in: personIds }, date: { gte: new Date(`${fromDate}T00:00:00Z`), lte: new Date(`${toDate}T00:00:00Z`) } },
+    select: { personId: true, date: true, kind: true },
+  });
+  const out = new Map<string, Record<string, "available" | "unavailable">>();
+  for (const r of rows) out.set(r.personId, { ...(out.get(r.personId) ?? {}), [r.date.toISOString().slice(0, 10)]: r.kind });
+  return out;
+}
+
+/**
+ * Why these shifts cannot go to this officer on this post's site because of
+ * where and when they already work — weekly hours, eleven hours' rest, or a
+ * site they are kept off — or null. `exclude` leaves out the shift being
+ * changed or published, so it is not counted twice.
+ */
+export async function workingTimeProblemFor(
+  personId: string,
+  windows: { startsAt: Date; endsAt: Date }[],
+  exclude: string[] = [],
+  siteId?: string,
+): Promise<string | null> {
+  if (siteId) {
+    const kept = await db.siteExclusion.findFirst({ where: { personId, siteId, liftedAt: null }, include: { site: { select: { name: true } } } });
+    if (kept) return `They are kept off ${kept.site.name}: ${kept.reason}`;
+  }
+  if (windows.length === 0) return null;
+  const earliest = Math.min(...windows.map((w) => w.startsAt.getTime()));
+  const latest = Math.max(...windows.map((w) => w.endsAt.getTime()));
+  const held = await db.assignment.findMany({
+    where: { personId, state: { not: "cancelled" }, id: { notIn: exclude }, startsAt: { lt: new Date(latest + 2 * 86_400_000) }, endsAt: { gt: new Date(earliest - 2 * 86_400_000) } },
+    select: { startsAt: true, endsAt: true, post: { select: { name: true, site: { select: { name: true } } } } },
+  });
+  return (await hoursProblemFor(personId, windows, exclude)) ?? restProblem(held.map((h) => ({ ...h, label: `${h.post.name}, ${h.post.site.name}` })), windows);
+}
+
 /**
  * Why these shifts would take one officer over their agreed weekly hours, or
  * null. `exclude` leaves out the shift being changed or published, so it is
@@ -455,3 +517,27 @@ export async function hoursProblemFor(
 }
 
 export type RotaWeek = Awaited<ReturnType<typeof getRotaWeek>>;
+
+/**
+ * Why this officer cannot be given this shift, or null — every check the rota
+ * makes: deployable for the post, not on leave, not already working then,
+ * within their weekly hours, eleven hours' rest, and not kept off the site.
+ * Used for an officer offering in their portal and for Control accepting.
+ */
+export async function whyCannotTake(
+  personId: string,
+  shift: { postId: string; startsAt: Date; endsAt: Date; post: { requiresSiaLicence: boolean; siteId: string } },
+): Promise<string | null> {
+  const inputs = await getDeployabilityInputs();
+  if (!inputs.has(personId)) return "only officers on the books can take shifts.";
+  const d = shiftDeployability(inputs, personId, shift.post.requiresSiaLicence, shift.endsAt);
+  if (!d.deployable) return `${d.blockers[0].label}.`;
+  const away = leaveProblem((await leaveFor([personId], shift.startsAt, shift.endsAt)).get(personId) ?? [], shift);
+  if (away) return away;
+  const theirs = await db.assignment.findMany({
+    where: { personId, state: { not: "cancelled" }, startsAt: { lt: shift.endsAt }, endsAt: { gt: shift.startsAt } },
+    select: { startsAt: true, endsAt: true },
+  });
+  if (clashWith(theirs, shift)) return "already working then.";
+  return workingTimeProblemFor(personId, [shift], [], shift.post.siteId);
+}

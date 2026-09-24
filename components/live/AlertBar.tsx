@@ -69,13 +69,15 @@ export function AlertBar({ vapidKey }: { vapidKey: string | null }) {
   useEffect(() => setAck(readAck()), []);
 
   const unacked = useMemo(() => alerts.filter((a) => !ack.has(a.id)), [alerts, ack]);
-  const loud = unacked.some((a) => a.severity === "critical" || a.severity === "serious");
-  const newest = unacked[0];
+  // News — "Control has put you on…" — is shown, not sounded.
+  const sounding = useMemo(() => unacked.filter((a) => a.severity !== "neutral"), [unacked]);
+  const loud = sounding.some((a) => a.severity === "critical" || a.severity === "serious");
+  const newest = sounding[0];
 
   // The siren: at once for a new alert, then every twenty seconds while any
   // is unacknowledged.
   useEffect(() => {
-    if (!now || unacked.length === 0) {
+    if (!now || sounding.length === 0) {
       setNeedsTap(false);
       return;
     }
@@ -83,7 +85,7 @@ export function AlertBar({ vapidKey }: { vapidKey: string | null }) {
     const played = soundAlarm(loud);
     setNeedsTap(!played && !alarmReady());
     if (played) lastSound.current = now.getTime();
-  }, [now, unacked.length, loud]);
+  }, [now, sounding.length, loud]);
 
   // A new alert restarts the siren straight away.
   const newestId = newest?.id;
@@ -95,8 +97,8 @@ export function AlertBar({ vapidKey }: { vapidKey: string | null }) {
   useEffect(() => {
     if (baseTitle.current === null) baseTitle.current = document.title;
     if (!now) return;
-    document.title = unacked.length && now.getSeconds() % 2 === 0 ? `(${unacked.length}) ⚠ Needs action` : baseTitle.current ?? document.title;
-  }, [now, unacked.length]);
+    document.title = sounding.length && now.getSeconds() % 2 === 0 ? `(${sounding.length}) ⚠ Needs action` : baseTitle.current ?? document.title;
+  }, [now, sounding.length]);
   useEffect(() => () => void (baseTitle.current && (document.title = baseTitle.current)), []);
 
   const acknowledge = () => {
@@ -109,13 +111,18 @@ export function AlertBar({ vapidKey }: { vapidKey: string | null }) {
 
   if (officer) {
     if (alerts.length === 0) return null;
+    const first = alerts.find((a) => a.severity !== "neutral") ?? alerts[0];
+    const urgent = first.severity !== "neutral";
     return (
-      <div role="alert" className={`border-b px-4 py-3 ${unacked.length ? "alert-flash" : ""}`} style={{ background: "var(--status-critical)", color: "#fff", borderColor: "transparent" }}>
+      <div role="alert" className={`border-b px-4 py-3 ${urgent && sounding.length ? "alert-flash" : ""}`} style={{ background: urgent ? "var(--status-critical)" : "var(--series-1)", color: "#fff", borderColor: "transparent" }}>
         <div className="mx-auto flex max-w-xl flex-wrap items-center justify-between gap-2">
-          <p className="text-[15px] font-semibold">⚠ {alerts[0].title.split(". ")[0]}</p>
-          {unacked.length > 0 ? (
-            <button type="button" onClick={acknowledge} className="h-9 rounded-md bg-white px-3 text-[13px] font-semibold" style={{ color: "var(--status-critical)" }}>
-              I&apos;ve seen it
+          <p className="text-[15px] font-semibold">
+            {urgent ? "⚠ " : ""}
+            {first.title.split(". ")[0]}
+          </p>
+          {unacked.some((a) => a.id === first.id) ? (
+            <button type="button" onClick={acknowledge} className="h-9 rounded-md bg-white px-3 text-[13px] font-semibold" style={{ color: urgent ? "var(--status-critical)" : "var(--series-1)" }}>
+              {urgent ? "I've seen it" : "OK"}
             </button>
           ) : (
             <Link href="/me" className="text-[13px] underline">
@@ -150,7 +157,7 @@ export function AlertBar({ vapidKey }: { vapidKey: string | null }) {
   const next = uncovered[0];
 
   return (
-    <div className={`border-b print:hidden ${unacked.length ? "alert-flash" : ""}`} style={{ background: "var(--status-critical)", color: "#fff", borderColor: "transparent" }} role="alert" aria-live="assertive">
+    <div className={`border-b print:hidden ${sounding.length ? "alert-flash" : ""}`} style={{ background: "var(--status-critical)", color: "#fff", borderColor: "transparent" }} role="alert" aria-live="assertive">
       <div className="flex flex-wrap items-center gap-x-4 gap-y-2 px-4 py-2 sm:px-6">
         <p className="text-[14px] font-semibold">
           ⚠ {alerts.length} need{alerts.length === 1 ? "s" : ""} action now
@@ -179,7 +186,7 @@ export function AlertBar({ vapidKey }: { vapidKey: string | null }) {
           <button type="button" onClick={() => setOpen((v) => !v)} aria-expanded={open} className="inline-flex h-8 items-center rounded-md border border-white/60 px-3 text-[12px] font-medium">
             {open ? "Hide" : "Show all"}
           </button>
-          {unacked.length > 0 && (
+          {sounding.length > 0 && (
             <button type="button" onClick={acknowledge} className="inline-flex h-8 items-center rounded-md border border-white/60 px-3 text-[12px] font-medium">
               Acknowledge
             </button>

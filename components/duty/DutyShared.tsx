@@ -5,7 +5,8 @@ import { useMemo, type ReactNode } from "react";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { useNow } from "@/components/ui/useNow";
 import { dutyCounts, dutyStatus, type CallSlot, type DutyStatus } from "@/lib/core/duty";
-import type { LiveRow } from "@/lib/db/queries";
+import type { LiveRow, ProofView } from "@/lib/db/queries";
+import { proofVerdict } from "@/lib/core/proof";
 import { formatTime } from "@/lib/format";
 import type { Severity } from "@/lib/types";
 
@@ -307,5 +308,58 @@ export function ByWhom({ byOfficer }: { byOfficer?: boolean }) {
     <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={byOfficer ? { background: "var(--wash-good)", color: "var(--status-good)" } : { background: "var(--wash-neutral)", color: "var(--text-secondary)" }}>
       {byOfficer ? "By the officer" : "By Control"}
     </span>
+  );
+}
+
+/**
+ * The selfie behind a book-on or a check call: a thumbnail that opens its
+ * record, and what it shows — at the site, how far away, or why it cannot be
+ * told. An officer's own book-on with no selfie says so.
+ */
+export function ProofBadge({ proof, byOfficer, siteHasLocation }: { proof: ProofView | null | undefined; byOfficer?: boolean; siteHasLocation: boolean }) {
+  if (!proof) {
+    return byOfficer ? <StatusPill severity="warning" label="No selfie — ring to confirm they are on site" wrap /> : null;
+  }
+  const v = proofVerdict({ atSite: proof.atSite, distanceMetres: proof.distanceMetres, accuracyMetres: proof.accuracyMetres, liveCamera: proof.liveCamera, hasLocation: proof.hasLocation, siteHasLocation });
+  return (
+    <span className="inline-flex max-w-full items-center gap-2">
+      <Link href={`/duty/verify/${proof.code}`} target="_blank" title="Open the selfie and what the server recorded" className="shrink-0">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src={`/duty/proof/${proof.id}`} alt={`Selfie ${proof.code}`} loading="lazy" className="h-10 w-10 rounded object-cover" style={{ border: "1px solid var(--hairline)" }} />
+      </Link>
+      <StatusPill severity={v.severity} label={v.label} wrap />
+    </span>
+  );
+}
+
+/** Who else to ring when the officer does not answer: the post's own phone, and the client's person on site. */
+export function WhoElseToRing({ r }: { r: LiveRow }) {
+  if (!r.post.phone && !r.site.contactPhone) {
+    return (
+      <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+        No post phone or on-site contact recorded — add them under Clients, sites &amp; posts.
+      </p>
+    );
+  }
+  return (
+    <p className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
+      {r.post.phone && (
+        <>
+          Post phone{" "}
+          <a href={`tel:${r.post.phone.replace(/[^\d+]/g, "")}`} className="font-medium underline" style={{ color: "var(--series-1)" }}>
+            {r.post.phone}
+          </a>
+        </>
+      )}
+      {r.post.phone && r.site.contactPhone && " · "}
+      {r.site.contactPhone && (
+        <>
+          {r.site.contactName ?? "On-site contact"}{" "}
+          <a href={`tel:${r.site.contactPhone.replace(/[^\d+]/g, "")}`} className="font-medium underline" style={{ color: "var(--series-1)" }}>
+            {r.site.contactPhone}
+          </a>
+        </>
+      )}
+    </p>
   );
 }
