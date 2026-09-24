@@ -70,7 +70,11 @@ export type ActionId =
   | "duty.self"
   | "rota.build"
   | "rota.change"
-  | "officer.hours";
+  | "officer.hours"
+  | "work_item.take"
+  | "alerts.subscribe"
+  | "place.manage"
+  | "officer.exclude";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -198,6 +202,15 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "rota.change": { roles: ["control", "operations_manager"], owner: "Control", what: "Changing the rota once it is published: an officer off, cover, new hours or a cancelled shift" },
   // Control's, like the rest of the rota (24 September 2026). Every change is an event naming who made it.
   "officer.hours": { roles: ["control", "operations_manager"], owner: "Control", what: "Setting an officer's agreed weekly hours" },
+  // Taking a task from the department's pool, or handing it back: so two
+  // Control desks can see which of them is on what (25 September 2026).
+  "work_item.take": { roles: STAFF, owner: "the department the task belongs to", what: "Taking or handing back a task" },
+  // A device saying yes to alerts. Everybody's own, officers included.
+  "alerts.subscribe": { roles: [...STAFF, "officer"], owner: "anyone signed in", what: "Turning alerts on for a phone or computer" },
+  // Clients, sites and posts are Control's: a post's check-call rule, its
+  // signal and its instructions are what the rota and the duty checks run on.
+  "place.manage": { roles: ["control", "operations_manager"], owner: "Control", what: "Adding and changing clients, sites and posts" },
+  "officer.exclude": { roles: ["control", "operations_manager"], owner: "Control", what: "Keeping an officer off a site, or lifting it" },
   "screening.sweep": { roles: ["vetting_controller", "top_management"], owner: "a Screening Controller or higher management", what: "Running the screening clock check" },
   "account.review": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager", what: "Approving, suspending or reactivating an account" },
 };

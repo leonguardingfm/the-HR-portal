@@ -26,7 +26,7 @@ export function Topbar({
 
   return (
     <header
-      className="sticky top-0 z-20 flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 sm:px-6"
+      className="flex flex-wrap items-center justify-between gap-3 border-b px-4 py-2.5 sm:px-6"
       style={{ background: "var(--page)", borderColor: "var(--hairline)" }}
     >
       <p className="min-w-0 truncate text-[12px]" style={{ color: "var(--text-secondary)" }}>

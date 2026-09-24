@@ -23,12 +23,23 @@ import { SESSION_COOKIE, verify } from "@/lib/auth/session";
 const PUBLIC_PATHS = new Set(["/signin", "/signup", "/signup/officer"]);
 /** Reachable signed in or not: it is how a dead session is cleared. */
 const SESSION_END = "/signin/ended";
+/**
+ * Open to anyone signed in, whatever their role — officers included. The pulse
+ * answers only about the person asking, so there is nothing to fence.
+ */
+const ANY_SIGNED_IN = new Set(["/api/pulse"]);
 
 export async function proxy(req: NextRequest) {
   const session = await verify(req.cookies.get(SESSION_COOKIE)?.value);
   const { pathname } = req.nextUrl;
   if (pathname === SESSION_END) return NextResponse.next();
   const isPublic = PUBLIC_PATHS.has(pathname);
+
+  // A screen polling in the background gets an answer it can read, not a page.
+  if (!session && pathname.startsWith("/api/")) {
+    return Response.json({ signedOut: true }, { status: 401 });
+  }
+  if (session && ANY_SIGNED_IN.has(pathname)) return NextResponse.next();
 
   if (!session && !isPublic) {
     const url = req.nextUrl.clone();
@@ -53,6 +64,8 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next's own assets and the icon.
-  matcher: ["/((?!_next/static|_next/image|icon.svg|favicon.ico).*)"],
+  // Everything except Next's own assets, the icons, the installable-app
+  // manifest and the service worker — which the browser fetches for itself and
+  // which carry nothing private.
+  matcher: ["/((?!_next/static|_next/image|icon.svg|favicon.ico|icons/|apple-icon.png|manifest.webmanifest|sw.js).*)"],
 };

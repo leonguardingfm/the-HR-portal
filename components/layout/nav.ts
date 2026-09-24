@@ -13,10 +13,11 @@ import type { Role } from "@/lib/types";
  *     two questions, two places — not two records.
  *
  *  2. Where the business names several things that are one screen, the
- *     navigation links to the view, not to a copy. Book-ons and check calls are
- *     `?view=` links into the live board. Departmental task lists are the one
- *     queue, filtered. A second page would only be the same data with a second
- *     chance to disagree with itself.
+ *     navigation links to the view, not to a copy. Departmental task lists are
+ *     the one queue, filtered. A second page would only be the same data with
+ *     a second chance to disagree with itself. (Chase-ups, book-ons and check
+ *     calls were views of the live board once; they are pages of their own
+ *     now, because each is a different job.)
  *
  * Groups collapse, and which are open is remembered per person in the browser.
  */
@@ -263,6 +264,14 @@ export const NAV: NavItem[] = [
     built: true,
   },
   {
+    href: "/clients",
+    label: "Clients, sites & posts",
+    purpose: "Every client, their sites and posts: check-call rules, signal, phones, instructions, and where each site is.",
+    group: "Control Room",
+    roles: [...CONTROL_ROOM, ...MANAGEMENT, "sales"],
+    built: true,
+  },
+  {
     href: "/requirements",
     label: "Client requirements",
     purpose: "Client staffing requirements, the officer pool check, and the timestamped handover to HR.",
@@ -481,14 +490,6 @@ export const NAV: NavItem[] = [
     group: "Management",
     roles: MANAGEMENT,
     built: true,
-  },
-  {
-    href: "/clients",
-    label: "Clients & contracts",
-    purpose: "Contracts, service levels, feedback and satisfaction scores per client.",
-    group: "Management",
-    roles: [...MANAGEMENT, "sales"],
-    built: false,
   },
   {
     href: "/quality",

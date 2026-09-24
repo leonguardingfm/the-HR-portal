@@ -168,3 +168,13 @@ body {
     print-color-adjust: exact;
   }
 }
+
+/* The alarm bar pulses while an alert is unacknowledged. */
+@keyframes alert-flash {
+  0%, 100% { filter: none; }
+  50% { filter: brightness(1.3) saturate(1.2); }
+}
+.alert-flash { animation: alert-flash 1s ease-in-out infinite; }
+@media (prefers-reduced-motion: reduce) {
+  .alert-flash { animation: none; }
+}

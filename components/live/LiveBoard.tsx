@@ -7,6 +7,8 @@ import { StatTile } from "@/components/ui/StatTile";
 import { StatusPill, Tag } from "@/components/ui/StatusPill";
 import { useNow } from "@/components/ui/useNow";
 import { formatShiftWindow, formatTime } from "@/lib/format";
+import type { UncoveredShift } from "@/lib/db/uncovered";
+import { UncoveredPanel } from "./UncoveredPanel";
 import {
   CHANNEL_EVIDENCE,
   ESCALATION_LADDER,
@@ -104,11 +106,13 @@ const FOCUS_META: Record<
 export function LiveBoard({
   rows: input,
   incidents,
+  uncovered = [],
   perms,
   focus = "all",
 }: {
   rows: LiveRow[];
   incidents: IncidentRow[];
+  uncovered?: UncoveredShift[];
   perms: LivePerms;
   focus?: LiveFocus;
 }) {
@@ -300,12 +304,15 @@ export function LiveBoard({
         description="Every post on now or starting within six hours. Turning up and staying in contact are tracked separately, because they fail separately."
         action={
           <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-            As at {formatTime(now.toISOString())} · refreshes every 30s
+            Live · updates by itself the moment anything changes
           </span>
         }
       />
 
       <DutyFlow counts={dutyCounts(input.map((r) => dutyStatus(r, now)), now)} />
+
+      {/* A post with nobody on it is the first thing to see, not the last. */}
+      <UncoveredPanel rows={uncovered} hours={12} />
 
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 xl:grid-cols-5">
         <StatTile label="Officers on post" value={onPost} detail={`of ${rows.length} shifts in the window`} />

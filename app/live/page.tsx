@@ -1,10 +1,9 @@
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { LiveBoard, type LiveFocus } from "@/components/live/LiveBoard";
-import { sweepDutyChecks } from "@/lib/db/duty-sweep";
 import { requireSession } from "@/lib/auth/server";
 import { deniedReason } from "@/lib/auth/ui";
 import { getLiveRows, getOpenIncidents } from "@/lib/db/queries";
+import { getUncovered } from "@/lib/db/uncovered";
 
 /** Live, so it is never served from a cache. */
 export const dynamic = "force-dynamic";
@@ -29,8 +28,7 @@ export default async function LivePage({
   // Book-ons and check calls have pages of their own now; old links still land.
   if (view === "book-ons") redirect("/duty/book-ons");
   if (view === "check-calls") redirect("/duty/check-calls");
-  const [rows, incidents] = await Promise.all([getLiveRows(), getOpenIncidents()]);
-  after(() => sweepDutyChecks());
+  const [rows, incidents, uncovered] = await Promise.all([getLiveRows(), getOpenIncidents(), getUncovered(12)]);
 
   // Worked out here, on the server, from the signed session. The buttons only
   // reflect it; the actions check it again before they write.
@@ -47,6 +45,7 @@ export default async function LivePage({
     <LiveBoard
       rows={rows}
       incidents={incidents}
+      uncovered={uncovered}
       perms={perms}
       focus={(view && VIEWS[view]) || "all"}
     />

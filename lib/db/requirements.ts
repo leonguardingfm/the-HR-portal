@@ -78,6 +78,7 @@ export async function getClientsWithSites() {
     orderBy: { name: "asc" },
     include: {
       sites: {
+        where: { active: true },
         orderBy: { name: "asc" },
         include: { posts: { where: { active: true }, orderBy: { name: "asc" }, select: { name: true } } },
       },

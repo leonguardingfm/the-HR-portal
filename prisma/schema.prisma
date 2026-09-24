@@ -93,6 +93,10 @@ model Person {
   penalties           Penalty[]
   vouchers            Voucher[]
 
+  siteExclusions SiteExclusion[]
+  availability   Availability[]
+  volunteered    ShiftVolunteer[]
+
   @@index([fullName])
   @@index([lifecycle])
 }
@@ -226,11 +230,12 @@ model User {
   sessions   WorkSession[]
   grantsMade UserRole[]    @relation("RoleGrantedBy")
 
-  delegationsLent    RoleDelegation[] @relation("DelegationFrom")
-  delegationsHeld    RoleDelegation[] @relation("DelegationTo")
-  delegationsGranted RoleDelegation[] @relation("DelegationGrantedBy")
-  workItems          WorkItem[]       @relation("WorkItemOwner")
+  delegationsLent    RoleDelegation[]   @relation("DelegationFrom")
+  delegationsHeld    RoleDelegation[]   @relation("DelegationTo")
+  delegationsGranted RoleDelegation[]   @relation("DelegationGrantedBy")
+  workItems          WorkItem[]         @relation("WorkItemOwner")
   events             Event[]
+  pushSubscriptions  PushSubscription[]
 
   onboardingStepsDone OnboardingStep[] @relation("OnboardingStepDoneBy")
 
@@ -360,14 +365,52 @@ model Site {
   clientRef            String?
   checkCallInstruction String?
 
+  /// The client's person on site: who Control rings at step 2 of the ladder,
+  /// and who is told when an officer goes in at a post with no signal.
+  contactName  String?
+  contactPhone String?
+
+  /// Where the site is. An officer's book-on and check-call selfies carry the
+  /// phone's location, and one taken further away than the radius is flagged
+  /// to Control. Null until somebody sets it; until then nothing is judged.
+  latitude     Decimal? @db.Decimal(9, 6)
+  longitude    Decimal? @db.Decimal(9, 6)
+  radiusMetres Int      @default(200)
+
+  /// A site we no longer cover. Its posts come off the rota with it.
+  active Boolean @default(true)
+
   client        Client           @relation(fields: [clientId], references: [id])
   posts         Post[]
   requirements  Requirement[]
   references    SiteReference[]
   documents     DocumentRecord[]
   formResponses FormResponse[]
+  exclusions    SiteExclusion[]
 
   @@unique([clientId, name])
+}
+
+/// An officer the client does not want on a site, or one we have taken off it.
+/// The rota refuses them there while it stands; lifting it keeps the record.
+model SiteExclusion {
+  id       String @id @default(cuid())
+  siteId   String
+  personId String
+
+  reason    String
+  addedAt   DateTime @default(now()) @db.Timestamptz(3)
+  addedById String
+
+  liftedAt     DateTime? @db.Timestamptz(3)
+  liftedById   String?
+  liftedReason String?
+
+  site   Site   @relation(fields: [siteId], references: [id])
+  person Person @relation(fields: [personId], references: [id])
+
+  @@index([personId])
+  @@index([siteId])
 }
 
 /// The rota fills posts, not sites: a post is what needs an officer and what
@@ -398,6 +441,13 @@ model Post {
   /// thing somebody has to state deliberately.
   mobileSignal         Boolean       @default(true)
   active               Boolean       @default(true)
+
+  /// The phone at the post itself — the gatehouse line — where there is one.
+  /// Step 1 of the ladder rings it after the officer's own mobile.
+  phone        String?
+  /// What an officer needs to know to work the post: the assignment
+  /// instructions. Shown to the officer on the shift, in their portal.
+  instructions String?
 
   /// The officer who normally works this post, where there is one. Most posts
   /// are covered from the pool and a few are one officer's own (Control, 24
@@ -771,9 +821,17 @@ model WorkItem {
   documentId      String?
   formResponseId  String?
   adminItemId     String?
+  /// A shift somebody came off, still needing an officer.
+  coverNeedId     String?
+  /// A shift on the rota nobody has been put on.
+  openShiftId     String?
+  incidentId      String?
 
   ownerUserId String?
   ownerRole   Role?
+  /// When the owner took it from the department's pool — "Control Alpha has
+  /// had this since 12:04". Null while nobody has.
+  takenAt     DateTime? @db.Timestamptz(3)
 
   dueAt     DateTime  @db.Timestamptz(3)
   slaDays   Int
@@ -790,9 +848,52 @@ model WorkItem {
   screeningFile ScreeningFile?      @relation(fields: [screeningFileId], references: [id])
   requirement   Requirement?        @relation(fields: [requirementId], references: [id])
   adminItem     AdminItem?          @relation(fields: [adminItemId], references: [id])
+  coverNeed     CoverNeed?          @relation(fields: [coverNeedId], references: [id])
+  openShift     OpenShift?          @relation(fields: [openShiftId], references: [id])
+  incident      Incident?           @relation(fields: [incidentId], references: [id])
+  deliveries    AlertDelivery[]
 
   @@index([ownerUserId, state, dueAt])
   @@index([state, dueAt])
+  @@index([ownerRole, state])
+}
+
+/// A browser or phone that has said yes to alerts. One person can have several
+/// — the phone and the desk — and every one of them is told. A subscription the
+/// push service says is gone is removed; it is a device, not a record.
+model PushSubscription {
+  id        String    @id @default(cuid())
+  userId    String
+  endpoint  String    @unique
+  p256dh    String
+  auth      String
+  userAgent String?
+  createdAt DateTime  @default(now()) @db.Timestamptz(3)
+  lastOkAt  DateTime? @db.Timestamptz(3)
+  failures  Int       @default(0)
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+}
+
+/// Each time an alert was pushed to someone's devices. The record that the
+/// officer was told, and when — which is what a duty of care has to show —
+/// and what makes a repeat reminder possible without nagging.
+model AlertDelivery {
+  id         String   @id @default(cuid())
+  workItemId String?
+  userId     String
+  at         DateTime @default(now()) @db.Timestamptz(3)
+  title      String
+  /// How many of their devices took it, and how many refused.
+  delivered  Int
+  failed     Int
+
+  workItem WorkItem? @relation(fields: [workItemId], references: [id])
+
+  @@index([workItemId, userId, at])
+  @@index([userId, at])
 }
 
 // ===========================================================================
@@ -889,6 +990,7 @@ model Event {
   @@index([type, at])
   @@index([department, at])
   @@index([personId, at])
+  @@index([assignmentId, at])
 }
 
 // ===========================================================================
@@ -1432,6 +1534,8 @@ model Assignment {
   /// The open shift this assignment fills, where it was created as one.
   fills         OpenShift?
   chaseUps      ChaseUp[]
+  proofs        DutyProof[]
+  runningLate   RunningLate[]
 
   @@index([startsAt, endsAt])
   @@index([personId, startsAt])
@@ -1445,6 +1549,9 @@ enum AskChannel {
   whatsapp
   sms
   in_person
+  /// The officer offered for the shift themselves, in their portal, and
+  /// Control accepted.
+  portal
 }
 
 enum AskAnswer {
@@ -1513,11 +1620,64 @@ model OpenShift {
   cancelledAt     DateTime? @db.Timestamptz(3)
   cancelledReason String?
 
-  post       Post        @relation(fields: [postId], references: [id])
-  assignment Assignment? @relation(fields: [assignmentId], references: [id])
+  post       Post             @relation(fields: [postId], references: [id])
+  assignment Assignment?      @relation(fields: [assignmentId], references: [id])
+  volunteers ShiftVolunteer[]
+  workItems  WorkItem[]
 
   @@index([postId, startsAt])
   @@index([startsAt])
+}
+
+enum VolunteerState {
+  waiting
+  accepted
+  declined
+  withdrawn
+}
+
+/// An officer offering to work an open shift, from their portal. Control
+/// decides: accepting puts them on it as a draft, exactly as a yes on the phone
+/// would, and records the ask as made through the portal.
+model ShiftVolunteer {
+  id          String         @id @default(cuid())
+  openShiftId String
+  personId    String
+  at          DateTime       @default(now()) @db.Timestamptz(3)
+  note        String?
+  state       VolunteerState @default(waiting)
+
+  decidedAt    DateTime? @db.Timestamptz(3)
+  decidedById  String?
+  decisionNote String?
+
+  openShift OpenShift @relation(fields: [openShiftId], references: [id])
+  person    Person    @relation(fields: [personId], references: [id])
+
+  @@unique([openShiftId, personId])
+  @@index([state, at])
+}
+
+enum AvailabilityKind {
+  available
+  unavailable
+}
+
+/// What an officer says about a day ahead, in their portal: free, or not.
+/// Control still asks — this is who to ask first, and who not to bother.
+/// A day with no row is a day they have said nothing about.
+model Availability {
+  id       String           @id @default(cuid())
+  personId String
+  date     DateTime         @db.Date
+  kind     AvailabilityKind
+  note     String?
+  setAt    DateTime         @default(now()) @db.Timestamptz(3)
+
+  person Person @relation(fields: [personId], references: [id])
+
+  @@unique([personId, date])
+  @@index([date])
 }
 
 /// Why an officer came off a shift that was already on the rota.
@@ -1559,10 +1719,11 @@ model CoverNeed {
   closedReason String?
   closedById   String?
 
-  post  Post        @relation(fields: [postId], references: [id])
-  from  Assignment  @relation("CoverFrom", fields: [fromAssignmentId], references: [id])
-  cover Assignment? @relation("CoverBy", fields: [coverAssignmentId], references: [id])
-  asks  ShiftAsk[]
+  post      Post        @relation(fields: [postId], references: [id])
+  from      Assignment  @relation("CoverFrom", fields: [fromAssignmentId], references: [id])
+  cover     Assignment? @relation("CoverBy", fields: [coverAssignmentId], references: [id])
+  asks      ShiftAsk[]
+  workItems WorkItem[]
 
   @@index([startsAt])
 }
@@ -1614,6 +1775,7 @@ model BookOn {
   recordedByUserId String?
 
   assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  proof      DutyProof?
 }
 
 model BookOff {
@@ -1642,6 +1804,70 @@ model CheckCall {
   allWell       Boolean        @default(true)
   note          String?
   takenByUserId String?
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  proof      DutyProof?
+
+  @@index([assignmentId, at])
+}
+
+enum ProofKind {
+  book_on
+  check_call
+}
+
+/// The selfie an officer books on or makes a check call with, from their
+/// portal. The phone stamps the time, the place and a QR code onto the photo
+/// itself; the QR opens this record, where the server's own time and the
+/// location it was sent are kept beside the photo — so an edited stamp shows.
+///
+/// Whether it was taken at the site is judged here, against the site's
+/// location and radius, not on the phone.
+model DutyProof {
+  id           String    @id @default(cuid())
+  /// Printed on the photo as a QR code and in words. Unique, never reused.
+  code         String    @unique
+  assignmentId String
+  kind         ProofKind
+
+  /// The server's clock — the time that counts. The phone's is kept beside it.
+  receivedAt     DateTime  @default(now()) @db.Timestamptz(3)
+  deviceAt       DateTime? @db.Timestamptz(3)
+  latitude       Decimal?  @db.Decimal(9, 6)
+  longitude      Decimal?  @db.Decimal(9, 6)
+  accuracyMetres Int?
+  distanceMetres Int?
+  /// Within the site's radius. Null where there was no location to judge by,
+  /// or the site has none set.
+  atSite         Boolean?
+  /// Taken through the live camera in the portal, not picked from the phone's
+  /// photos. False is weaker evidence and is shown as such.
+  liveCamera     Boolean
+
+  storageKey String
+  mimeType   String
+  bytes      Int
+  sha256     String
+
+  bookOnId    String? @unique
+  checkCallId String? @unique
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  bookOn     BookOn?    @relation(fields: [bookOnId], references: [id])
+  checkCall  CheckCall? @relation(fields: [checkCallId], references: [id])
+
+  @@index([assignmentId, receivedAt])
+}
+
+/// "I'm running late" — from the officer, before or after the start. Control
+/// sees the time they expect to arrive beside the late book-on.
+model RunningLate {
+  id           String   @id @default(cuid())
+  assignmentId String
+  at           DateTime @default(now()) @db.Timestamptz(3)
+  /// Minutes after the start they expect to be on site.
+  minutes      Int
+  note         String?
 
   assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
 
@@ -1758,6 +1984,7 @@ model Incident {
   reviewedAt       DateTime? @db.Timestamptz(3)
 
   assignment Assignment? @relation(fields: [assignmentId], references: [id])
+  workItems  WorkItem[]
 
   @@index([at])
   @@index([severity, clientNotified])

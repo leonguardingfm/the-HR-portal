@@ -1,5 +1,9 @@
 import { Suspense } from "react";
+import { AlertBar } from "@/components/live/AlertBar";
+import { LiveProvider } from "@/components/live/Live";
 import { getSession, touchSession } from "@/lib/auth/server";
+import { WATCHES_LIVE, getPulse } from "@/lib/db/pulse";
+import { vapidPublicKey } from "@/lib/db/push";
 import { MobileNav } from "./MobileNav";
 import { Sidebar } from "./Sidebar";
 import { Topbar } from "./Topbar";
@@ -15,9 +19,13 @@ import { Topbar } from "./Topbar";
 export async function AppShell({ children }: { children: React.ReactNode }) {
   const session = await getSession();
   if (!session) return <>{children}</>;
-  await touchSession(session.workSessionId);
+  const [, pulse] = await Promise.all([touchSession(session.workSessionId), getPulse(session)]);
+  const watches = WATCHES_LIVE.includes(session.activeRole);
+  const officer = session.activeRole === "officer";
 
   return (
+    // Every screen stays current by itself, and the alarm is on every page.
+    <LiveProvider initial={pulse} watches={watches} officer={officer}>
     <div className="flex min-h-screen">
       <aside
         className="hidden w-52 shrink-0 border-r lg:block print:hidden"
@@ -34,12 +42,13 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <div className="print:hidden">
+        <div className="sticky top-0 z-30 print:hidden" style={{ background: "var(--page)" }}>
           <Topbar
             name={session.name}
             activeRole={session.activeRole}
             roles={session.roles}
           />
+          <AlertBar vapidKey={vapidPublicKey()} />
         </div>
         <div
           className="border-b px-4 py-2 lg:hidden print:hidden"
@@ -52,5 +61,6 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
         <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">{children}</main>
       </div>
     </div>
+    </LiveProvider>
   );
 }

@@ -41,15 +41,27 @@ const isoRequired = (d: Date) => d.toISOString();
 // Live operations
 // ---------------------------------------------------------------------------
 
+/** The selfie behind a book-on or a check call, as Control reads it. */
+export interface ProofView {
+  id: string;
+  code: string;
+  receivedAt: string;
+  atSite: boolean | null;
+  distanceMetres: number | null;
+  accuracyMetres: number | null;
+  liveCamera: boolean;
+  hasLocation: boolean;
+}
+
 export interface LiveRow {
   assignment: Assignment;
-  post: Post;
+  post: Post & { phone: string | null; instructions: string | null };
   siteName: string;
   clientName: string;
   personName: string;
   pin: string | null;
-  bookOn: BookOn | undefined;
-  calls: CheckCall[];
+  bookOn: (BookOn & { proof: ProofView | null }) | undefined;
+  calls: (CheckCall & { proof: ProofView | null })[];
   attempts: ContactAttempt[];
   /** Only present on a post with no mobile signal. */
   noSignal: NoSignalHandover | undefined;
@@ -64,7 +76,25 @@ export interface LiveRow {
   officerHasPortal: boolean;
   /** Their account, where they have one: their alerts are addressed to it. */
   officerUserId: string | null;
+  /** Who else to ring at step 2, and where the site is for the selfie check. */
+  site: { contactName: string | null; contactPhone: string | null; hasLocation: boolean; lat: number | null; lng: number | null };
+  /** The latest "I'm running late" from the officer, if any. */
+  runningLate: { at: string; minutes: number; note: string | null; eta: string } | null;
 }
+
+const proofView = (p: { id: string; code: string; receivedAt: Date; atSite: boolean | null; distanceMetres: number | null; accuracyMetres: number | null; liveCamera: boolean; latitude: unknown } | null): ProofView | null =>
+  p
+    ? {
+        id: p.id,
+        code: p.code,
+        receivedAt: p.receivedAt.toISOString(),
+        atSite: p.atSite,
+        distanceMetres: p.distanceMetres,
+        accuracyMetres: p.accuracyMetres,
+        liveCamera: p.liveCamera,
+        hasLocation: p.latitude != null,
+      }
+    : null;
 
 /** Shifts that touch now, plus anything starting inside the window. */
 export function getLiveRows(windowHours = 6, now = new Date()): Promise<LiveRow[]> {
@@ -98,11 +128,12 @@ async function liveRows(where: Prisma.AssignmentWhereInput): Promise<LiveRow[]> 
     include: {
       post: { include: { site: { include: { client: true } } } },
       person: { include: { employment: true, user: { select: { id: true } } } },
-      bookOn: true,
-      checkCalls: { orderBy: { at: "desc" } },
+      bookOn: { include: { proof: true } },
+      checkCalls: { orderBy: { at: "desc" }, include: { proof: true } },
       attempts: { orderBy: { at: "desc" } },
       noSignal: true,
       chaseUps: { orderBy: { at: "asc" } },
+      runningLate: { orderBy: { at: "desc" }, take: 1 },
     },
   });
   const byIds = [...new Set(rows.flatMap((a) => [...a.chaseUps.map((c) => c.byUserId), ...a.attempts.map((t) => t.byUserId)]).filter(Boolean))] as string[];
@@ -134,6 +165,8 @@ async function liveRows(where: Prisma.AssignmentWhereInput): Promise<LiveRow[]> 
       })(),
       loneWorking: a.post.loneWorking,
       mobileSignal: a.post.mobileSignal,
+      phone: a.post.phone,
+      instructions: a.post.instructions,
     },
     noSignal: a.noSignal
       ? {
@@ -154,6 +187,7 @@ async function liveRows(where: Prisma.AssignmentWhereInput): Promise<LiveRow[]> 
           locationVerified: a.bookOn.locationVerified,
           // Nobody recorded it for them: the officer did it themselves, in their portal.
           byOfficer: !a.bookOn.recordedByUserId,
+          proof: proofView(a.bookOn.proof),
         }
       : undefined,
     calls: a.checkCalls.map((c) => ({
@@ -164,6 +198,7 @@ async function liveRows(where: Prisma.AssignmentWhereInput): Promise<LiveRow[]> 
       allWell: c.allWell,
       note: c.note,
       byOfficer: !c.takenByUserId,
+      proof: proofView(c.proof),
     })),
     attempts: a.attempts.map((t) => ({
       id: t.id,
@@ -186,6 +221,21 @@ async function liveRows(where: Prisma.AssignmentWhereInput): Promise<LiveRow[]> 
     siteAddress: a.post.site.address,
     officerHasPortal: !!a.person.user,
     officerUserId: a.person.user?.id ?? null,
+    site: {
+      contactName: a.post.site.contactName,
+      contactPhone: a.post.site.contactPhone,
+      hasLocation: a.post.site.latitude != null,
+      lat: a.post.site.latitude == null ? null : Number(a.post.site.latitude),
+      lng: a.post.site.longitude == null ? null : Number(a.post.site.longitude),
+    },
+    runningLate: a.runningLate[0]
+      ? {
+          at: isoRequired(a.runningLate[0].at),
+          minutes: a.runningLate[0].minutes,
+          note: a.runningLate[0].note,
+          eta: isoRequired(new Date(a.startsAt.getTime() + a.runningLate[0].minutes * 60_000)),
+        }
+      : null,
   }));
 }
 

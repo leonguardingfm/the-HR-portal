@@ -1,8 +1,6 @@
-import { after } from "next/server";
 import { CheckCallBoard } from "@/components/duty/CheckCallBoard";
 import { requireSession } from "@/lib/auth/server";
 import { deniedReason } from "@/lib/auth/ui";
-import { sweepDutyChecks } from "@/lib/db/duty-sweep";
 import { getLiveRows } from "@/lib/db/queries";
 
 export const dynamic = "force-dynamic";
@@ -10,7 +8,6 @@ export const dynamic = "force-dynamic";
 export default async function CheckCallsPage() {
   const session = await requireSession();
   const rows = await getLiveRows(12);
-  after(() => sweepDutyChecks());
   return (
     <CheckCallBoard
       rows={rows}

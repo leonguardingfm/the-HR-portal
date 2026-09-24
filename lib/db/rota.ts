@@ -155,7 +155,7 @@ export async function getRotaWeek(monday: string, weeks = 1) {
 
   const [posts, inputs, weekShifts, nearShifts, history, allocations, asks] = await Promise.all([
     db.post.findMany({
-      where: { active: true },
+      where: { active: true, site: { active: true, client: { active: true } } },
       include: { site: { include: { client: true } }, regularPerson: { select: { id: true, fullName: true } } },
     }),
     getDeployabilityInputs(),

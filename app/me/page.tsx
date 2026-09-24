@@ -1,9 +1,7 @@
 import { redirect } from "next/navigation";
-import { after } from "next/server";
 import { MyDuties } from "@/components/me/MyDuties";
 import { roleHome } from "@/lib/accounts";
 import { requireSession } from "@/lib/auth/server";
-import { sweepDutyChecks } from "@/lib/db/duty-sweep";
 import { getMyAlerts } from "@/lib/db/me";
 import { getMyDuties } from "@/lib/db/queries";
 
@@ -17,6 +15,5 @@ export default async function MyDutiesPage() {
   const session = await requireSession();
   if (session.activeRole !== "officer") redirect(roleHome(session.activeRole));
   const [rows, alerts] = await Promise.all([getMyDuties(session.personId), getMyAlerts(session.userId)]);
-  after(() => sweepDutyChecks());
   return <MyDuties rows={rows} alerts={alerts} name={session.name} pin={rows[0]?.pin ?? null} />;
 }

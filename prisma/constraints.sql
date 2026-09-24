@@ -939,3 +939,81 @@ ALTER TABLE "ChaseUp"
 ALTER TABLE "ChaseUp"
   ADD CONSTRAINT chase_up_cannot_attend_says_why
   CHECK (outcome <> 'cannot_attend' OR length(btrim(coalesce(note, ''))) > 0);
+
+-- ---------------------------------------------------------------------------
+-- 21. The Control Room, live  [Control, 25 September 2026]
+-- ---------------------------------------------------------------------------
+-- Clients, sites and posts entered in the portal; selfie proof on book-ons
+-- and check calls; officers offering for shifts and saying when they are free;
+-- sites an officer is kept off; and the work queue gaining the rota's own
+-- subjects.
+
+-- 21a. A work item still has exactly one subject — now including the shift
+-- that needs cover, the open shift nobody is on, and an incident.
+ALTER TABLE "WorkItem" DROP CONSTRAINT work_item_one_subject;
+ALTER TABLE "WorkItem"
+  ADD CONSTRAINT work_item_one_subject
+  CHECK (num_nonnulls(
+    "personId", "screeningFileId", "requirementId",
+    "assignmentId", "documentId", "formResponseId", "adminItemId",
+    "coverNeedId", "openShiftId", "incidentId"
+  ) = 1);
+
+-- 21b. Taken means somebody took it.
+ALTER TABLE "WorkItem"
+  ADD CONSTRAINT work_item_taken_by_someone
+  CHECK ("takenAt" IS NULL OR "ownerUserId" IS NOT NULL);
+
+-- 21c. A site's location is a pair, on the planet, with a sensible radius.
+ALTER TABLE "Site"
+  ADD CONSTRAINT site_location_pair
+  CHECK (("latitude" IS NULL) = ("longitude" IS NULL));
+ALTER TABLE "Site"
+  ADD CONSTRAINT site_location_range
+  CHECK ("latitude" IS NULL OR ("latitude" BETWEEN -90 AND 90 AND "longitude" BETWEEN -180 AND 180));
+ALTER TABLE "Site"
+  ADD CONSTRAINT site_radius_sensible
+  CHECK ("radiusMetres" BETWEEN 25 AND 5000);
+
+-- 21d. One standing exclusion per officer per site; lifting says why.
+CREATE UNIQUE INDEX site_exclusion_one_standing
+  ON "SiteExclusion" ("siteId", "personId") WHERE "liftedAt" IS NULL;
+ALTER TABLE "SiteExclusion"
+  ADD CONSTRAINT site_exclusion_says_why
+  CHECK (length(btrim("reason")) > 0);
+ALTER TABLE "SiteExclusion"
+  ADD CONSTRAINT site_exclusion_lift_says_why
+  CHECK ("liftedAt" IS NULL OR ("liftedById" IS NOT NULL AND length(btrim(coalesce("liftedReason", ''))) > 0));
+
+-- 21e. A volunteer is waiting until somebody decides — or they withdraw.
+ALTER TABLE "ShiftVolunteer"
+  ADD CONSTRAINT shift_volunteer_decided
+  CHECK (("state" = 'waiting') = ("decidedAt" IS NULL));
+
+-- 21f. A selfie proves one thing: a book-on or one check call, of its kind.
+ALTER TABLE "DutyProof"
+  ADD CONSTRAINT duty_proof_one_subject
+  CHECK (num_nonnulls("bookOnId", "checkCallId") = 1);
+ALTER TABLE "DutyProof"
+  ADD CONSTRAINT duty_proof_kind_matches
+  CHECK (("kind" = 'book_on') = ("bookOnId" IS NOT NULL));
+ALTER TABLE "DutyProof"
+  ADD CONSTRAINT duty_proof_location_pair
+  CHECK (("latitude" IS NULL) = ("longitude" IS NULL));
+
+-- 21g. Evidence is not edited. A proof is written once; nothing updates it.
+CREATE OR REPLACE FUNCTION refuse_duty_proof_update() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'A duty proof is evidence and is never changed once written'
+    USING ERRCODE = 'check_violation';
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER duty_proof_immutable
+  BEFORE UPDATE ON "DutyProof"
+  FOR EACH ROW EXECUTE FUNCTION refuse_duty_proof_update();
+
+-- 21h. Running late is by minutes, and not by a day.
+ALTER TABLE "RunningLate"
+  ADD CONSTRAINT running_late_sensible
+  CHECK ("minutes" BETWEEN 1 AND 240);

@@ -1,12 +1,12 @@
-import Link from "next/link";
-import { Card } from "@/components/ui/Card";
-import { ModuleOutline } from "@/components/ui/ModuleOutline";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { StatusPill } from "@/components/ui/StatusPill";
-import { TaskDigest } from "@/components/dashboard/TaskDigest";
+import { TaskList, type TaskRow } from "@/components/tasks/TaskList";
 import { requireSession } from "@/lib/auth/server";
+import { canDo } from "@/lib/auth/permissions";
+import { alertKind, alertSeverity, closesItself, isAlarm, openHref } from "@/lib/core/alerts";
+import { mondayOf, ukDate } from "@/lib/core/rota";
+import { QUEUE_DEPARTMENTS, departmentOfRole } from "@/lib/core/work";
 import { db } from "@/lib/db/client";
-import { formatDate } from "@/lib/format";
+import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
 
@@ -17,151 +17,95 @@ export const dynamic = "force-dynamic";
  * `?department=`. They are not three screens: a second task list is a second
  * thing to forget to open, and two lists that both claim to hold everything
  * will disagree within a week.
+ *
+ * Every task opens where its work is done, can be taken so the other desk can
+ * see it is handled, and is closed from here — or closes itself, when it is an
+ * alert about something that has to be put right (25 September 2026).
  */
-const DEPARTMENTS = [
-  { id: "", label: "Everything" },
-  { id: "control", label: "Control Room" },
-  { id: "recruitment", label: "HR" },
-  { id: "vetting", label: "Vetting" },
-  { id: "administration", label: "Admin" },
-] as const;
-
-/**
- * Which roles a department's work sits with. Kept here rather than on the work
- * item so that reassigning a department's roles does not mean rewriting rows.
- */
-const DEPARTMENT_ROLES: Record<string, string[]> = {
-  control: ["control", "operations_manager"],
-  recruitment: ["recruitment", "recruitment_manager"],
-  vetting: ["vetting_admin", "vetting_controller"],
-  administration: ["admin_officer", "admin_manager", "finance_officer"],
-};
-
 export default async function TasksPage({
   searchParams,
 }: {
   searchParams: Promise<{ department?: string }>;
 }) {
-  await requireSession();
+  const session = await requireSession();
   const { department } = await searchParams;
-  const active = department && DEPARTMENT_ROLES[department] ? department : "";
+  const dept = QUEUE_DEPARTMENTS.find((d) => d.id === department);
+  const mine = departmentOfRole(session.activeRole);
+  const view: "mine" | "everything" | "department" = department === "all" ? "everything" : dept ? "department" : "mine";
+
+  // Officers' own alerts live in their portal, never in a staff list.
+  const notOfficers: Prisma.WorkItemWhereInput = { OR: [{ ownerRole: { not: null } }, { owner: { department: { not: "officer" } } }] };
+  const where: Prisma.WorkItemWhereInput =
+    view === "department"
+      ? { OR: [{ ownerRole: { in: dept!.roles } }, ...(dept!.id === "administration" ? [{ adminItemId: { not: null } }] : [])] }
+      : view === "mine"
+        ? { OR: [{ ownerUserId: session.userId }, { ownerUserId: null, ownerRole: { in: mine.roles } }] }
+        : {};
 
   const items = await db.workItem.findMany({
-    where: {
-      state: { in: ["open", "blocked"] },
-      ...(active
-        ? {
-            OR: [
-              { ownerRole: { in: DEPARTMENT_ROLES[active] as never } },
-              ...(active === "administration"
-                ? [{ adminItemId: { not: null } }]
-                : []),
-            ],
-          }
-        : {}),
+    where: { state: { in: ["open", "blocked"] }, AND: [where, notOfficers] },
+    include: {
+      owner: { select: { displayName: true } },
+      adminItem: { select: { reference: true } },
+      coverNeed: { select: { startsAt: true, postId: true } },
+      openShift: { select: { startsAt: true, postId: true } },
     },
-    include: { owner: true, adminItem: true },
     orderBy: { dueAt: "asc" },
-    take: 100,
+    take: 300,
   });
 
+  // Whether a self-closing alert's shift is still on, so Done is offered only when it can work.
+  const shiftIds = [...new Set(items.map((i) => i.assignmentId).filter(Boolean))] as string[];
+  const shifts = await db.assignment.findMany({ where: { id: { in: shiftIds } }, select: { id: true, state: true, endsAt: true } });
+  const shiftOf = new Map(shifts.map((a) => [a.id, a]));
   const now = new Date();
-  const overdue = items.filter((i) => i.dueAt < now);
-  const blocked = items.filter((i) => i.state === "blocked");
 
-  const label = DEPARTMENTS.find((d) => d.id === active)?.label ?? "Everything";
+  const rows: TaskRow[] = items.map((i) => {
+    const alarm = isAlarm(i);
+    const shift = i.coverNeed ?? i.openShift;
+    const a = i.assignmentId ? shiftOf.get(i.assignmentId) : undefined;
+    const selfClosing = closesItself(i);
+    const liveShift = !!a && a.state !== "cancelled" && a.endsAt > now;
+    const itsDept = i.ownerRole ? departmentOfRole(i.ownerRole) : null;
+    const worksIt = !!itsDept && itsDept.roles.includes(session.activeRole);
+    const mineNow = i.ownerUserId === session.userId;
+    return {
+      id: i.id,
+      title: i.title,
+      alarm,
+      severity: alarm ? alertSeverity(i) : i.state === "blocked" ? "neutral" : i.dueAt < now ? "serious" : "good",
+      status: alarm ? "alert" : i.state === "blocked" ? "blocked" : i.dueAt < now ? "overdue" : "on track",
+      href: openHref(i, { rotaHref: shift ? `/scheduling?week=${mondayOf(ukDate(shift.startsAt))}&post=${shift.postId}&day=${ukDate(shift.startsAt)}` : null }),
+      department: itsDept?.label ?? (i.adminItemId ? "Admin" : "Named person"),
+      createdAt: i.createdAt.toISOString(),
+      dueAt: i.dueAt.toISOString(),
+      reference: i.adminItem?.reference ?? null,
+      blockedReason: i.blockedReason,
+      owner: i.owner?.displayName ?? null,
+      ownerIsMe: mineNow,
+      takenAt: i.takenAt?.toISOString() ?? null,
+      pooled: !!i.ownerRole,
+      canTake: canDo(session.activeRole, "work_item.take") && worksIt && !mineNow,
+      canRelease: mineNow && !!i.ownerRole,
+      canFinish: canDo(session.activeRole, "work_item.complete") && (mineNow || (!i.ownerUserId && worksIt)) && !(selfClosing && (liveShift || !!shift || alertKind(i.title) === "licence")),
+      closesItself: selfClosing && (liveShift || !!shift || alertKind(i.title) === "licence"),
+      needsNote: alertKind(i.title) === "missed",
+    };
+  });
+
+  const tabs = [
+    { id: "", label: "Mine", title: `Yours, and ${mine.label}'s that nobody has taken` },
+    ...QUEUE_DEPARTMENTS.filter((d) => d.id !== "management").map((d) => ({ id: d.id, label: d.label, title: `Everything for ${d.label}` })),
+    { id: "all", label: "Everything", title: "Every open task in the platform" },
+  ];
 
   return (
     <div className="space-y-5">
       <PageHeader
-        title={active ? `${label} tasks` : "My tasks"}
-        description="A flat work queue: what is mine, what is overdue, what is due today, and what is blocked waiting on someone else. One queue for the whole platform — the departmental views below are filters on it, not lists of their own."
+        title={view === "department" ? `${dept!.label} tasks` : view === "everything" ? "All tasks" : "My tasks"}
+        description="Alerts first, then what is overdue. Take a task so the other desks can see it is handled; open it to go straight to where it is done. Alerts close themselves once the thing is put right."
       />
-
-      <Card
-        title={`${items.length} open item${items.length === 1 ? "" : "s"}`}
-        subtitle={`${overdue.length} past its service level, ${blocked.length} blocked waiting on someone else. Blocked is not overdue — showing it as overdue trains people to ignore red.`}
-        action={
-          <nav aria-label="Department" className="flex flex-wrap gap-1">
-            {DEPARTMENTS.map((d) => (
-              <Link
-                key={d.id}
-                href={d.id ? `/tasks?department=${d.id}` : "/tasks"}
-                aria-current={d.id === active ? "true" : undefined}
-                className="rounded px-2 py-1 text-[11px]"
-                style={{
-                  background: d.id === active ? "var(--wash)" : "transparent",
-                  color: d.id === active ? "var(--text-primary)" : "var(--text-secondary)",
-                  fontWeight: d.id === active ? 600 : 400,
-                }}
-              >
-                {d.label}
-              </Link>
-            ))}
-          </nav>
-        }
-      >
-        <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
-          {items.map((i) => {
-            const late = i.dueAt < now;
-            return (
-              <li key={i.id} className="flex flex-wrap items-start justify-between gap-3 py-2.5">
-                <div className="min-w-0">
-                  <p className="text-[13px] font-medium">{i.title}</p>
-                  <p className="mt-0.5 text-[11px]" style={{ color: "var(--text-secondary)" }}>
-                    {i.owner ? i.owner.displayName : i.ownerRole ? `unassigned — ${i.ownerRole.replace(/_/g, " ")}` : "unassigned"}
-                    {" · due "}
-                    {formatDate(i.dueAt.toISOString())}
-                    {i.adminItem ? ` · ${i.adminItem.reference}` : ""}
-                  </p>
-                  {i.blockedReason && (
-                    <p className="mt-1 text-[11px]" style={{ color: "var(--text-muted)" }}>
-                      Blocked: {i.blockedReason}
-                    </p>
-                  )}
-                </div>
-                <StatusPill
-                  severity={i.state === "blocked" ? "neutral" : late ? "serious" : "good"}
-                  label={i.state === "blocked" ? "blocked" : late ? "overdue" : "on track"}
-                />
-              </li>
-            );
-          })}
-          {items.length === 0 && (
-            <li className="py-6 text-center text-[13px]" style={{ color: "var(--text-secondary)" }}>
-              Nothing open{active ? ` for ${label}` : ""}.
-            </li>
-          )}
-        </ul>
-      </Card>
-
-      <TaskDigest />
-
-      <ModuleOutline
-        note="The escalation rule is deliberately uniform rather than per-stage: amber at 80% of the service level, red once past it, escalated to the manager at twice it. One consistent rule is easier to trust than a dozen special cases. Admin items are the exception and say so — their escalation is a multiple of their own priority target, because a four-hour job and a ten-day one cannot share a clock."
-        items={[
-          {
-            label: "One-click actions",
-            detail: "Send the chaser, record the check, upload the evidence — from the queue, without opening three screens first.",
-            phase: 1,
-          },
-          {
-            label: "Filter to mine, my team, or everything",
-            detail: "Managers need the team view for balancing work; everyone else needs their own list first. The departmental filters above are the first half of this.",
-            phase: 1,
-          },
-          {
-            label: "Blocked-and-waiting state",
-            detail: "A task waiting on a third party — a DWP written request, a disclosure application — is not overdue work, and showing it as overdue trains people to ignore red.",
-            phase: 1,
-          },
-          {
-            label: "Daily morning digest",
-            detail: "Each owner gets their own overdue and due-today items by email, so the queue does not depend on anyone remembering to open the portal.",
-            phase: 2,
-          },
-        ]}
-      />
+      <TaskList rows={rows} tabs={tabs} active={view === "everything" ? "all" : view === "department" ? dept!.id : ""} myDepartment={mine.label} />
     </div>
   );
 }
