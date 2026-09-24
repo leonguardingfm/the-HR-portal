@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- One hundred and eighty-nine assertions. Each one names a rule the platform claims to
+-- One hundred and ninety-eight assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -712,3 +712,30 @@ SELECT expect_failure('running late by a day',
   $$INSERT INTO "RunningLate"(id,"assignmentId",minutes) VALUES ('rl1','rf1',1440)$$);
 SELECT expect_success('running twenty minutes late',
   $$INSERT INTO "RunningLate"(id,"assignmentId",minutes,note) VALUES ('rl2','rf1',20,'Train cancelled')$$);
+
+-- ---------------------------------------------------------------------------
+-- 22. The welfare visit
+-- ---------------------------------------------------------------------------
+
+SELECT expect_success('a supervisor sent to site, due in 20 minutes',
+  $$INSERT INTO "WelfareVisit"(id,"assignmentId","dispatchedAt","dispatchedById","attendeeKind","attendeeName","attendeePhone","expectedBy")
+    VALUES ('wv1','rf1','2026-10-12 11:00+01','u3','supervisor','Sam Jones','07700 900999','2026-10-12 11:20+01')$$);
+SELECT expect_failure('two visits under way for one shift',
+  $$INSERT INTO "WelfareVisit"(id,"assignmentId","dispatchedById","attendeeKind","attendeeName","expectedBy")
+    VALUES ('wv2','rf1','u3','supervisor','Another','2026-10-12 12:00+01')$$);
+SELECT expect_failure('sent with nobody named',
+  $$INSERT INTO "WelfareVisit"(id,"assignmentId","dispatchedById","attendeeKind","attendeeName","expectedBy")
+    VALUES ('wv3','rf2','u3','supervisor',' ','2026-10-12 12:00+01')$$);
+SELECT expect_failure('found safe with nobody there to find them',
+  $$UPDATE "WelfareVisit" SET outcome = 'safe_and_well', "outcomeNote" = 'Fine', "closedAt" = now() WHERE id = 'wv1'$$);
+SELECT expect_success('called off: the officer got in touch first',
+  $$UPDATE "WelfareVisit" SET outcome = 'stood_down', "outcomeNote" = 'Rang in from the gatehouse phone', "closedAt" = now() WHERE id = 'wv1'$$);
+SELECT expect_success('a second visit once the first is closed',
+  $$INSERT INTO "WelfareVisit"(id,"assignmentId","dispatchedAt","dispatchedById","attendeeKind","attendeeName","expectedBy","arrivedAt")
+    VALUES ('wv4','rf1','2026-10-12 13:00+01','u3','operations_manager','Olivia','2026-10-12 13:30+01','2026-10-12 13:25+01')$$);
+SELECT expect_failure('closed without saying what was found',
+  $$UPDATE "WelfareVisit" SET outcome = 'safe_and_well', "closedAt" = now() WHERE id = 'wv4'$$);
+SELECT expect_failure('not found, and the police not told',
+  $$UPDATE "WelfareVisit" SET outcome = 'not_found_police', "outcomeNote" = 'Nowhere on site', "closedAt" = now() WHERE id = 'wv4'$$);
+SELECT expect_success('not found, police told',
+  $$UPDATE "WelfareVisit" SET outcome = 'not_found_police', "outcomeNote" = 'Nowhere on site', "policeCalled" = true, "policeReference" = 'CAD 4411', "closedAt" = now() WHERE id = 'wv4'$$);

@@ -27,6 +27,7 @@ export type AlertKind =
   | "incident"
   | "running_late"
   | "away_from_site"
+  | "welfare_overdue"
   | "no_photo"
   | "volunteer"
   | "licence"
@@ -56,6 +57,7 @@ interface KindSpec {
 export const ALERT_KIND_SPECS: Record<AlertKind, KindSpec> = {
   // Control's end.
   missed: { prefix: "Check call missed", page: "check-calls", severity: "critical", alarm: true, selfClosing: true },
+  welfare_overdue: { prefix: "Welfare visit overdue", page: "check-calls", severity: "critical", alarm: true, selfClosing: true },
   no_book_on: { prefix: "Not booked on", page: "book-ons", severity: "critical", alarm: true, selfClosing: true },
   uncovered: { prefix: "Uncovered shift", page: "rota", severity: "critical", alarm: true, selfClosing: true },
   cannot_attend: { prefix: "Officer cannot attend", page: "chase-ups", severity: "critical", alarm: true, selfClosing: false },

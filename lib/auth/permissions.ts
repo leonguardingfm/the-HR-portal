@@ -74,7 +74,8 @@ export type ActionId =
   | "work_item.take"
   | "alerts.subscribe"
   | "place.manage"
-  | "officer.exclude";
+  | "officer.exclude"
+  | "welfare.visit";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -211,6 +212,9 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   // signal and its instructions are what the rota and the duty checks run on.
   "place.manage": { roles: ["control", "operations_manager"], owner: "Control", what: "Adding and changing clients, sites and posts" },
   "officer.exclude": { roles: ["control", "operations_manager"], owner: "Control", what: "Keeping an officer off a site, or lifting it" },
+  // Step 3 of the ladder: sending a supervisor or the Operations Manager to
+  // site, and recording what they found (25 September 2026).
+  "welfare.visit": { roles: ["control", "operations_manager"], owner: "Control or the Operations Manager", what: "Sending someone to site and recording what they found" },
   "screening.sweep": { roles: ["vetting_controller", "top_management"], owner: "a Screening Controller or higher management", what: "Running the screening clock check" },
   "account.review": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager", what: "Approving, suspending or reactivating an account" },
 };

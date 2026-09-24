@@ -97,6 +97,10 @@ async function main() {
         data: { closedAt: now, closedReason: "Demonstration data, replaced by a fresh run", closedById: control.id },
       }),
       db.assignment.updateMany({ where: { id: { in: earlierIds }, state: { not: "cancelled" } }, data: { state: "cancelled" } }),
+      db.welfareVisit.updateMany({
+        where: { assignmentId: { in: earlierIds }, closedAt: null },
+        data: { outcome: "stood_down", outcomeNote: "Demonstration data, replaced by a fresh run", closedAt: now, closedById: control.id },
+      }),
     ]);
   }
 

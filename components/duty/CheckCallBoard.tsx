@@ -8,6 +8,8 @@ import { ESCALATION_LADDER, OPS_RULES, escalationAction } from "@/lib/core/ops";
 import type { LiveRow } from "@/lib/db/queries";
 import { formatTime } from "@/lib/format";
 import { AttemptForm, CheckCallForm, LostContactForm, TellClientForm } from "./DutyForms";
+import { DispatchForm, VisitCard } from "./WelfareForms";
+import type { OpenWelfareVisit } from "@/lib/db/welfare";
 import { CallTimeline, DutyFlow, Notice, OfficerCell, OnTheirBehalf, Pill, ProofBadge, Section, WhoElseToRing, relative, useDuty } from "./DutyShared";
 
 export interface CheckCallPerms {
@@ -15,6 +17,7 @@ export interface CheckCallPerms {
   attempt: string | null;
   noSignalNotify: string | null;
   noSignalLoss: string | null;
+  welfare: string | null;
 }
 
 /**
@@ -24,7 +27,7 @@ export interface CheckCallPerms {
  * out in a row — made, made late, missed, and still to come — so the night can
  * be read at a glance.
  */
-export function CheckCallBoard({ rows, perms }: { rows: LiveRow[]; perms: CheckCallPerms }) {
+export function CheckCallBoard({ rows, visits, managers, perms }: { rows: LiveRow[]; visits: OpenWelfareVisit[]; managers: { id: string; name: string; phone: string | null }[]; perms: CheckCallPerms }) {
   const { now, duty, counts } = useDuty(rows);
   const [notice, setNotice] = useState<ActionResult | null>(null);
   if (!now || !counts) return <PageHeader title="Check calls" description="Reading the officers on duty…" />;
@@ -48,6 +51,14 @@ export function CheckCallBoard({ rows, perms }: { rows: LiveRow[]; perms: CheckC
       <DutyFlow counts={counts} current="calls" />
       <Notice result={notice} onClear={() => setNotice(null)} />
 
+      {visits.length > 0 && (
+        <Section title="Welfare visits — someone on the way" count={visits.length} meaning="Step 3. Mark them arrived, then record what they found" tone={visits.some((v) => !v.arrivedAt && new Date(v.expectedBy).getTime() + 2 * 60_000 < now.getTime()) ? "critical" : "serious"}>
+          {visits.map((v) => (
+            <VisitCard key={v.id} v={v} now={now} denied={perms.welfare} onResult={setNotice} />
+          ))}
+        </Section>
+      )}
+
       <Section title="Missed — act now" count={missed.length} meaning="The hour has passed without a call. Try them, and record every try" tone="critical">
         {missed.map((d) => (
           <li key={d.assignment.id} className="grid gap-3 px-4 py-3 md:grid-cols-[minmax(0,1.1fr)_minmax(0,1.3fr)_minmax(0,1.3fr)]" style={{ borderColor: "var(--hairline)", background: "var(--wash-critical)" }}>
@@ -64,6 +75,13 @@ export function CheckCallBoard({ rows, perms }: { rows: LiveRow[]; perms: CheckC
               {d.s.schedule && <CallTimeline slots={d.s.schedule.slots} now={now} />}
             </div>
             <div className="space-y-2">
+              {d.welfare ? (
+                <p className="rounded-md px-2.5 py-2 text-[12px] font-medium" style={{ background: "var(--wash-serious)" }}>
+                  {d.welfare.attendeeName} {d.welfare.arrivedAt ? `on site since ${formatTime(d.welfare.arrivedAt)}` : `on the way — due by ${formatTime(d.welfare.expectedBy)}`}. See welfare visits above.
+                </p>
+              ) : (
+                d.s.call.escalation === 3 && <DispatchForm assignmentId={d.assignment.id} managers={managers} denied={perms.welfare} onResult={setNotice} />
+              )}
               <AttemptForm onResult={setNotice} assignmentId={d.assignment.id} denied={perms.attempt} label="Tried — no answer (next step)" />
               <OnTheirBehalf hasPortal={d.officerHasPortal}>
                 <CheckCallForm onResult={setNotice} assignmentId={d.assignment.id} denied={perms.checkCall} />
@@ -116,6 +134,8 @@ export function CheckCallBoard({ rows, perms }: { rows: LiveRow[]; perms: CheckC
             </div>
             <div className="space-y-2">
               {!d.noSignal?.notifiedAt ? <TellClientForm onResult={setNotice} assignmentId={d.assignment.id} denied={perms.noSignalNotify} /> : !d.noSignal.lossReportedAt && <LostContactForm onResult={setNotice} assignmentId={d.assignment.id} denied={perms.noSignalLoss} />}
+              {/* The client cannot reach the officer: straight to step 3. */}
+              {d.noSignal?.lossReportedAt && !d.welfare && <DispatchForm assignmentId={d.assignment.id} managers={managers} denied={perms.welfare} onResult={setNotice} />}
             </div>
           </li>
         ))}

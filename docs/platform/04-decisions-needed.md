@@ -563,12 +563,24 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   officer's own page; searchable history lists; hours for payroll as a spreadsheet; an Operations Manager
   login (`olivia`).
 
-### E29 — Escalation step 3, the welfare visit — **open: proposal made**
-Step 3 of the ladder — somebody attends site — has no record yet. The proposal is a welfare-visit record
-on the shift: who was sent and when, arrival, what was found (safe and well / unwell, ambulance called /
-not on site, police told / post abandoned), what the client was told, and a clock that alerts the
-Operations Manager if nobody has arrived within a set time. Waiting on the outcomes list, who can be
-sent, and the times.
+### E29 — Escalation step 3, the welfare visit — **answered, and built**
+> **A supervisor or the Operations Manager attends. If nobody is marked arrived by the expected time,
+> the alarm goes to the Control Room and the Operations Manager — two minutes' grace. The police are
+> called when an incident occurs and needs them. The outcomes as proposed.** *(25 September 2026.)*
+
+- At step 3 (two failed tries, or the client on a no-signal post saying they cannot reach the officer),
+  the check-calls page offers **Send someone to site**: a supervisor (name and phone) or an Operations
+  Manager (from their account), and how long until they are there. The Operations Manager is pushed at
+  once, whoever goes.
+- **The arrival clock**: not marked arrived two minutes after the time given raises an alarm on every
+  Control and Operations Manager screen, pushed to their devices; it closes itself on arrival.
+- **What was found**: safe and well; unwell, ambulance called; not on site, post left; not found, police
+  told; or called off because the officer got in touch first. Every outcome says what happened. Unwell,
+  post left and not found take the officer off and put the rest of the shift on the cover list. "An
+  incident — police called" can be ticked on any outcome, needs the police reference, and raises a
+  serious incident carried by the visit. The missed-call alert closes with it.
+- The record stays on the shift: one visit at a time per shift, nothing closed without an outcome, and
+  "not found" impossible without the police — enforced in the database (constraints §22).
 
 ## Still open from the HR scope
 

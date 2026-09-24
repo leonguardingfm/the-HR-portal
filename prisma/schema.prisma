@@ -1536,6 +1536,7 @@ model Assignment {
   chaseUps      ChaseUp[]
   proofs        DutyProof[]
   runningLate   RunningLate[]
+  welfareVisits WelfareVisit[]
 
   @@index([startsAt, endsAt])
   @@index([personId, startsAt])
@@ -1983,11 +1984,75 @@ model Incident {
   reviewedById     String?
   reviewedAt       DateTime? @db.Timestamptz(3)
 
-  assignment Assignment? @relation(fields: [assignmentId], references: [id])
-  workItems  WorkItem[]
+  assignment   Assignment?   @relation(fields: [assignmentId], references: [id])
+  workItems    WorkItem[]
+  welfareVisit WelfareVisit?
 
   @@index([at])
   @@index([severity, clientNotified])
+}
+
+/// Who goes to site at step 3 of the escalation ladder (Control, 25 September 2026).
+enum WelfareAttendee {
+  supervisor
+  operations_manager
+}
+
+/// What the person who went to site found.
+enum WelfareOutcome {
+  /// On post and well — the phone died, they were in a dead spot.
+  safe_and_well
+  /// Found unwell or hurt; an ambulance was called. They come off the shift.
+  unwell_ambulance
+  /// Not on site: the post was left. They come off the shift and it needs cover.
+  post_abandoned
+  /// Not found anywhere; the police were told. They come off the shift.
+  not_found_police
+  /// The officer made contact before anybody arrived; the visit was called off.
+  stood_down
+}
+
+/// Step 3 of the escalation ladder: somebody goes to site to check the officer
+/// is safe (Control, 25 September 2026).
+///
+/// A supervisor or the Operations Manager is sent, with the time they should
+/// be there. If they are not marked arrived within two minutes of it, the alarm
+/// goes to Control and the Operations Manager. What they find is recorded, and
+/// that is the record that the duty of care was carried through to the end.
+/// Police are called when an incident needs them, not on a timer; when they
+/// are, the visit carries the incident it raised.
+model WelfareVisit {
+  id           String @id @default(cuid())
+  assignmentId String
+
+  dispatchedAt   DateTime        @default(now()) @db.Timestamptz(3)
+  dispatchedById String
+  attendeeKind   WelfareAttendee
+  attendeeName   String
+  attendeePhone  String?
+  /// Where the person sent has an account — the Operations Manager does.
+  attendeeUserId String?
+  expectedBy     DateTime        @db.Timestamptz(3)
+
+  arrivedAt           DateTime? @db.Timestamptz(3)
+  arrivedRecordedById String?
+
+  outcome         WelfareOutcome?
+  outcomeNote     String?
+  policeCalled    Boolean         @default(false)
+  policeReference String?
+  clientToldAt    DateTime?       @db.Timestamptz(3)
+  clientContact   String?
+  closedAt        DateTime?       @db.Timestamptz(3)
+  closedById      String?
+  /// The incident raised when the police were called.
+  incidentId      String?         @unique
+
+  assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
+  incident   Incident?  @relation(fields: [incidentId], references: [id])
+
+  @@index([assignmentId])
+  @@index([closedAt])
 }
 
 // ===========================================================================

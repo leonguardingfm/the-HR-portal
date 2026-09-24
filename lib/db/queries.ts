@@ -80,6 +80,16 @@ export interface LiveRow {
   site: { contactName: string | null; contactPhone: string | null; hasLocation: boolean; lat: number | null; lng: number | null };
   /** The latest "I'm running late" from the officer, if any. */
   runningLate: { at: string; minutes: number; note: string | null; eta: string } | null;
+  /** A welfare visit under way — step 3 of the ladder — if there is one. */
+  welfare: {
+    id: string;
+    attendeeKind: "supervisor" | "operations_manager";
+    attendeeName: string;
+    attendeePhone: string | null;
+    dispatchedAt: string;
+    expectedBy: string;
+    arrivedAt: string | null;
+  } | null;
 }
 
 const proofView = (p: { id: string; code: string; receivedAt: Date; atSite: boolean | null; distanceMetres: number | null; accuracyMetres: number | null; liveCamera: boolean; latitude: unknown } | null): ProofView | null =>
@@ -134,6 +144,7 @@ async function liveRows(where: Prisma.AssignmentWhereInput): Promise<LiveRow[]> 
       noSignal: true,
       chaseUps: { orderBy: { at: "asc" } },
       runningLate: { orderBy: { at: "desc" }, take: 1 },
+      welfareVisits: { where: { closedAt: null }, take: 1 },
     },
   });
   const byIds = [...new Set(rows.flatMap((a) => [...a.chaseUps.map((c) => c.byUserId), ...a.attempts.map((t) => t.byUserId)]).filter(Boolean))] as string[];
@@ -234,6 +245,17 @@ async function liveRows(where: Prisma.AssignmentWhereInput): Promise<LiveRow[]> 
           minutes: a.runningLate[0].minutes,
           note: a.runningLate[0].note,
           eta: isoRequired(new Date(a.startsAt.getTime() + a.runningLate[0].minutes * 60_000)),
+        }
+      : null,
+    welfare: a.welfareVisits[0]
+      ? {
+          id: a.welfareVisits[0].id,
+          attendeeKind: a.welfareVisits[0].attendeeKind,
+          attendeeName: a.welfareVisits[0].attendeeName,
+          attendeePhone: a.welfareVisits[0].attendeePhone,
+          dispatchedAt: isoRequired(a.welfareVisits[0].dispatchedAt),
+          expectedBy: isoRequired(a.welfareVisits[0].expectedBy),
+          arrivedAt: iso(a.welfareVisits[0].arrivedAt),
         }
       : null,
   }));

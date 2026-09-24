@@ -61,8 +61,8 @@ const check = (name: string, pass: boolean, detail = "") => {
 const STAFF_BASELINE: ActionId[] = ["work_item.complete", "work_item.take", "alerts.subscribe", "reminder.send", "admin_item.raise"];
 
 const EXPECTED: Record<string, ActionId[]> = {
-  control: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", "place.manage", "officer.exclude", ...STAFF_BASELINE],
-  operations_manager: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", "place.manage", "officer.exclude", ...STAFF_BASELINE],
+  control: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", "place.manage", "officer.exclude", "welfare.visit", ...STAFF_BASELINE],
+  operations_manager: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", "place.manage", "officer.exclude", "welfare.visit", ...STAFF_BASELINE],
   recruitment: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "stock.move", ...STAFF_BASELINE],
   recruitment_manager: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "admin_item.approve", "admin_item.reject", "holiday.decide", "authority_matter.respond", ...STAFF_BASELINE],
   admin_officer: ["admin_item.start", "admin_item.review", "admin_item.complete", "payment.record", "asset.maintain", "stock.move", "accreditation.evidence", ...STAFF_BASELINE],
@@ -997,7 +997,7 @@ check("a missing figure reads neutral, never good",
 
 // --- 2. every action guards ------------------------------------------------
 let actionCount = 0;
-for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me", "alerts", "work", "places", "officers"]) {
+for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me", "alerts", "work", "places", "officers", "welfare"]) {
   const src = readFileSync(new URL(`../lib/actions/${file}.ts`, import.meta.url), "utf8");
   const exported = [...src.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
   check(`${file}.ts has server actions to check`, exported.length > 0, `${exported.length} found`);

@@ -205,8 +205,8 @@ export const ESCALATION_LADDER = [
   },
   {
     step: 3,
-    action: "A member of the operational team attends site to check the officer is safe",
-    owner: "Operations team",
+    action: "A supervisor or the Operations Manager attends site to check the officer is safe — alarm if not there within 2 minutes of the time given",
+    owner: "Supervisor or Operations Manager",
     reached: "Contact cannot be made",
   },
 ] as const;

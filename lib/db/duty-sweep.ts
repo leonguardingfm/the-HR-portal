@@ -33,6 +33,7 @@
 
 import { ALERT_KIND_SPECS, UNCOVERED_ALERT_HOURS, alertKind, isAlarm, openHref, pushDue } from "@/lib/core/alerts";
 import { dutyStatus } from "@/lib/core/duty";
+import { isOverdue } from "@/lib/core/welfare";
 import { dayLabel, mondayOf, ukDate, ukTime } from "@/lib/core/rota";
 import { db } from "./client";
 import { pushToUsers, usersHolding } from "./push";
@@ -76,6 +77,7 @@ async function runSweep(now: Date): Promise<SweepResult> {
   const duty = await sweepDuty(now);
   const uncovered = await sweepUncovered(now);
   const licences = await sweepLicences(now);
+  const welfare = await sweepWelfare(now);
   // News for the officer — "Control has put you on…" — is news for half a day.
   await db.workItem.updateMany({
     where: { state: "open", ownerRole: null, title: { startsWith: ALERT_KIND_SPECS.officer_decision.prefix }, createdAt: { lt: new Date(now.getTime() - 12 * 3_600_000) } },
@@ -84,8 +86,8 @@ async function runSweep(now: Date): Promise<SweepResult> {
   const pushed = await deliverAlerts(now);
   return {
     checked: duty.checked,
-    raised: duty.raised + uncovered.raised + licences.raised,
-    closed: duty.closed + uncovered.closed + licences.closed,
+    raised: duty.raised + uncovered.raised + licences.raised + welfare.raised,
+    closed: duty.closed + uncovered.closed + licences.closed + welfare.closed,
     pushed,
   };
 }
@@ -266,6 +268,41 @@ async function sweepUncovered(now: Date) {
   if (stale.length) await db.workItem.updateMany({ where: { id: { in: stale.map((w) => w.id) } }, data: { state: "done", doneAt: now } });
 
   return { raised, closed: settled.length + stale.length };
+}
+
+// ---------------------------------------------------------------------------
+// Welfare visits not there on time
+// ---------------------------------------------------------------------------
+
+/**
+ * Step 3 of the ladder: whoever was sent to site and is not marked arrived
+ * within two minutes of the time given raises an alarm — on Control's screens
+ * and pushed to Control and the Operations Manager (25 September 2026). It
+ * closes itself when they are marked arrived or the visit is closed.
+ */
+async function sweepWelfare(now: Date) {
+  const [visits, open] = await Promise.all([
+    db.welfareVisit.findMany({
+      where: { closedAt: null, arrivedAt: null },
+      include: { assignment: { include: { person: { select: { fullName: true } }, post: { include: { site: true } } } } },
+    }),
+    db.workItem.findMany({ where: { state: "open", title: { startsWith: ALERT_KIND_SPECS.welfare_overdue.prefix } }, select: { id: true, assignmentId: true } }),
+  ]);
+  const late = visits.filter((v) => isOverdue(v, now));
+  let raised = 0;
+  for (const v of late) {
+    if (open.some((w) => w.assignmentId === v.assignmentId)) continue;
+    const title = `${ALERT_KIND_SPECS.welfare_overdue.prefix}: ${v.attendeeName} is not marked arrived at ${v.assignment.post.site.name} to check on ${v.assignment.person.fullName} — expected by ${ukTime(v.expectedBy)}. Ring them${v.attendeePhone ? ` on ${v.attendeePhone}` : ""}`;
+    await db.$transaction([
+      db.workItem.create({ data: { title, assignmentId: v.assignmentId, ownerRole: "control", dueAt: now, slaDays: 0 } }),
+      db.event.create({ data: { type: "welfare.overdue", actorSystem: "duty-sweep", department: "control", assignmentId: v.assignmentId, personId: v.assignment.personId, detail: title } }),
+    ]);
+    raised++;
+  }
+  const still = new Set(late.map((v) => v.assignmentId));
+  const done = open.filter((w) => !w.assignmentId || !still.has(w.assignmentId));
+  if (done.length) await db.workItem.updateMany({ where: { id: { in: done.map((w) => w.id) } }, data: { state: "done", doneAt: now } });
+  return { raised, closed: done.length };
 }
 
 // ---------------------------------------------------------------------------

@@ -1017,3 +1017,43 @@ CREATE TRIGGER duty_proof_immutable
 ALTER TABLE "RunningLate"
   ADD CONSTRAINT running_late_sensible
   CHECK ("minutes" BETWEEN 1 AND 240);
+
+-- ---------------------------------------------------------------------------
+-- 22. The welfare visit — step 3 of the escalation ladder  [Control, 25 September 2026]
+-- ---------------------------------------------------------------------------
+-- A supervisor or the Operations Manager goes to site; what they found is
+-- recorded, and that record is the end of the duty of care on a missed call.
+
+-- 22a. One visit under way per shift at a time.
+CREATE UNIQUE INDEX welfare_visit_one_open
+  ON "WelfareVisit" ("assignmentId") WHERE "closedAt" IS NULL;
+
+-- 22b. Somebody named is sent, and is expected after they were sent.
+ALTER TABLE "WelfareVisit"
+  ADD CONSTRAINT welfare_visit_names_who
+  CHECK (length(btrim("attendeeName")) > 0);
+ALTER TABLE "WelfareVisit"
+  ADD CONSTRAINT welfare_visit_expected_after_sent
+  CHECK ("expectedBy" > "dispatchedAt");
+ALTER TABLE "WelfareVisit"
+  ADD CONSTRAINT welfare_visit_arrives_after_sent
+  CHECK ("arrivedAt" IS NULL OR "arrivedAt" >= "dispatchedAt");
+
+-- 22c. Closed exactly when there is an outcome, and the outcome says what was found.
+ALTER TABLE "WelfareVisit"
+  ADD CONSTRAINT welfare_visit_closed_with_outcome
+  CHECK (("closedAt" IS NULL) = ("outcome" IS NULL));
+ALTER TABLE "WelfareVisit"
+  ADD CONSTRAINT welfare_visit_outcome_says_what
+  CHECK ("outcome" IS NULL OR length(btrim(coalesce("outcomeNote", ''))) > 0);
+
+-- 22d. What was found needs somebody there to find it — unless the officer
+-- got in touch first and the visit was stood down.
+ALTER TABLE "WelfareVisit"
+  ADD CONSTRAINT welfare_visit_found_on_arrival
+  CHECK ("outcome" IS NULL OR "outcome" = 'stood_down' OR "arrivedAt" IS NOT NULL);
+
+-- 22e. Not found means the police were told.
+ALTER TABLE "WelfareVisit"
+  ADD CONSTRAINT welfare_visit_not_found_police
+  CHECK ("outcome" IS DISTINCT FROM 'not_found_police' OR "policeCalled");
