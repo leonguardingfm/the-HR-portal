@@ -19,7 +19,9 @@ export function PageHeader({
           </p>
         )}
       </div>
-      {action && <div className="shrink-0">{action}</div>}
+      {/* max-w-full so a wide slot can wrap: a shrink-0 box sizes to max-content,
+          which at phone width pushed the page wider than the viewport (as in Card). */}
+      {action && <div className="max-w-full min-w-0 shrink-0">{action}</div>}
     </header>
   );
 }

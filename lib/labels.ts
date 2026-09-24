@@ -26,6 +26,7 @@ export const REQUIREMENT_STATUS_LABELS: Record<RequirementStatus, string> = {
   released_to_sourcing: "Released to sourcing",
   allocated: "Candidate allocated",
   filled: "Filled",
+  cancelled: "Cancelled",
 };
 
 /** Ordered — this array is the pipeline order used by the funnel and boards. */

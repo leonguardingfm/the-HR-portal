@@ -16,7 +16,6 @@
 import { RETENTION } from "../bs7858";
 import { evaluateDeployability } from "../core/deployability";
 import type { Deployability } from "../core/deployability";
-import { canPublishAssignment } from "../core/deployability";
 import { evaluateDeploymentGate } from "../policy";
 import { deploymentContext } from "../core/recruitment";
 import type {
@@ -164,67 +163,6 @@ export async function getOpenIncidents(sinceHours = 48): Promise<IncidentRow[]> 
 }
 
 // ---------------------------------------------------------------------------
-// Scheduling
-// ---------------------------------------------------------------------------
-
-export interface RotaRow {
-  assignment: Assignment;
-  post: Post;
-  siteName: string;
-  personName: string;
-  pin: string | null;
-}
-
-export async function getRotaRows(days = 7, now = new Date()): Promise<RotaRow[]> {
-  const rows = await db.assignment.findMany({
-    where: {
-      state: { not: "cancelled" },
-      endsAt: { gt: now },
-      startsAt: { lt: new Date(now.getTime() + days * 86_400_000) },
-    },
-    orderBy: { startsAt: "asc" },
-    include: {
-      post: { include: { site: true } },
-      person: { include: { employment: true } },
-      amendments: { orderBy: { at: "desc" } },
-    },
-  });
-
-  return rows.map((a) => ({
-    assignment: {
-      id: a.id,
-      personId: a.personId,
-      postId: a.postId,
-      startsAt: isoRequired(a.startsAt),
-      endsAt: isoRequired(a.endsAt),
-      state: a.state,
-      publishedAt: iso(a.publishedAt),
-      amendments: a.amendments.map((m) => ({
-        at: isoRequired(m.at),
-        by: m.byUserId ?? "Control",
-        change: m.change,
-        reason: m.reason,
-        previousPersonId: m.previousPersonId,
-      })),
-    },
-    post: {
-      id: a.post.id,
-      siteId: a.post.siteId,
-      name: a.post.name,
-      pattern: a.post.pattern ?? "",
-      requiresSiaLicence: a.post.requiresSiaLicence,
-      screeningPeriodYears: a.post.screeningPeriodYears as ScreeningPeriodYears,
-      checkCallsRequired: a.post.checkCallsRequired,
-      loneWorking: a.post.loneWorking,
-      mobileSignal: a.post.mobileSignal,
-    },
-    siteName: a.post.site.name,
-    personName: a.person.fullName,
-    pin: a.person.employment?.pin ?? null,
-  }));
-}
-
-// ---------------------------------------------------------------------------
 // Deployability — derived, never stored
 // ---------------------------------------------------------------------------
 
@@ -324,6 +262,38 @@ export async function getDeployabilityInputs(): Promise<
   }
 
   return out;
+}
+
+export type DeployabilityInputs = Awaited<ReturnType<typeof getDeployabilityInputs>>;
+
+/**
+ * Whether one person may work one shift on one post.
+ *
+ * Judged at the END of the shift, not at the moment somebody looks: a licence
+ * that runs out on Wednesday does not cover Thursday night because it was still
+ * valid when the rota was built on Monday. Someone not on the books at all — a
+ * candidate short of conditional employment — is a block, not a blank.
+ */
+export function shiftDeployability(
+  inputs: DeployabilityInputs,
+  personId: string,
+  postRequiresSiaLicence: boolean,
+  endsAt: Date,
+): Deployability {
+  const known = inputs.get(personId);
+  return evaluateDeployability(
+    known
+      ? { ...known.input, postRequiresSiaLicence }
+      : {
+          deploymentGatePassed: false,
+          screeningClockExpired: false,
+          suspended: false,
+          postRequiresSiaLicence,
+          siaLicenceExpiry: null,
+          rightToWorkExpiry: null,
+        },
+    endsAt,
+  );
 }
 
 export type DbFile = {
@@ -585,72 +555,6 @@ export async function getDashboardCounts(now = new Date()): Promise<DashboardCou
     publishedNext7,
     draftNext7,
   };
-}
-
-// ---------------------------------------------------------------------------
-// Publication checks — the choke point, run server-side
-// ---------------------------------------------------------------------------
-
-export interface PublicationCheck {
-  assignmentId: string;
-  personName: string;
-  postName: string;
-  siteName: string;
-  startsAt: string;
-  endsAt: string;
-  allowed: boolean;
-  deployability: Deployability;
-}
-
-/**
- * Whether each draft shift in the window may be published.
- *
- * Deliberately the same function the compliance register uses. A rota that
- * enforced something slightly different would be worse than one that enforced
- * nothing, because it would be trusted.
- */
-export async function getPublicationChecks(days = 7, now = new Date()): Promise<PublicationCheck[]> {
-  const [drafts, inputs] = await Promise.all([
-    db.assignment.findMany({
-      where: {
-        state: "draft",
-        endsAt: { gt: now },
-        startsAt: { lt: new Date(now.getTime() + days * 86_400_000) },
-      },
-      orderBy: { startsAt: "asc" },
-      include: { post: { include: { site: true } }, person: true },
-    }),
-    getDeployabilityInputs(),
-  ]);
-
-  return drafts.map((a) => {
-    const known = inputs.get(a.personId);
-    const deployability = evaluateDeployability(
-      known
-        ? { ...known.input, postRequiresSiaLicence: a.post.requiresSiaLicence }
-        : {
-            // Nobody on the books at all — a candidate who has not reached
-            // conditional employment. That is a block, not a blank.
-            deploymentGatePassed: false,
-            screeningClockExpired: false,
-            suspended: false,
-            postRequiresSiaLicence: a.post.requiresSiaLicence,
-            siaLicenceExpiry: null,
-            rightToWorkExpiry: null,
-          },
-      now,
-    );
-    return {
-      assignmentId: a.id,
-      personName: a.person.fullName,
-      postName: a.post.name,
-      siteName: a.post.site.name,
-      startsAt: isoRequired(a.startsAt),
-      endsAt: isoRequired(a.endsAt),
-      allowed: canPublishAssignment(deployability).allowed,
-      deployability,
-    };
-  });
 }
 
 export interface WorkforceDeployability {

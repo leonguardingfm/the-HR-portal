@@ -119,10 +119,14 @@ export async function getCandidacy(id: string) {
   };
 }
 
-/** Open requirements a new candidate can be put forward for. */
+/**
+ * Requirements a new candidate can be put forward for: those Control has
+ * released to sourcing. Before the release the pool check is still running,
+ * and recruiting for it would be a cycle the pool might have saved.
+ */
 export async function getOpenRequirements() {
   return db.requirement.findMany({
-    where: { status: { in: ["received", "pool_check", "released_to_sourcing"] } },
+    where: { status: "released_to_sourcing" },
     orderBy: { startDate: "asc" },
     include: { client: true, site: true },
   });

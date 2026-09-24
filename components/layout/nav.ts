@@ -243,7 +243,7 @@ export const NAV: NavItem[] = [
   {
     href: "/scheduling",
     label: "Scheduling & shift changes",
-    purpose: "The rota, shift changes with their history, and the compliance block on publication.",
+    purpose: "Build the week post by post: ask officers, record what they said, and publish through the compliance block.",
     group: "Control Room",
     roles: CONTROL_ROOM,
     built: true,

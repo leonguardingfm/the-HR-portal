@@ -63,7 +63,12 @@ export type ActionId =
   | "screening.review"
   | "screening.exception.raise"
   | "screening.exception.decide"
-  | "screening.sweep";
+  | "screening.sweep"
+  | "requirement.raise"
+  | "requirement.manage"
+  | "rota.build"
+  | "rota.change"
+  | "officer.hours";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -180,6 +185,14 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   // never on a case they raised themselves (lib/core/screening-exceptions.ts).
   "screening.exception.raise": { roles: ["vetting_admin", "top_management"], owner: "the file's Screening Administrator", what: "Raising a finding or request on a screening file" },
   "screening.exception.decide": { roles: ["top_management"], owner: "higher management", what: "Deciding a risk acceptance, extension or statutory declaration" },
+  // Client requirements are Control's (Track A). HR sees them and sources
+  // against them; it does not raise, release or close them.
+  "requirement.raise": { roles: ["control", "operations_manager"], owner: "Control", what: "Raising a client requirement" },
+  "requirement.manage": { roles: ["control", "operations_manager"], owner: "Control", what: "Working a client requirement: the pool check, release to HR, allocation and closing" },
+  "rota.build": { roles: ["control", "operations_manager"], owner: "Control", what: "Building the rota: asking officers, putting shifts on as drafts and naming a post's regular officer" },
+  "rota.change": { roles: ["control", "operations_manager"], owner: "Control", what: "Changing the rota once it is published: an officer off, cover, new hours or a cancelled shift" },
+  // Control's, like the rest of the rota (24 September 2026). Every change is an event naming who made it.
+  "officer.hours": { roles: ["control", "operations_manager"], owner: "Control", what: "Setting an officer's agreed weekly hours" },
   "screening.sweep": { roles: ["vetting_controller", "top_management"], owner: "a Screening Controller or higher management", what: "Running the screening clock check" },
   "account.review": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager", what: "Approving, suspending or reactivating an account" },
 };

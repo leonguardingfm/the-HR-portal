@@ -313,6 +313,141 @@ Still open:
 5. **Live, or as-at?** Seeing the live board for their own site means seeing a no-show as it happens.
    Commercially brave. Worth deciding deliberately rather than discovering.
 
+### E18 — How the rota is built — **answered, and built**
+> **Next week is not a copy of this week; it changes every time. Posts are not fixed to one officer —
+> but sometimes they are. Availability is known by asking the officers.**
+> *(Control, 24 September 2026 — discovery questions 4, 5 and 6.)*
+
+Each answer removed something the plan could easily have assumed:
+
+- **No "copy last week".** The week starts from the posts, not from last week's names. Each post's
+  pattern (`Mon–Sun 1900–0700`) is read into the days and hours it needs cover, and every one of those
+  with nobody on is drawn as a gap. A pattern the reader cannot parse draws no gaps rather than wrong
+  ones; that post is filled by hand.
+- **A regular officer, optional.** `Post.regularPersonId`. Most posts have none and are covered from
+  the pool. Where one is named, they are suggested first — and still asked. After them come officers
+  allocated to the post through a client requirement, then whoever has worked it most in the last
+  four weeks.
+- **No availability calendar.** Officers do not declare availability, so the platform does not ask
+  them to. What it records instead is the ring-round: `ShiftAsk`, one row per shift offered, with who
+  asked, how (phone, WhatsApp, text, in person), when, and the answer — yes, no or no answer. A yes
+  puts the shift on the rota as a draft **in the same transaction**, and the database refuses a yes
+  that does not name its draft, or a draft that is not the shift asked about (constraints §17). This is
+  the same principle as the check-call ladder in E4: the attempts are the record, not paperwork after
+  it.
+
+Built alongside, because building the week exposed them:
+
+- **Deployability is judged at the end of the shift**, not when the rota is looked at. Before this, a
+  licence expiring on Wednesday passed the check for Thursday night if the draft was published on
+  Monday. Publishing a single shift, publishing the week, and the page's preview all use the same rule.
+- **Every date and time is shown in UK time**, whatever the clock on the machine showing it. The
+  development machine is on Pakistan time, and until now shift times were displayed in it.
+
+Still waiting on the rest of the discovery session, and deliberately not assumed: who may change a
+**published** rota and who is told (question 7), cover on the night (9–12), and any limit on hours or
+list of officers kept off a site (13–14). Hours and rest are shown to Control, not enforced.
+
+### E19 — Changing the rota on the night, and weekly hours — **answered, and built**
+> **Control changes the rota and assigns shifts accordingly — a sick call, or a change of mind, is
+> changed at once: find the alternative for that job and assign it. Hours are limited to each
+> officer's working hours.** *(24 September 2026 — discovery questions 7, 9, 10 and 13.)*
+
+What that became:
+
+- **Control changes a published rota, instantly** (question 7). There is no approval step between a
+  sick call and the change; the change keeps the shift as it was, who changed it and why, as an
+  amendment.
+- **An officer comes off** — sick, changed their mind, or did not turn up. Before the shift, the whole
+  shift comes off; part-way through, it ends now. Either way what is left becomes a **cover need**
+  (`CoverNeed`), which stays at the top of Scheduling, in red, until it is settled.
+- **Finding the alternative** (questions 9–10) is the same ring-round as building the week, narrowed to
+  the hours still to cover: everyone who can work them without a clash, inside their weekly hours and
+  cleared to deploy, the officer who came off left out. Each call is recorded against the cover need.
+  A yes goes on the rota **published, at once** — there is no weekly publish to wait for. Cover found
+  late starts when it is offered, so the time nobody was there stays visible.
+- **Nobody can be found** is a decision, not a silence: the cover need is closed with the reason, which
+  is where "client told at 17:40" belongs.
+- **The same holds for a post that is empty right now** with nobody ever on it: a yes starts from now
+  and is published at once.
+- **Weekly hours** (question 13). `Employment.weeklyHours`, the officer's agreed working hours, is the
+  most the rota may give them in a Monday-to-Sunday week (UK time; a Sunday night counts in both weeks
+  it falls in). The rota refuses anything over it — asking, covering, changing hours and publishing all
+  check it. It defaults to 48, the Working Time Regulations week, until somebody sets the agreed
+  figure. **Control sets it** (confirmed the same day, reversing a first draft that kept it with the
+  managers), on the Officers page or straight from the ring-round when an officer is refused for
+  hours. Every change is an event naming who made it and what it was before.
+
+Still not assumed: how officers are **told** about a change (the page says who to tell; sending it
+waits on E16), whether any officer is kept off a particular site (question 14), and whether rest
+between shifts should be enforced rather than shown. An officer deployed from a candidacy without an
+employment record has no hours of their own yet, so the 48-hour default applies to them.
+
+### E20 — Planning in bulk — **answered, built, and then reshaped by E21**
+> **Control must be able to add the rota for a week or a month in one go, then assign officers — many
+> edits at once. One at a time does not work for 300–400 officers.** *(24 September 2026.)*
+
+This does not undo E18 — each week is still built fresh, and availability is still known by asking —
+it changes the unit of work from one call to one plan:
+
+- ~~**The rota's shape is set once, per post.**~~ Replaced the same day by E21: the gaps are no longer
+  drawn from a post's pattern, they are open shifts Control creates.
+- **One or four weeks on screen.** The four-week view shows the month, with the post pinned while the
+  days scroll.
+- **Planning mode** turns every gap into an entry box. Control types a PIN or a name straight in, like a
+  spreadsheet, and each entry is checked as it is typed — deployable for that shift, no clash (with the
+  rota or with the rest of the plan), inside the officer's weekly hours — before anything is sent.
+  "Fill regular officers" types each post's regular officer into its empty gaps in one go.
+- **Tick and act.** Tick a row (one post, every day shown), a day (every post), or every gap, and give
+  them all to one officer; tick drafts to publish or take them off together.
+- **One save.** The server checks the whole batch again, in time order and against itself, saves what
+  passes in one transaction, and hands back each refusal with its reason, which stays in its box in
+  red. Each saved shift is recorded as an ask answered yes, by the channel chosen for the batch — so
+  the availability record is still there, in bulk.
+- **Publishing four weeks** is one click, through the same deployability and hours checks as one
+  shift, in a handful of statements rather than one per shift.
+
+Measured on the development data: four weeks of weekday shifts given to one officer (20 entries, 16
+saved and 4 refused for hours) saved in about three seconds, and 34 drafts over four weeks published
+in one click. Not yet measured at 300–400 officers' worth of real data; that is worth doing once the
+real posts and officers are loaded (E9).
+
+Not built: one-off extra shifts outside a post's pattern (an event night) in bulk — today they are
+added one post at a time from the post's panel.
+
+### E21 — The rota is created first, then filled — **answered, and built**
+> **Create shifts in bulk first, before assigning them to officers: an interactive calendar to mark
+> the dates from and to, and the shift times; generate the unassigned shifts across those dates; then
+> assign officers to the open shifts, in bulk, by their availability.** *(24 September 2026.)*
+
+This replaced the first version of bulk planning (E20), which drew each post's gaps from its pattern.
+Control wanted the rota as a thing they make, not a thing the system infers. So:
+
+- **Open shifts are real.** `OpenShift`: a post, a start and an end, who created it, and — once filled
+  — the assignment on it. The database refuses two overlapping shifts on one post (constraints §19),
+  so creating the same fortnight twice makes nothing new; the second attempt says so.
+- **Create shifts** is a calendar: choose the posts (by site, or search), click the first day and the
+  last, choose the days of the week, and one or more shift times (day, night, day-and-night, 9 to 5,
+  or any). The count is shown before anything is made — "28 shifts: 2 posts × 14 days". Up to three
+  months and 5,000 shifts at a time. Clicking an empty day on the roster opens it with that post and
+  day already chosen.
+- **Assigning by availability.** "Available" is everything the platform knows: cleared to deploy
+  for that shift, **not on approved leave**, no clash, inside their weekly hours. A leave request
+  still waiting is shown as a warning, not a block. Three ways to use it, all in bulk:
+  - tick shifts and pick from **who is free for them** — "free for all 10", "free for 6 of 10";
+  - **Suggest officers**: every ticked (or every) open shift is given a free officer — the regular
+    officer first, then anyone allocated to the post, then whoever knows it, then whoever has the
+    fewest hours — typed in for Control to look over and change before anything is saved;
+  - type PINs straight in, as before.
+- **The one-at-a-time route is unchanged**, on open shifts: open one, ask, record the answer.
+- Taking a draft off leaves its shift open again; a shift cancelled as not needed takes its open
+  shift with it; changing the hours moves both together.
+
+Asking is still the record (E18): every assignment made in bulk is recorded as an ask answered yes,
+by the channel chosen for the batch. What is still not known to the platform is the availability an
+officer tells Control on the phone — days they cannot do, next week only — beyond leave. If that
+needs to be recorded ahead of the rota rather than at the moment of asking, it is a new decision.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

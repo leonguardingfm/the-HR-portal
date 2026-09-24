@@ -4,8 +4,9 @@ import { revalidatePath } from "next/cache";
 import { db } from "@/lib/db/client";
 import { getSession } from "@/lib/auth/server";
 import { canDo, ACTIONS, type ActionId } from "@/lib/auth/permissions";
-import { evaluateDeployability, canPublishAssignment } from "@/lib/core/deployability";
-import { getDeployabilityInputs } from "@/lib/db/queries";
+import { canPublishAssignment } from "@/lib/core/deployability";
+import { getDeployabilityInputs, shiftDeployability } from "@/lib/db/queries";
+import { hoursProblemFor } from "@/lib/db/rota";
 import { RETENTION } from "@/lib/bs7858";
 import { refused, ok, type ActionResult } from "./types";
 import type { ContactChannel } from "@/lib/core/types";
@@ -222,19 +223,11 @@ export async function publishAssignment(
 
   // The deployability check runs HERE, on the server, against the state as it
   // is now — not against whatever the page was showing when it rendered.
-  const inputs = await getDeployabilityInputs();
-  const known = inputs.get(assignment.personId);
-  const deployability = evaluateDeployability(
-    known
-      ? { ...known.input, postRequiresSiaLicence: assignment.post.requiresSiaLicence }
-      : {
-          deploymentGatePassed: false,
-          screeningClockExpired: false,
-          suspended: false,
-          postRequiresSiaLicence: assignment.post.requiresSiaLicence,
-          siaLicenceExpiry: null,
-          rightToWorkExpiry: null,
-        },
+  const deployability = shiftDeployability(
+    await getDeployabilityInputs(),
+    assignment.personId,
+    assignment.post.requiresSiaLicence,
+    assignment.endsAt,
   );
   const check = canPublishAssignment(deployability);
   if (!check.allowed) {
@@ -242,6 +235,8 @@ export async function publishAssignment(
       `Refused: ${check.reason}. This is the choke point — it is not a warning you can click past.`,
     );
   }
+  const over = await hoursProblemFor(assignment.personId, [assignment], [assignment.id]);
+  if (over) return refused(`Refused: ${assignment.person.fullName} — ${over}`);
 
   await db.$transaction([
     db.assignment.update({

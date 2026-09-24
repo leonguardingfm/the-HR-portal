@@ -1,10 +1,19 @@
+/**
+ * Every date and time is shown in UK time. The operation is in the UK, and a
+ * shift must read 19:00 whether the laptop showing it is in Leeds or Lahore —
+ * and the server and the browser must agree, or the page renders twice.
+ */
+const TZ = "Europe/London";
+
 const LONG_DATE = new Intl.DateTimeFormat("en-GB", {
+  timeZone: TZ,
   day: "numeric",
   month: "short",
   year: "numeric",
 });
 
 const SHORT_DATE = new Intl.DateTimeFormat("en-GB", {
+  timeZone: TZ,
   day: "numeric",
   month: "short",
 });
@@ -38,7 +47,7 @@ export function titleCase(value: string): string {
     .join(" ");
 }
 
-const TIME = new Intl.DateTimeFormat("en-GB", { hour: "2-digit", minute: "2-digit" });
+const TIME = new Intl.DateTimeFormat("en-GB", { timeZone: TZ, hour: "2-digit", minute: "2-digit" });
 
 /** "19:00". Used wherever a shift time is shown. */
 export function formatTime(value: string | Date | null): string {

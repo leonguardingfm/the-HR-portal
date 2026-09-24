@@ -8,6 +8,7 @@
  * and the rota can never disagree about who may work.
  */
 
+import { addDays, hoursWithin, mondayOf, ukDate, ukInstant } from "@/lib/core/rota";
 import { clockState } from "@/lib/bs7858";
 import { evaluateDeployability, type Deployability } from "@/lib/core/deployability";
 import type { ControlId, RecruitmentStage, ScreeningPeriodYears, Severity, VettingStatus } from "@/lib/types";
@@ -34,11 +35,18 @@ export interface OfficerRow {
   deployability: Deployability;
   onShiftNow: { site: string; post: string; endsAt: Date } | null;
   nextShift: { site: string; post: string; startsAt: Date } | null;
+  /** Their agreed weekly hours; null without an employment record. */
+  weeklyHours: number | null;
+  /** Hours on the rota this week, Monday to Sunday, drafts included. */
+  hoursThisWeek: number;
 }
 
 export async function getOfficerPool(now = new Date()): Promise<OfficerRow[]> {
   const inputs = await getDeployabilityInputs();
   const ids = [...inputs.keys()];
+  const monday = mondayOf(ukDate(now));
+  const weekFrom = ukInstant(monday, "00:00");
+  const weekTo = ukInstant(addDays(monday, 7), "00:00");
   const people = await db.person.findMany({
     where: { id: { in: ids } },
     include: {
@@ -54,6 +62,10 @@ export async function getOfficerPool(now = new Date()): Promise<OfficerRow[]> {
         include: { post: { include: { site: true } } },
       },
     },
+  });
+  const thisWeek = await db.assignment.findMany({
+    where: { personId: { in: ids }, state: { not: "cancelled" }, startsAt: { lt: weekTo }, endsAt: { gt: weekFrom } },
+    select: { personId: true, startsAt: true, endsAt: true },
   });
 
   return people.map((p) => {
@@ -101,6 +113,8 @@ export async function getOfficerPool(now = new Date()): Promise<OfficerRow[]> {
       deployability: evaluateDeployability(known.input, now),
       onShiftNow: current ? { site: current.post.site.name, post: current.post.name, endsAt: current.endsAt } : null,
       nextShift: next ? { site: next.post.site.name, post: next.post.name, startsAt: next.startsAt } : null,
+      weeklyHours: p.employment && p.employment.state !== "ended" ? p.employment.weeklyHours : null,
+      hoursThisWeek: hoursWithin(thisWeek.filter((a) => a.personId === p.id), weekFrom, weekTo),
     };
   });
 }

@@ -73,6 +73,9 @@ model Person {
   updatedAt      DateTime @updatedAt @db.Timestamptz(3)
 
   identityKeys  PersonIdentityKey[]
+  allocations   RequirementAllocation[]
+  regularPosts  Post[]                  @relation("RegularPost")
+  shiftAsks     ShiftAsk[]
   user          User?
   candidacies   Candidacy[]
   employment    Employment?
@@ -388,8 +391,18 @@ model Post {
   mobileSignal         Boolean @default(true)
   active               Boolean @default(true)
 
-  site        Site         @relation(fields: [siteId], references: [id])
-  assignments Assignment[]
+  /// The officer who normally works this post, where there is one. Most posts
+  /// are covered from the pool and a few are one officer's own (Control, 24
+  /// September 2026). Suggested first when the week is built, never forced —
+  /// and still asked, because availability is known by asking.
+  regularPersonId String?
+
+  site          Site         @relation(fields: [siteId], references: [id])
+  regularPerson Person?      @relation("RegularPost", fields: [regularPersonId], references: [id])
+  assignments   Assignment[]
+  asks          ShiftAsk[]
+  coverNeeds    CoverNeed[]
+  openShifts    OpenShift[]
 
   @@unique([siteId, name])
 }
@@ -435,6 +448,13 @@ model Employment {
   /// Which Control team follows this officer up. Workload and communication
   /// only — not client, geography or contract — so it can be rebalanced.
   controlTeam String?
+
+  /// The most hours the rota may give this officer in one rota week (Monday
+  /// to Sunday, UK time) — their agreed working hours. The rota refuses a
+  /// shift that would take them over it (Control, 24 September 2026). 48 is
+  /// the Working Time Regulations weekly limit for someone who has not opted
+  /// out, so it is the default until somebody sets the agreed figure.
+  weeklyHours Int @default(48)
 
   startedAt    DateTime  @db.Date
   confirmedAt  DateTime? @db.Timestamptz(3)
@@ -544,27 +564,27 @@ model DocumentRecord {
 
   /// The date printed on the document — what the history and address-age
   /// rules are judged against, not the day it was uploaded.
-  documentDate DateTime? @db.Date
-  uploadedById String?
+  documentDate     DateTime? @db.Date
+  uploadedById     String?
   /// Originals are inspected, and who examined them is recorded [7.4c].
   originalSeenById String?
   originalSeenAt   DateTime? @db.Timestamptz(3)
   /// Outcome-only types (the criminality check): what was found, in place of
   /// a copy that must not be kept [7.7j].
-  outcome String?
-  note    String?
+  outcome          String?
+  note             String?
 
   /// What this document is evidence for, on a screening file.
   checkId         String?
   historyPeriodId String?
 
-  type          DocumentType   @relation(fields: [typeId], references: [id])
+  type          DocumentType    @relation(fields: [typeId], references: [id])
   check         ScreeningCheck? @relation(fields: [checkId], references: [id], onDelete: SetNull)
   historyPeriod HistoryPeriod?  @relation(fields: [historyPeriodId], references: [id], onDelete: SetNull)
-  person        Person?        @relation(fields: [personId], references: [id])
-  site          Site?          @relation(fields: [siteId], references: [id])
-  client        Client?        @relation(fields: [clientId], references: [id])
-  screeningFile ScreeningFile? @relation(fields: [screeningFileId], references: [id])
+  person        Person?         @relation(fields: [personId], references: [id])
+  site          Site?           @relation(fields: [siteId], references: [id])
+  client        Client?         @relation(fields: [clientId], references: [id])
+  screeningFile ScreeningFile?  @relation(fields: [screeningFileId], references: [id])
 
   @@index([expiresAt])
   @@index([typeId, verification])
@@ -887,12 +907,53 @@ model Requirement {
   releasedToSourcingAt DateTime?         @db.Timestamptz(3)
   ownerUserId          String?
 
-  client      Client      @relation(fields: [clientId], references: [id])
-  site        Site        @relation(fields: [siteId], references: [id])
+  /// A2: what the pool check found, and when. Recorded whether or not it
+  /// covered anything, so "nobody checked" and "nobody was free" differ.
+  poolCheckedAt   DateTime? @db.Timestamptz(3)
+  poolCheckNote   String?
+  /// A3b: why the pool could not cover it — what HR is handed.
+  releaseNote     String?
+  closedAt        DateTime? @db.Timestamptz(3)
+  cancelledReason String?
+
+  client      Client                  @relation(fields: [clientId], references: [id])
+  site        Site                    @relation(fields: [siteId], references: [id])
   candidacies Candidacy[]
   workItems   WorkItem[]
+  allocations RequirementAllocation[]
 
   @@index([status, startDate])
+}
+
+/// Where the officer on a requirement came from: the existing pool (A3a), or
+/// recruited through HR (A4).
+enum AllocationSource {
+  pool
+  recruited
+}
+
+/// One officer allocated to a requirement. Headcount is counted from these,
+/// so a requirement for three is two-of-three filled, not open or closed.
+model RequirementAllocation {
+  id            String           @id @default(cuid())
+  requirementId String
+  personId      String
+  source        AllocationSource
+  /// The candidacy that brought them, where they were recruited for it.
+  candidacyId   String?
+
+  allocatedAt   DateTime @default(now()) @db.Timestamptz(3)
+  allocatedById String
+
+  /// Taken off again, with the reason. Kept, not deleted.
+  releasedAt     DateTime? @db.Timestamptz(3)
+  releasedReason String?
+
+  requirement Requirement @relation(fields: [requirementId], references: [id], onDelete: Cascade)
+  person      Person      @relation(fields: [personId], references: [id])
+
+  @@index([requirementId])
+  @@index([personId])
 }
 
 enum RecruitmentStage {
@@ -1093,9 +1154,9 @@ model ScreeningFile {
   retainUntil DateTime? @db.Date
   disposedAt  DateTime? @db.Timestamptz(3)
 
-  person    Person              @relation(fields: [personId], references: [id])
-  checks    ScreeningCheck[]
-  documents DocumentRecord[]
+  person     Person               @relation(fields: [personId], references: [id])
+  checks     ScreeningCheck[]
+  documents  DocumentRecord[]
   workItems  WorkItem[]
   decisions  ScreeningDecision[]
   exceptions ScreeningException[]
@@ -1157,12 +1218,12 @@ model ScreeningDecision {
   kind   DecisionKind
 
   decidedById String
-  decidedAt   DateTime @default(now()) @db.Timestamptz(3)
+  decidedAt   DateTime         @default(now()) @db.Timestamptz(3)
   /// The reasoning, required. A risk acceptance without recorded grounds is
   /// not an acceptance [7.4f].
   rationale   String
   /// For a CCJ risk acceptance: the amount that triggered it.
-  amountGbp   Decimal? @db.Decimal(12, 2)
+  amountGbp   Decimal?         @db.Decimal(12, 2)
   /// What was decided. Null only on rows written before outcomes were recorded.
   outcome     DecisionOutcome?
 
@@ -1203,9 +1264,9 @@ model HistoryPeriod {
   role         String?
 
   /// As the individual stated it.
-  statedFrom DateTime  @db.Date
+  statedFrom    DateTime  @db.Date
   /// Null while the period is continuing.
-  statedTo   DateTime? @db.Date
+  statedTo      DateTime? @db.Date
   /// As the verifier confirmed it, where they differ.
   confirmedFrom DateTime? @db.Date
   confirmedTo   DateTime? @db.Date
@@ -1215,8 +1276,8 @@ model HistoryPeriod {
   isCurrent           Boolean  @default(false)
   permissionToContact Boolean?
 
-  verifierName    String?
-  verifierContact String?
+  verifierName       String?
+  verifierContact    String?
   /// How the contact detail was established independently. A number the
   /// individual supplied is not relied upon [7.5.2a, 7.7].
   contactVerifiedHow String?
@@ -1224,13 +1285,13 @@ model HistoryPeriod {
   firstRequestAt  DateTime? @db.Timestamptz(3)
   secondRequestAt DateTime? @db.Timestamptz(3)
 
-  method       HistoryMethod?
+  method        HistoryMethod?
   /// Documentary route: two documents of different types, one dated at the
   /// start of the period and one at the end [SV].
   documentStart String?
   documentEnd   String?
-  verifiedAt   DateTime? @db.Timestamptz(3)
-  verifiedById String?
+  verifiedAt    DateTime?      @db.Timestamptz(3)
+  verifiedById  String?
 
   notes     String?
   createdAt DateTime @default(now()) @db.Timestamptz(3)
@@ -1273,13 +1334,13 @@ model ScreeningException {
   state  ExceptionState
 
   /// Risk findings: ccj, bankruptcy or directorship [7.4f, Form 5].
-  trigger   String?
-  detail    String
-  amountGbp Decimal? @db.Decimal(12, 2)
+  trigger    String?
+  detail     String
+  amountGbp  Decimal?  @db.Decimal(12, 2)
   /// The failed check behind an adverse finding.
-  checkId   String?
+  checkId    String?
   /// Extension: weeks asked for (at most 4) [7.6].
-  weeks     Int?
+  weeks      Int?
   /// Statutory declaration: the one period it covers (at most 6 months) [7.7i].
   periodFrom DateTime? @db.Date
   periodTo   DateTime? @db.Date
@@ -1346,11 +1407,146 @@ model Assignment {
   noSignal      NoSignalHandover?
   incidents     Incident[]
   formResponses FormResponse[]
+  ask           ShiftAsk?
+  /// Set on a shift an officer came off: the cover it left needing.
+  leftCover     CoverNeed?            @relation("CoverFrom")
+  /// Set on a shift that covers for somebody else.
+  covers        CoverNeed?            @relation("CoverBy")
+  /// The open shift this assignment fills, where it was created as one.
+  fills         OpenShift?
 
   @@index([startsAt, endsAt])
   @@index([personId, startsAt])
   @@index([postId, startsAt])
   @@index([state, startsAt])
+}
+
+/// How Control reached the officer to ask.
+enum AskChannel {
+  phone
+  whatsapp
+  sms
+  in_person
+}
+
+enum AskAnswer {
+  yes
+  no
+  no_answer
+}
+
+/// Control asking an officer whether they can work a shift.
+///
+/// Availability is not declared in advance; it is known by asking (Control, 24
+/// September 2026). So the ask IS the availability record: who was asked, how,
+/// when, and what they said — including the calls nobody answered. One row per
+/// shift offered, so a call offering three nights writes three, and "can do
+/// Tuesday but not Thursday" is two answers rather than a note.
+///
+/// A yes puts a draft on the rota in the same transaction, and names it.
+model ShiftAsk {
+  id       String @id @default(cuid())
+  personId String
+  postId   String
+
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt   DateTime @db.Timestamptz(3)
+
+  askedAt   DateTime   @default(now()) @db.Timestamptz(3)
+  askedById String
+  channel   AskChannel
+  answer    AskAnswer
+  note      String?
+
+  /// The draft a yes put on the rota. Set exactly when the answer is yes.
+  assignmentId String? @unique
+  /// Set when the ask was the ring-round for cover after somebody came off.
+  coverNeedId  String?
+
+  person     Person      @relation(fields: [personId], references: [id])
+  post       Post        @relation(fields: [postId], references: [id])
+  assignment Assignment? @relation(fields: [assignmentId], references: [id])
+  coverNeed  CoverNeed?  @relation(fields: [coverNeedId], references: [id])
+
+  @@index([postId, startsAt])
+  @@index([personId, startsAt])
+  @@index([askedAt])
+}
+
+/// A shift on the rota with nobody on it yet.
+///
+/// The rota is made first and filled second (Control, 24 September 2026):
+/// shifts are created in bulk — these posts, from this date to that, these
+/// days, these hours — and officers are then assigned to them by who is free.
+/// An open shift is filled by an assignment; taking a draft off empties it
+/// again, and a shift the client no longer needs is cancelled with the reason.
+model OpenShift {
+  id       String   @id @default(cuid())
+  postId   String
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt   DateTime @db.Timestamptz(3)
+
+  createdAt   DateTime @default(now()) @db.Timestamptz(3)
+  createdById String
+
+  /// The assignment filling it. Null while it is open.
+  assignmentId String? @unique
+
+  cancelledAt     DateTime? @db.Timestamptz(3)
+  cancelledReason String?
+
+  post       Post        @relation(fields: [postId], references: [id])
+  assignment Assignment? @relation(fields: [assignmentId], references: [id])
+
+  @@index([postId, startsAt])
+  @@index([startsAt])
+}
+
+/// Why an officer came off a shift that was already on the rota.
+enum OffReason {
+  sick
+  withdrew
+  no_show
+  other
+}
+
+/// A shift somebody came off, still needing an officer.
+///
+/// Control changes the rota the moment it changes (Control, 24 September
+/// 2026): the sick call at 17:00 for a 19:00 shift takes the officer off at
+/// once, and this is what is left — the post, the hours still to cover, and
+/// why. It stays open until cover is found, which goes on the rota published
+/// straight away, or until somebody decides to leave it and says why.
+///
+/// When the officer came off part-way through, the window starts from then.
+model CoverNeed {
+  id       String   @id @default(cuid())
+  postId   String
+  startsAt DateTime @db.Timestamptz(3)
+  endsAt   DateTime @db.Timestamptz(3)
+
+  reason           OffReason
+  note             String?
+  /// The shift the officer came off.
+  fromAssignmentId String    @unique
+  raisedAt         DateTime  @default(now()) @db.Timestamptz(3)
+  raisedById       String
+
+  /// The shift that covers it, once somebody said yes.
+  coverAssignmentId String?   @unique
+  coveredAt         DateTime? @db.Timestamptz(3)
+
+  /// Left uncovered, deliberately, with the reason.
+  closedAt     DateTime? @db.Timestamptz(3)
+  closedReason String?
+  closedById   String?
+
+  post  Post        @relation(fields: [postId], references: [id])
+  from  Assignment  @relation("CoverFrom", fields: [fromAssignmentId], references: [id])
+  cover Assignment? @relation("CoverBy", fields: [coverAssignmentId], references: [id])
+  asks  ShiftAsk[]
+
+  @@index([startsAt])
 }
 
 /// Shift changes keep their history. An overwrite loses the argument about who

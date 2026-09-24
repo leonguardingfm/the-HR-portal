@@ -59,7 +59,8 @@ export type RequirementStatus =
   | "covered_internally"
   | "released_to_sourcing"
   | "allocated"
-  | "filled";
+  | "filled"
+  | "cancelled";
 
 export interface Requirement {
   id: string;

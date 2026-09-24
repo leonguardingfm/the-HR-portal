@@ -736,3 +736,189 @@ ALTER TABLE "DocumentRecord"
 ALTER TABLE "DocumentRecord"
   ADD CONSTRAINT document_original_seen_whole
   CHECK (num_nonnulls("originalSeenById", "originalSeenAt") <> 1);
+
+-- ---------------------------------------------------------------------------
+-- 16. Client requirements  [Track A, docs/proposal/03 §3]
+-- ---------------------------------------------------------------------------
+-- Headcount is counted from allocations, so an allocation that is not what it
+-- says would make "two of three filled" a lie.
+
+-- 16a. A requirement asks for at least one officer.
+ALTER TABLE "Requirement"
+  ADD CONSTRAINT requirement_headcount_positive
+  CHECK ("headcountRequired" >= 1);
+
+-- 16b. Cancelled says why.
+ALTER TABLE "Requirement"
+  ADD CONSTRAINT requirement_cancelled_has_reason
+  CHECK ("status" <> 'cancelled' OR length(btrim(coalesce("cancelledReason", ''))) > 0);
+
+-- 16c. One live allocation per person per requirement. Allocating the same
+-- officer twice is one officer counted as two.
+CREATE UNIQUE INDEX requirement_allocation_once
+  ON "RequirementAllocation" ("requirementId", "personId")
+  WHERE "releasedAt" IS NULL;
+
+-- 16d. Taken off with the reason, together.
+ALTER TABLE "RequirementAllocation"
+  ADD CONSTRAINT allocation_release_whole
+  CHECK (num_nonnulls("releasedAt", "releasedReason") <> 1);
+
+-- 16e. A recruited allocation names the candidacy that brought them; one from
+-- the pool does not.
+ALTER TABLE "RequirementAllocation"
+  ADD CONSTRAINT allocation_source_candidacy
+  CHECK (("source" = 'recruited') = ("candidacyId" IS NOT NULL));
+
+-- ---------------------------------------------------------------------------
+-- 17. Building the rota  [Control, 24 September 2026]
+-- ---------------------------------------------------------------------------
+-- Availability is known by asking, so the ask is the record of it. A yes is
+-- what put the shift on the rota; anything else did not.
+
+-- 17a. An asked-about shift ends after it starts, like the shift itself.
+ALTER TABLE "ShiftAsk"
+  ADD CONSTRAINT shift_ask_ends_after_start
+  CHECK ("endsAt" > "startsAt");
+
+-- 17b. A yes names the draft it made, and only a yes does.
+ALTER TABLE "ShiftAsk"
+  ADD CONSTRAINT shift_ask_yes_has_shift
+  CHECK (("answer" = 'yes') = ("assignmentId" IS NOT NULL));
+
+-- 17c. The shift a yes names is the one that was asked about: the same
+-- officer, the same post, the same hours.
+CREATE OR REPLACE FUNCTION enforce_shift_ask_matches() RETURNS trigger AS $$
+BEGIN
+  IF NEW."assignmentId" IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM "Assignment" a
+    WHERE a.id = NEW."assignmentId"
+      AND a."personId" = NEW."personId"
+      AND a."postId" = NEW."postId"
+      AND a."startsAt" = NEW."startsAt"
+      AND a."endsAt" = NEW."endsAt"
+  ) THEN
+    RAISE EXCEPTION 'A yes names the shift that was asked about: same officer, post and hours'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER shift_ask_matches
+  BEFORE INSERT OR UPDATE ON "ShiftAsk"
+  FOR EACH ROW EXECUTE FUNCTION enforce_shift_ask_matches();
+
+-- ---------------------------------------------------------------------------
+-- 18. Changing the rota on the night  [Control, 24 September 2026]
+-- ---------------------------------------------------------------------------
+-- An officer comes off, and the cover need is what is left. It is either
+-- covered, by a shift that really is that cover, or closed with a reason —
+-- never quietly both, never quietly neither once it is settled.
+
+-- 18a. An officer's weekly hours are a working week, not a typo.
+ALTER TABLE "Employment"
+  ADD CONSTRAINT employment_weekly_hours_sane
+  CHECK ("weeklyHours" BETWEEN 1 AND 96);
+
+-- 18b. The window still to cover ends after it starts.
+ALTER TABLE "CoverNeed"
+  ADD CONSTRAINT cover_need_ends_after_start
+  CHECK ("endsAt" > "startsAt");
+
+-- 18c. Covered is recorded whole: which shift, and when.
+ALTER TABLE "CoverNeed"
+  ADD CONSTRAINT cover_need_covered_whole
+  CHECK (num_nonnulls("coverAssignmentId", "coveredAt") <> 1);
+
+-- 18d. Left uncovered says when, why and by whom.
+ALTER TABLE "CoverNeed"
+  ADD CONSTRAINT cover_need_closed_whole
+  CHECK (
+    num_nonnulls("closedAt", "closedReason", "closedById") IN (0, 3)
+    AND ("closedReason" IS NULL OR length(btrim("closedReason")) > 0)
+  );
+
+-- 18e. Not both covered and left uncovered.
+ALTER TABLE "CoverNeed"
+  ADD CONSTRAINT cover_need_covered_or_closed
+  CHECK ("coverAssignmentId" IS NULL OR "closedAt" IS NULL);
+
+-- 18f. The cover is that cover: the same post, to the same end, and somebody
+-- other than the officer who came off. It may start later than the need —
+-- cover found at 23:30 for an officer sent home at 23:00 starts at 23:30, and
+-- the half hour nobody was there stays visible rather than papered over.
+CREATE OR REPLACE FUNCTION enforce_cover_matches() RETURNS trigger AS $$
+BEGIN
+  IF NEW."coverAssignmentId" IS NOT NULL AND NOT EXISTS (
+    SELECT 1
+    FROM "Assignment" c, "Assignment" f
+    WHERE c.id = NEW."coverAssignmentId"
+      AND f.id = NEW."fromAssignmentId"
+      AND c."postId" = NEW."postId"
+      AND c."startsAt" >= NEW."startsAt"
+      AND c."endsAt" = NEW."endsAt"
+      AND c."personId" <> f."personId"
+      AND c.state <> 'cancelled'
+  ) THEN
+    RAISE EXCEPTION 'Cover is the same post, to the same end, worked by someone other than the officer who came off'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER cover_matches
+  BEFORE INSERT OR UPDATE ON "CoverNeed"
+  FOR EACH ROW EXECUTE FUNCTION enforce_cover_matches();
+
+-- ---------------------------------------------------------------------------
+-- 19. Open shifts  [Control, 24 September 2026]
+-- ---------------------------------------------------------------------------
+-- The rota is made first, in bulk, and filled second. A post cannot be given
+-- the same hours twice, and a filled shift is filled by that shift.
+
+-- 19a. An open shift ends after it starts.
+ALTER TABLE "OpenShift"
+  ADD CONSTRAINT open_shift_ends_after_start
+  CHECK ("endsAt" > "startsAt");
+
+-- 19b. One post, one shift at a time: creating the same week twice, or two
+-- overlapping shifts on one post, is refused rather than doubled.
+ALTER TABLE "OpenShift"
+  ADD CONSTRAINT open_shift_no_overlap
+  EXCLUDE USING gist (
+    "postId" WITH =,
+    tstzrange("startsAt", "endsAt", '[)') WITH &&
+  ) WHERE ("cancelledAt" IS NULL);
+
+-- 19c. Cancelled says why, and a cancelled shift is not filled.
+ALTER TABLE "OpenShift"
+  ADD CONSTRAINT open_shift_cancelled_whole
+  CHECK (
+    num_nonnulls("cancelledAt", "cancelledReason") <> 1
+    AND ("cancelledReason" IS NULL OR length(btrim("cancelledReason")) > 0)
+    AND ("cancelledAt" IS NULL OR "assignmentId" IS NULL)
+  );
+
+-- 19d. Filled by an assignment on the same post, to the same end. It may
+-- start later: a shift already under way is filled from when it was filled.
+CREATE OR REPLACE FUNCTION enforce_open_shift_fill() RETURNS trigger AS $$
+BEGIN
+  IF NEW."assignmentId" IS NOT NULL AND NOT EXISTS (
+    SELECT 1 FROM "Assignment" a
+    WHERE a.id = NEW."assignmentId"
+      AND a."postId" = NEW."postId"
+      AND a."startsAt" >= NEW."startsAt"
+      AND a."endsAt" = NEW."endsAt"
+  ) THEN
+    RAISE EXCEPTION 'An open shift is filled by an assignment on the same post, to the same end'
+      USING ERRCODE = 'check_violation';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER open_shift_fill
+  BEFORE INSERT OR UPDATE ON "OpenShift"
+  FOR EACH ROW EXECUTE FUNCTION enforce_open_shift_fill();

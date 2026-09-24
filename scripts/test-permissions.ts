@@ -35,7 +35,9 @@ import { normalisePhone } from "../lib/core/identity";
 import { ONBOARDING_STEPS, doneSteps, normaliseSiaNumber, outstandingFor, signatureChase, waitingOn } from "../lib/core/onboarding";
 import { STANDARD_CHECKS, deriveStatus, fullScreeningBlockers, limitedScreeningBlockers, offerBlockers, onlineChecksOnFile } from "../lib/core/screening";
 import { canSignOff } from "../lib/bs7858";
+import { atRisk, fillProblem, headcount, nextReference, releaseProblem, statusAfterAllocation } from "../lib/core/requirements";
 import { isDue, retentionDue } from "../lib/core/retention";
+import { askProblem, busiestWeek, candidateOrder, clashWith, createProblem, datesBetween, fromNow, hoursProblem, leavePending, leaveProblem, planBatch, slotsFor, suggestOfficers, hoursWithin, mondayOf, newHoursProblem, offWindow, parsePattern, rosterState, shiftWindow, shortestRest, ukDate, ukInstant, ukTime, weeksOf } from "../lib/core/rota";
 import { sniffMime, uploadProblem, uploadWarning } from "../lib/core/screening-documents";
 import { analyseHistory, chaseState, dateOf, merge, requestProblem, screeningWindow, verifyProblem, workingDaysBetween, type Period } from "../lib/core/history";
 import { declarationProblem, decisionProblem, extensionProblem, fileStatus, isExpiredOnClock, riskFindingProblem } from "../lib/core/screening-exceptions";
@@ -55,8 +57,8 @@ const check = (name: string, pass: boolean, detail = "") => {
 const STAFF_BASELINE: ActionId[] = ["work_item.complete", "reminder.send", "admin_item.raise"];
 
 const EXPECTED: Record<string, ActionId[]> = {
-  control: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", ...STAFF_BASELINE],
-  operations_manager: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", ...STAFF_BASELINE],
+  control: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "rota.build", "rota.change", "officer.hours", ...STAFF_BASELINE],
+  operations_manager: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "rota.build", "rota.change", "officer.hours", ...STAFF_BASELINE],
   recruitment: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "stock.move", ...STAFF_BASELINE],
   recruitment_manager: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "admin_item.approve", "admin_item.reject", "holiday.decide", "authority_matter.respond", ...STAFF_BASELINE],
   admin_officer: ["admin_item.start", "admin_item.review", "admin_item.complete", "payment.record", "asset.maintain", "stock.move", "accreditation.evidence", ...STAFF_BASELINE],
@@ -670,9 +672,209 @@ check("a missing figure reads neutral, never good",
   check("not a day early", !isDue(d("2026-09-24"), d("2026-09-23")));
 }
 
+// --- client requirements (Track A) ------------------------------------------
+{
+  const pool = { source: "pool" as const };
+  const rec = { source: "recruited" as const };
+  const h3 = (live: { source: "pool" | "recruited" }[]) => headcount(3, live);
+  check("headcount counts allocations: two of three", h3([pool, rec]).allocated === 2 && h3([pool, rec]).remaining === 1);
+  check("fully covered from the pool closes as covered internally (A3a)",
+    statusAfterAllocation({ current: "pool_check", hc: h3([pool, pool, pool]), released: false }) === "covered_internally");
+  check("fully covered once HR was involved is allocated, waiting to be filled (A4)",
+    statusAfterAllocation({ current: "released_to_sourcing", hc: h3([pool, rec, rec]), released: true }) === "allocated");
+  check("part covered from the pool stays at the pool check",
+    statusAfterAllocation({ current: "received", hc: h3([pool]), released: false }) === "pool_check");
+  check("part covered after release stays with HR",
+    statusAfterAllocation({ current: "allocated", hc: h3([rec]), released: true }) === "released_to_sourcing");
+  check("filled is never set by an allocation",
+    statusAfterAllocation({ current: "filled", hc: h3([]), released: true }) === "filled");
+  check("release needs the reason the pool cannot cover it",
+    releaseProblem({ status: "pool_check", hc: h3([pool]), note: "none" }) !== null &&
+    releaseProblem({ status: "pool_check", hc: h3([pool]), note: "Nobody in the pool holds a door supervisor licence" }) === null);
+  check("nothing to release once every place is covered", releaseProblem({ status: "pool_check", hc: h3([pool, pool, pool]), note: "x".repeat(20) }) !== null);
+  check("not filled while places remain", fillProblem({ status: "allocated", hc: h3([pool, rec]) }) !== null);
+  check("filled once every place is allocated", fillProblem({ status: "allocated", hc: h3([pool, rec, rec]) }) === null);
+  check("references run on and are never reused", nextReference(["REQ-1047", "REQ-1049", "REQ-1042"]) === "REQ-1050" && nextReference([]) === "REQ-1001");
+  const soon = new Date(Date.now() + 3 * 86_400_000);
+  check("starting within a week with places open is at risk", atRisk({ status: "released_to_sourcing", startDate: soon, hc: h3([pool]) }));
+  check("…but not once covered", !atRisk({ status: "allocated", startDate: soon, hc: h3([pool, pool, pool]) }));
+}
+
+// --- building the rota -------------------------------------------------------
+{
+  // UK time, whatever the machine running this is set to.
+  check("a summer 19:00 in the UK is 18:00 UTC", ukInstant("2026-09-29", "19:00").toISOString() === "2026-09-29T18:00:00.000Z");
+  check("a winter 19:00 in the UK is 19:00 UTC", ukInstant("2026-12-01", "19:00").toISOString() === "2026-12-01T19:00:00.000Z");
+  check("an instant reads back as the same UK date and time",
+    ukDate(ukInstant("2026-10-24", "23:30")) === "2026-10-24" && ukTime(ukInstant("2026-10-24", "23:30")) === "23:30");
+  const night = shiftWindow("2026-10-24", "19:00", "07:00");
+  check("an end before the start is the next morning", ukDate(night.endsAt) === "2026-10-25" && ukTime(night.endsAt) === "07:00");
+  check("the night the clocks go back is thirteen hours long", (night.endsAt.getTime() - night.startsAt.getTime()) / 3_600_000 === 13);
+  check("a rota week starts on the Monday", mondayOf("2026-09-24") === "2026-09-21" && mondayOf("2026-09-27") === "2026-09-21" && mondayOf("2026-09-28") === "2026-09-28");
+
+  const nights = parsePattern("Mon–Sun 1900–0700");
+  check("a post's pattern gives its days and hours", !!nights && nights.days.length === 7 && nights.start === "19:00" && nights.end === "07:00");
+  check("weekend patterns are the weekend", JSON.stringify(parsePattern("Sat–Sun 0600–1800")?.days) === "[5,6]");
+  check("ranges wrap round the week", JSON.stringify(parsePattern("Fri-Mon 07:00-19:00")?.days) === "[0,4,5,6]");
+  check("lists of days read", JSON.stringify(parsePattern("Mon, Wed, Fri 0700–1900")?.days) === "[0,2,4]");
+  check("a pattern it cannot read draws no gaps rather than wrong ones",
+    parsePattern("As agreed with the client") === null && parsePattern("Mon–Sun") === null && parsePattern(null) === null);
+
+  const t = (iso: string) => new Date(iso);
+  const wesley = [{ startsAt: t("2026-09-29T18:00Z"), endsAt: t("2026-09-30T06:00Z"), label: "Night gatehouse" }];
+  check("an overlapping shift is a clash", clashWith(wesley, { startsAt: t("2026-09-30T05:00Z"), endsAt: t("2026-09-30T17:00Z") })?.label === "Night gatehouse");
+  check("back to back is not a clash", clashWith(wesley, { startsAt: t("2026-09-30T06:00Z"), endsAt: t("2026-09-30T18:00Z") }) === null);
+  check("rest is the gap to the nearest shift", shortestRest(wesley, { startsAt: t("2026-09-30T14:00Z"), endsAt: t("2026-09-30T22:00Z") }) === 8);
+  check("hours count only the part inside the week", hoursWithin(wesley, t("2026-09-29T23:00Z"), t("2026-10-05T23:00Z")) === 7);
+
+  const later = { startsAt: t("2026-10-01T18:00Z"), endsAt: t("2026-10-02T06:00Z") };
+  const now = t("2026-09-24T10:00Z");
+  check("a yes about a future shift is recorded", askProblem({ channel: "phone", answer: "yes", windows: [later], now }) === null);
+  check("an ask needs at least one shift", askProblem({ channel: "phone", answer: "yes", windows: [], now }) !== null);
+  check("a shift under way can still be filled", askProblem({ channel: "phone", answer: "yes", windows: [later], now: t("2026-10-01T19:00Z") }) === null);
+  check("…but not one that has finished", askProblem({ channel: "phone", answer: "yes", windows: [later], now: t("2026-10-02T06:00Z") }) !== null);
+  check("asked in person, there is no 'no answer'", askProblem({ channel: "in_person", answer: "no_answer", windows: [later], now }) !== null);
+  check("an unknown channel or answer is refused",
+    askProblem({ channel: "pigeon", answer: "yes", windows: [later], now }) !== null && askProblem({ channel: "sms", answer: "maybe", windows: [later], now }) !== null);
+  check("a 20-hour shift is a typo", askProblem({ channel: "phone", answer: "yes", windows: [{ startsAt: later.startsAt, endsAt: t("2026-10-02T14:00Z") }], now }) !== null);
+
+  const f = (name: string, o: Partial<{ regular: boolean; allocatedHere: boolean; shiftsHere: number; saidNo: boolean }> = {}) =>
+    ({ name, regular: false, allocatedHere: false, shiftsHere: 0, saidNo: false, ...o });
+  const order = [f("Amy"), f("Zoe", { regular: true }), f("Bea", { shiftsHere: 4 }), f("Cal", { allocatedHere: true }), f("Dee", { regular: true, saidNo: true })]
+    .sort(candidateOrder)
+    .map((c) => c.name);
+  check("ask the regular officer first, then allocated, then who knows the post; a no drops to the bottom",
+    order.join(",") === "Zoe,Cal,Bea,Amy,Dee", order.join(","));
+}
+
+// --- changing the rota on the night, and weekly hours -----------------------
+{
+  const t = (iso: string) => new Date(iso);
+  // Weekly hours, per rota week (UK Monday to Sunday).
+  const nights = ["2026-09-28", "2026-09-29", "2026-09-30"].map((d) => shiftWindow(d, "19:00", "07:00"));
+  check("three 12-hour nights are 36 hours", hoursProblem([], nights, 36) === null && hoursProblem([], nights, 35) !== null);
+  const over = hoursProblem(nights, [shiftWindow("2026-10-01", "19:00", "07:00")], 40);
+  check("a fourth night over a 40-hour week is refused, and says by how much", !!over && /48h/.test(over) && /40h week/.test(over), over ?? "");
+  const sunday = shiftWindow("2026-10-04", "19:00", "07:00");
+  check("a Sunday night is in two rota weeks", weeksOf(sunday).join(",") === "2026-09-28,2026-10-05");
+  check("…and counts in each only the hours inside it (5h, then 7h)", hoursProblem([], [sunday], 7) === null && hoursProblem([], [sunday], 6) !== null);
+
+  // Taking an officer off.
+  const shift = { startsAt: t("2026-09-29T18:00Z"), endsAt: t("2026-09-30T06:00Z") };
+  const before = offWindow(shift, t("2026-09-29T16:02Z"));
+  check("off before the shift: the whole shift needs cover",
+    before.ok && !before.started && before.cover.startsAt.getTime() === shift.startsAt.getTime());
+  const during = offWindow(shift, t("2026-09-29T22:00:30Z"));
+  check("off part-way: the rest of the shift needs cover, from the minute",
+    during.ok && during.started && during.cover.startsAt.toISOString() === "2026-09-29T22:00:00.000Z" && during.cover.endsAt.getTime() === shift.endsAt.getTime());
+  check("a finished shift cannot be come off", !offWindow(shift, t("2026-09-30T06:00Z")).ok);
+
+  // New hours.
+  const now = t("2026-09-29T12:00Z");
+  check("new hours before the shift", newHoursProblem(shift, { startsAt: t("2026-09-29T17:00Z"), endsAt: t("2026-09-30T05:00Z") }, now) === null);
+  check("the same hours are not a change", newHoursProblem(shift, shift, now) !== null);
+  const started = t("2026-09-29T20:00Z");
+  check("once started only the end moves",
+    newHoursProblem(shift, { startsAt: shift.startsAt, endsAt: t("2026-09-30T08:00Z") }, started) === null &&
+    newHoursProblem(shift, { startsAt: t("2026-09-29T19:00Z"), endsAt: shift.endsAt }, started) !== null);
+
+  // A shift already under way is offered from now, to the minute.
+  const offered = fromNow(shift, t("2026-09-29T20:40:30Z"));
+  check("a shift under way is offered from now", offered.startsAt.toISOString() === "2026-09-29T20:40:00.000Z" && offered.endsAt.getTime() === shift.endsAt.getTime());
+  check("a shift ahead is offered whole", fromNow(shift, now).startsAt.getTime() === shift.startsAt.getTime());
+
+  // What the roster shows.
+  const base = { state: "published", ...shift };
+  check("published, ahead", rosterState(base, now) === "published");
+  check("happening now", rosterState(base, started) === "on_shift");
+  check("finished", rosterState(base, t("2026-09-30T07:00Z")) === "done");
+  check("a draft, and a blocked draft", rosterState({ ...base, state: "draft" }, now) === "draft" && rosterState({ ...base, state: "draft", blocked: true }, now) === "blocked");
+  check("cover and changed hours are their own colours",
+    rosterState({ ...base, isCover: true }, now) === "cover" && rosterState({ ...base, amended: true }, now) === "changed");
+  check("an officer who came off shows as off, whatever else is true", rosterState({ ...base, cameOff: true, isCover: true }, now) === "off");
+}
+
+// --- planning in bulk ----------------------------------------------------------
+{
+  // Creating the rota: posts × chosen days in the range × times.
+  const now0 = new Date("2026-09-24T10:00Z");
+  check("the range includes both ends", datesBetween("2026-09-28", "2026-10-04").length === 7);
+  const weekdaysOnly = slotsFor({ from: "2026-09-28", to: "2026-10-11", weekdays: [0, 1, 2, 3, 4], times: [{ start: "09:00", end: "17:00" }] });
+  check("two weeks of weekdays at 9 to 5 is ten shifts", weekdaysOnly.length === 10 && weekdaysOnly.every((w) => ukTime(w.startsAt) === "09:00"));
+  const dayNight = slotsFor({ from: "2026-09-28", to: "2026-09-30", weekdays: [0, 1, 2, 3, 4, 5, 6], times: [{ start: "07:00", end: "19:00" }, { start: "19:00", end: "07:00" }] });
+  check("day and night over three days is six shifts, nights ending next morning",
+    dayNight.length === 6 && ukDate(dayNight[1].endsAt) === "2026-09-29" && ukTime(dayNight[1].endsAt) === "07:00");
+  const good = { postIds: ["p"], from: "2026-09-28", to: "2026-10-25", weekdays: [0, 1, 2, 3, 4, 5, 6], times: [{ start: "09:00", end: "17:00" }], now: now0 };
+  check("a month of shifts on a post can be created", createProblem(good) === null);
+  check("no post, no shifts", createProblem({ ...good, postIds: [] }) !== null);
+  check("the last day before the first is refused", createProblem({ ...good, from: "2026-10-25", to: "2026-09-28" }) !== null);
+  check("more than three months at once is refused", createProblem({ ...good, to: "2027-01-30" }) !== null);
+  check("days already passed are refused", createProblem({ ...good, from: "2026-09-01", to: "2026-09-10" }) !== null);
+  check("day and night together are fine", createProblem({ ...good, times: [{ start: "07:00", end: "19:00" }, { start: "19:00", end: "07:00" }] }) === null);
+  check("two times that overlap on one post are refused",
+    /overlap/.test(createProblem({ ...good, times: [{ start: "07:00", end: "19:00" }, { start: "09:00", end: "17:00" }] }) ?? ""));
+  check("a night that runs into the next morning's day shift is refused",
+    /overlap/.test(createProblem({ ...good, times: [{ start: "08:00", end: "18:00" }, { start: "20:00", end: "09:00" }] }) ?? ""));
+  check("a 20-hour shift is refused", createProblem({ ...good, times: [{ start: "06:00", end: "02:00" }] }) !== null);
+
+  // Leave: approved is unavailable, pending is a warning.
+  const leave = [
+    { startsAt: new Date("2026-10-05T00:00Z"), endsAt: new Date("2026-10-10T00:00Z"), approved: true },
+    { startsAt: new Date("2026-10-20T00:00Z"), endsAt: new Date("2026-10-22T00:00Z"), approved: false },
+  ];
+  check("a shift on approved leave is refused", /approved leave/.test(leaveProblem(leave, shiftWindow("2026-10-06", "09:00", "17:00")) ?? ""));
+  check("a shift during a leave request still waiting is not refused, only flagged",
+    leaveProblem(leave, shiftWindow("2026-10-20", "09:00", "17:00")) === null && leavePending(leave, shiftWindow("2026-10-20", "09:00", "17:00")));
+
+  // A batch is checked against the rota and against itself.
+  const now = new Date("2026-09-24T10:00Z");
+  const night = (date: string) => shiftWindow(date, "19:00", "07:00");
+  const item = (key: string, personId: string, postId: string, date: string) => ({ key, personId, postId, ...night(date), label: postId });
+  const ctx = (overrides: Partial<Parameters<typeof planBatch>[1]> = {}) => ({
+    busyByPerson: new Map(),
+    busyByPost: new Map(),
+    weeklyHoursOf: () => 48,
+    blockerFor: () => null,
+    now,
+    ...overrides,
+  });
+  const month = ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01"].map((d, i) => item(`k${i}`, "wes", "gate", d));
+  check("four nights for one officer on one post are accepted", planBatch(month, ctx()).accepted.length === 4);
+  const twice = planBatch([item("a", "wes", "gate", "2026-09-28"), item("b", "wes", "depot", "2026-09-28")], ctx());
+  check("the same officer twice on one night: the second is refused", twice.accepted.length === 1 && twice.refused[0]?.item.key === "b" && /Already on gate/.test(twice.refused[0].reason));
+  const both = planBatch([item("a", "wes", "gate", "2026-09-28"), item("b", "liam", "gate", "2026-09-28")], ctx());
+  check("two officers for one post on one night: the second is refused", both.refused.length === 1 && /already on this post/.test(both.refused[0].reason));
+  const five = ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02"].map((d, i) => item(`n${i}`, "wes", "gate", d));
+  const capped = planBatch(five, ctx({ weeklyHoursOf: () => 48 }));
+  check("a fifth 12-hour night in the week goes over 48h, and only it is refused",
+    capped.accepted.length === 4 && capped.refused.length === 1 && capped.refused[0].item.key === "n4" && /60h/.test(capped.refused[0].reason));
+  const held = planBatch([item("a", "wes", "gate", "2026-09-28")], ctx({ busyByPerson: new Map([["wes", [{ ...night("2026-09-28"), label: "Depot 7" }]]]) }));
+  check("a clash with the rota as it stands is refused", held.refused.length === 1 && /Depot 7/.test(held.refused[0].reason));
+  const blocked = planBatch(month, ctx({ blockerFor: (i) => (i.key === "k2" ? "SIA licence expired 1 days ago" : null) }));
+  check("a blocked shift is refused with its reason, and the rest go ahead",
+    blocked.accepted.length === 3 && blocked.refused[0].reason.startsWith("SIA licence expired"));
+  // Suggestions: the regular officer first, then whoever has the fewest hours; nobody over their week.
+  const slots = ["2026-09-28", "2026-09-29", "2026-09-30", "2026-10-01", "2026-10-02"].map((d, i) => ({ key: `s${i}`, postId: "gate", ...night(d) }));
+  const picks = suggestOfficers(slots, {
+    officerIds: ["wes", "liam", "amy"],
+    busyByPerson: new Map(),
+    busyByPost: new Map(),
+    weeklyHoursOf: () => 48,
+    blockerFor: (i) => (i.personId === "amy" ? "SIA licence expired 3 days ago" : null),
+    preference: (id) => (id === "wes" ? 100 : 0),
+    now,
+  });
+  const byWho = [...picks.values()];
+  check("the regular officer gets the first four nights, up to 48 hours", byWho.filter((w) => w === "wes").length === 4 && picks.get("s0") === "wes");
+  check("the fifth goes to the next free officer, not over anyone's hours", picks.get("s4") === "liam");
+  check("a blocked officer is never suggested", !byWho.includes("amy"));
+  check("the busiest week of a span is what is measured against the limit",
+    busiestWeek([night("2026-09-28"), night("2026-09-29"), night("2026-10-06")], "2026-09-28", 2) === 24);
+}
+
 // --- 2. every action guards ------------------------------------------------
 let actionCount = 0;
-for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents"]) {
+for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota"]) {
   const src = readFileSync(new URL(`../lib/actions/${file}.ts`, import.meta.url), "utf8");
   const exported = [...src.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
   check(`${file}.ts has server actions to check`, exported.length > 0, `${exported.length} found`);

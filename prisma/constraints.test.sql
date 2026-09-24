@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- One hundred and fourteen assertions. Each one names a rule the platform claims to
+-- One hundred and fifty-eight assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -478,3 +478,156 @@ SELECT expect_failure('a copy of a criminality certificate kept anyway (7.7j)',
 SELECT expect_success('the criminality outcome recorded without a copy',
   $$INSERT INTO "DocumentRecord"(id,"typeId","screeningFileId",verification,outcome)
     VALUES ('up7','crc','f4','verified','Basic disclosure: no convictions shown')$$);
+
+-- ---------------------------------------------------------------------------
+-- 16. Client requirements
+-- ---------------------------------------------------------------------------
+
+SELECT expect_success('raise a requirement for two officers',
+  $$INSERT INTO "Requirement"(id,reference,"clientId","siteId",post,"headcountRequired","startDate")
+    VALUES ('rq1','REQ-9001','c1','s1','Gatehouse',2,'2026-10-01')$$);
+SELECT expect_failure('a requirement for nobody',
+  $$INSERT INTO "Requirement"(id,reference,"clientId","siteId",post,"headcountRequired","startDate")
+    VALUES ('rq2','REQ-9002','c1','s1','Gatehouse',0,'2026-10-01')$$);
+SELECT expect_failure('cancelled without a reason',
+  $$UPDATE "Requirement" SET status = 'cancelled' WHERE id = 'rq1'$$);
+SELECT expect_success('allocate an officer from the pool',
+  $$INSERT INTO "RequirementAllocation"(id,"requirementId","personId",source,"allocatedById")
+    VALUES ('al1','rq1','p1','pool','u3')$$);
+SELECT expect_failure('the same officer allocated twice',
+  $$INSERT INTO "RequirementAllocation"(id,"requirementId","personId",source,"allocatedById")
+    VALUES ('al2','rq1','p1','pool','u3')$$);
+SELECT expect_failure('a recruited allocation with no candidacy',
+  $$INSERT INTO "RequirementAllocation"(id,"requirementId","personId",source,"allocatedById")
+    VALUES ('al3','rq1','p2','recruited','u3')$$);
+SELECT expect_failure('taken off with no reason',
+  $$UPDATE "RequirementAllocation" SET "releasedAt" = now() WHERE id = 'al1'$$);
+SELECT expect_success('taken off, with the reason',
+  $$UPDATE "RequirementAllocation" SET "releasedAt" = now(), "releasedReason" = 'Client asked for someone else' WHERE id = 'al1'$$);
+SELECT expect_success('once taken off, allocated again',
+  $$INSERT INTO "RequirementAllocation"(id,"requirementId","personId",source,"allocatedById")
+    VALUES ('al4','rq1','p1','pool','u3')$$);
+
+-- ---------------------------------------------------------------------------
+-- 17. Building the rota
+-- ---------------------------------------------------------------------------
+
+INSERT INTO "Assignment"(id,"personId","postId","startsAt","endsAt") VALUES
+  ('ra1','p2','post2','2026-10-08 19:00+01','2026-10-09 07:00+01'),
+  ('ra2','p2','post2','2026-10-09 19:00+01','2026-10-10 07:00+01');
+
+SELECT expect_success('a yes that names the draft it made',
+  $$INSERT INTO "ShiftAsk"(id,"personId","postId","startsAt","endsAt","askedById",channel,answer,"assignmentId")
+    VALUES ('sa1','p2','post2','2026-10-08 19:00+01','2026-10-09 07:00+01','u3','phone','yes','ra1')$$);
+SELECT expect_failure('a yes that put nobody on the rota',
+  $$INSERT INTO "ShiftAsk"(id,"personId","postId","startsAt","endsAt","askedById",channel,answer)
+    VALUES ('sa2','p2','post2','2026-10-09 19:00+01','2026-10-10 07:00+01','u3','phone','yes')$$);
+SELECT expect_failure('a no that names a shift',
+  $$INSERT INTO "ShiftAsk"(id,"personId","postId","startsAt","endsAt","askedById",channel,answer,"assignmentId")
+    VALUES ('sa3','p2','post2','2026-10-09 19:00+01','2026-10-10 07:00+01','u3','phone','no','ra2')$$);
+SELECT expect_failure('a yes naming another officer''s shift',
+  $$INSERT INTO "ShiftAsk"(id,"personId","postId","startsAt","endsAt","askedById",channel,answer,"assignmentId")
+    VALUES ('sa4','p1','post2','2026-10-09 19:00+01','2026-10-10 07:00+01','u3','phone','yes','ra2')$$);
+SELECT expect_failure('a yes naming a shift with other hours',
+  $$INSERT INTO "ShiftAsk"(id,"personId","postId","startsAt","endsAt","askedById",channel,answer,"assignmentId")
+    VALUES ('sa5','p2','post2','2026-10-09 18:00+01','2026-10-10 06:00+01','u3','phone','yes','ra2')$$);
+SELECT expect_failure('two yeses for one shift',
+  $$INSERT INTO "ShiftAsk"(id,"personId","postId","startsAt","endsAt","askedById",channel,answer,"assignmentId")
+    VALUES ('sa6','p2','post2','2026-10-08 19:00+01','2026-10-09 07:00+01','u3','whatsapp','yes','ra1')$$);
+SELECT expect_failure('asked about a shift that ends before it starts',
+  $$INSERT INTO "ShiftAsk"(id,"personId","postId","startsAt","endsAt","askedById",channel,answer)
+    VALUES ('sa7','p1','post2','2026-10-09 19:00+01','2026-10-09 07:00+01','u3','phone','no')$$);
+SELECT expect_success('no answer is recorded too',
+  $$INSERT INTO "ShiftAsk"(id,"personId","postId","startsAt","endsAt","askedById",channel,answer,note)
+    VALUES ('sa8','p1','post2','2026-10-09 19:00+01','2026-10-10 07:00+01','u3','phone','no_answer','Left a voicemail')$$);
+SELECT expect_success('the yes that follows it, naming its draft',
+  $$INSERT INTO "ShiftAsk"(id,"personId","postId","startsAt","endsAt","askedById",channel,answer,"assignmentId")
+    VALUES ('sa9','p2','post2','2026-10-09 19:00+01','2026-10-10 07:00+01','u3','sms','yes','ra2')$$);
+SELECT expect_success('a post with a regular officer',
+  $$UPDATE "Post" SET "regularPersonId" = 'p2' WHERE id = 'post2'$$);
+
+-- ---------------------------------------------------------------------------
+-- 18. Changing the rota on the night
+-- ---------------------------------------------------------------------------
+
+SELECT expect_failure('a working week of 0 hours',
+  $$UPDATE "Employment" SET "weeklyHours" = 0 WHERE id = 'e1'$$);
+SELECT expect_failure('a working week of 200 hours',
+  $$UPDATE "Employment" SET "weeklyHours" = 200 WHERE id = 'e1'$$);
+SELECT expect_success('a 60-hour agreed week',
+  $$UPDATE "Employment" SET "weeklyHours" = 60 WHERE id = 'e1'$$);
+
+-- p2 comes off ra1 (8 Oct night); p1 covers it.
+UPDATE "Assignment" SET state = 'cancelled' WHERE id = 'ra1';
+INSERT INTO "Assignment"(id,"personId","postId","startsAt","endsAt",state) VALUES
+  ('rc1','p1','post2','2026-10-08 19:00+01','2026-10-09 07:00+01','published'),
+  ('rc2','p1','post1','2026-10-08 19:00+01','2026-10-09 07:00+01','cancelled');
+
+SELECT expect_success('an officer comes off; the shift needs cover',
+  $$INSERT INTO "CoverNeed"(id,"postId","startsAt","endsAt",reason,"fromAssignmentId","raisedById")
+    VALUES ('cn1','post2','2026-10-08 19:00+01','2026-10-09 07:00+01','sick','ra1','u3')$$);
+SELECT expect_failure('a second cover need for the same shift',
+  $$INSERT INTO "CoverNeed"(id,"postId","startsAt","endsAt",reason,"fromAssignmentId","raisedById")
+    VALUES ('cn2','post2','2026-10-08 19:00+01','2026-10-09 07:00+01','sick','ra1','u3')$$);
+SELECT expect_failure('covered with no time recorded',
+  $$UPDATE "CoverNeed" SET "coverAssignmentId" = 'rc1' WHERE id = 'cn1'$$);
+SELECT expect_failure('covered by a shift on another post',
+  $$UPDATE "CoverNeed" SET "coverAssignmentId" = 'rc2', "coveredAt" = now() WHERE id = 'cn1'$$);
+SELECT expect_failure('left uncovered without saying why',
+  $$UPDATE "CoverNeed" SET "closedAt" = now(), "closedById" = 'u3' WHERE id = 'cn1'$$);
+SELECT expect_success('covered by the right shift',
+  $$UPDATE "CoverNeed" SET "coverAssignmentId" = 'rc1', "coveredAt" = now() WHERE id = 'cn1'$$);
+SELECT expect_failure('covered and left uncovered at once',
+  $$UPDATE "CoverNeed" SET "closedAt" = now(), "closedReason" = 'Client told', "closedById" = 'u3' WHERE id = 'cn1'$$);
+
+-- p2 comes off ra2 part-way; nobody is found.
+UPDATE "Assignment" SET "endsAt" = '2026-10-09 23:00+01', state = 'amended' WHERE id = 'ra2';
+SELECT expect_failure('cover that finishes before the shift did',
+  $$INSERT INTO "CoverNeed"(id,"postId","startsAt","endsAt",reason,"fromAssignmentId","raisedById")
+    VALUES ('cn3','post2','2026-10-10 07:00+01','2026-10-09 23:00+01','sick','ra2','u3')$$);
+SELECT expect_success('the rest of a shift needs cover',
+  $$INSERT INTO "CoverNeed"(id,"postId","startsAt","endsAt",reason,"fromAssignmentId","raisedById")
+    VALUES ('cn4','post2','2026-10-09 23:00+01','2026-10-10 07:00+01','withdrew','ra2','u3')$$);
+SELECT expect_failure('covered by the officer who came off',
+  $$WITH c AS (INSERT INTO "Assignment"(id,"personId","postId","startsAt","endsAt",state)
+      VALUES ('rc3','p2','post2','2026-10-09 23:30+01','2026-10-10 07:00+01','published') RETURNING id)
+    UPDATE "CoverNeed" SET "coverAssignmentId" = (SELECT id FROM c), "coveredAt" = now() WHERE id = 'cn4'$$);
+SELECT expect_success('left uncovered, with the reason',
+  $$UPDATE "CoverNeed" SET "closedAt" = now(), "closedReason" = 'Client told 23:10; post unmanned until 07:00', "closedById" = 'u3' WHERE id = 'cn4'$$);
+
+-- ---------------------------------------------------------------------------
+-- 19. Open shifts
+-- ---------------------------------------------------------------------------
+
+SELECT expect_success('an open shift on the rota',
+  $$INSERT INTO "OpenShift"(id,"postId","startsAt","endsAt","createdById")
+    VALUES ('os1','post1','2026-10-12 09:00+01','2026-10-12 17:00+01','u3')$$);
+SELECT expect_failure('the same post given overlapping hours twice',
+  $$INSERT INTO "OpenShift"(id,"postId","startsAt","endsAt","createdById")
+    VALUES ('os2','post1','2026-10-12 10:00+01','2026-10-12 18:00+01','u3')$$);
+SELECT expect_success('the same hours on another post',
+  $$INSERT INTO "OpenShift"(id,"postId","startsAt","endsAt","createdById")
+    VALUES ('os3','post2','2026-10-12 09:00+01','2026-10-12 17:00+01','u3')$$);
+SELECT expect_failure('an open shift that ends before it starts',
+  $$INSERT INTO "OpenShift"(id,"postId","startsAt","endsAt","createdById")
+    VALUES ('os4','post1','2026-10-13 17:00+01','2026-10-13 09:00+01','u3')$$);
+SELECT expect_failure('removed without saying why',
+  $$UPDATE "OpenShift" SET "cancelledAt" = now() WHERE id = 'os3'$$);
+
+INSERT INTO "Assignment"(id,"personId","postId","startsAt","endsAt") VALUES
+  ('rf1','p1','post1','2026-10-12 09:00+01','2026-10-12 17:00+01'),
+  ('rf2','p2','post2','2026-10-12 09:00+01','2026-10-12 17:00+01');
+
+SELECT expect_failure('filled by a shift on another post',
+  $$UPDATE "OpenShift" SET "assignmentId" = 'rf2' WHERE id = 'os1'$$);
+SELECT expect_success('filled by the officer put on it',
+  $$UPDATE "OpenShift" SET "assignmentId" = 'rf1' WHERE id = 'os1'$$);
+SELECT expect_failure('one assignment filling two open shifts',
+  $$UPDATE "OpenShift" SET "assignmentId" = 'rf1' WHERE id = 'os3'$$);
+SELECT expect_failure('a filled shift removed as if nobody were on it',
+  $$UPDATE "OpenShift" SET "cancelledAt" = now(), "cancelledReason" = 'Not needed' WHERE id = 'os1'$$);
+SELECT expect_success('an open shift removed, with the reason',
+  $$UPDATE "OpenShift" SET "cancelledAt" = now(), "cancelledReason" = 'Created by mistake' WHERE id = 'os3'$$);
+SELECT expect_success('a removed shift frees its hours for a new one',
+  $$INSERT INTO "OpenShift"(id,"postId","startsAt","endsAt","createdById")
+    VALUES ('os5','post2','2026-10-12 09:00+01','2026-10-12 17:00+01','u3')$$);

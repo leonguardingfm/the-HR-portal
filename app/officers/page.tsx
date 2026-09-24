@@ -1,3 +1,5 @@
+import { WeeklyHoursForm } from "@/components/scheduling/RotaForms";
+import { deniedReason } from "@/lib/auth/ui";
 import Link from "next/link";
 import { canAccessPath } from "@/components/layout/nav";
 import { Card } from "@/components/ui/Card";
@@ -79,6 +81,7 @@ export default async function OfficersPage({
     return str ? `/officers?${str}` : "/officers";
   };
 
+  const hoursDenied = deniedReason(session.activeRole, "officer.hours");
   const seesCandidates = canAccessPath(session.activeRole, "/candidates");
   const seesVetting = canAccessPath(session.activeRole, "/vetting");
 
@@ -149,10 +152,10 @@ export default async function OfficersPage({
         }
       >
         <div className="-mx-5 overflow-x-auto">
-          <table className="w-full min-w-[1000px] text-left text-[12px]">
+          <table className="w-full min-w-[1100px] text-left text-[12px]">
             <thead>
               <tr style={{ color: "var(--text-muted)" }}>
-                {["Name as per SIA badge", "Control", "Employment", "SIA licence", "Right to work", "Screening", "Deployable", "Now / next"].map((h) => (
+                {["Name as per SIA badge", "Control", "Employment", "Hours this week", "SIA licence", "Right to work", "Screening", "Deployable", "Now / next"].map((h) => (
                   <th key={h} className="border-b px-5 py-2 font-medium">
                     {h}
                   </th>
@@ -185,6 +188,27 @@ export default async function OfficersPage({
                     </td>
                     <td className="border-b px-5 py-2.5">
                       <Tag>{o.employment ? EMPLOYMENT_LABELS[o.employment] : "Deployed, not employed"}</Tag>
+                    </td>
+                    <td className="border-b px-5 py-2.5">
+                      {o.weeklyHours ? (
+                        <>
+                          <p className="tnum font-medium tabular-nums" style={{ color: o.hoursThisWeek > o.weeklyHours ? "var(--status-critical)" : undefined }}>
+                            {o.hoursThisWeek}h <span className="font-normal" style={{ color: "var(--text-muted)" }}>of {o.weeklyHours}h</span>
+                          </p>
+                          {hoursDenied ? null : (
+                            <details className="mt-1">
+                              <summary className="cursor-pointer text-[11px] select-none" style={{ color: "var(--series-1)" }}>
+                                Change their hours
+                              </summary>
+                              <div className="mt-1.5">
+                                <WeeklyHoursForm personId={o.personId} hours={o.weeklyHours} />
+                              </div>
+                            </details>
+                          )}
+                        </>
+                      ) : (
+                        <span style={{ color: "var(--text-muted)" }}>—</span>
+                      )}
                     </td>
                     <td className="border-b px-5 py-2.5">
                       {o.licence ? (
@@ -265,7 +289,7 @@ export default async function OfficersPage({
               })}
               {listed.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="px-5 py-8 text-center" style={{ color: "var(--text-muted)" }}>
+                  <td colSpan={9} className="px-5 py-8 text-center" style={{ color: "var(--text-muted)" }}>
                     No officers match.
                   </td>
                 </tr>

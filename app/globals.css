@@ -50,6 +50,15 @@
   --wash-serious:  rgba(236, 131, 90, 0.16);
   --wash-critical: rgba(208, 59, 59, 0.12);
   --wash-neutral:  rgba(11, 11, 11, 0.05);
+
+  /* Roster states the status palette does not already carry. Each is always
+     shown with its label as well, never by colour alone. */
+  --roster-live:         #0a7a36;
+  --roster-draft-wash:   rgba(42, 120, 214, 0.08);
+  --roster-cover:        #7a5af8;
+  --roster-cover-wash:   rgba(122, 90, 248, 0.12);
+  --roster-changed:      #0e8f9c;
+  --roster-changed-wash: rgba(14, 143, 156, 0.12);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -81,6 +90,13 @@
     --wash-serious:  rgba(236, 131, 90, 0.18);
     --wash-critical: rgba(208, 59, 59, 0.20);
     --wash-neutral:  rgba(255, 255, 255, 0.06);
+
+  --roster-live:         #11883f;
+  --roster-draft-wash:   rgba(57, 135, 229, 0.16);
+  --roster-cover:        #9d87fa;
+  --roster-cover-wash:   rgba(157, 135, 250, 0.20);
+  --roster-changed:      #2bb6c4;
+  --roster-changed-wash: rgba(43, 182, 196, 0.18);
   }
 }
 
@@ -112,6 +128,13 @@
   --wash-serious:  rgba(236, 131, 90, 0.18);
   --wash-critical: rgba(208, 59, 59, 0.20);
   --wash-neutral:  rgba(255, 255, 255, 0.06);
+
+  --roster-live:         #11883f;
+  --roster-draft-wash:   rgba(57, 135, 229, 0.16);
+  --roster-cover:        #9d87fa;
+  --roster-cover-wash:   rgba(157, 135, 250, 0.20);
+  --roster-changed:      #2bb6c4;
+  --roster-changed-wash: rgba(43, 182, 196, 0.18);
 }
 
 html,
@@ -130,4 +153,18 @@ body {
    Large standalone figures deliberately keep proportional figures. */
 .tnum {
   font-variant-numeric: tabular-nums;
+}
+
+/* Printing the rota — the agreed fallback when the system is down (E2). The
+   navigation and the controls stay on screen; colours print as they are, so
+   the states read the same on paper. */
+@media print {
+  html,
+  body {
+    background: #fff;
+  }
+  * {
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
 }

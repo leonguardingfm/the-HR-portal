@@ -20,7 +20,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   return (
     <div className="flex min-h-screen">
       <aside
-        className="hidden w-52 shrink-0 border-r lg:block"
+        className="hidden w-52 shrink-0 border-r lg:block print:hidden"
         style={{ borderColor: "var(--hairline)" }}
       >
         <div className="sticky top-0 h-screen overflow-y-auto">
@@ -34,13 +34,15 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       </aside>
 
       <div className="flex min-w-0 flex-1 flex-col">
-        <Topbar
-          name={session.name}
-          activeRole={session.activeRole}
-          roles={session.roles}
-        />
+        <div className="print:hidden">
+          <Topbar
+            name={session.name}
+            activeRole={session.activeRole}
+            roles={session.roles}
+          />
+        </div>
         <div
-          className="border-b px-4 py-2 lg:hidden"
+          className="border-b px-4 py-2 lg:hidden print:hidden"
           style={{ borderColor: "var(--hairline)" }}
         >
           <Suspense fallback={null}>
