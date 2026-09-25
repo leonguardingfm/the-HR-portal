@@ -12,7 +12,20 @@ export const WORKER_EVERY_MS = 30_000;
 /** The hub's clocks are counted in minutes, so they are looked at more often. */
 export const HUB_EVERY_MS = 10_000;
 
-const state = globalThis as unknown as { __dutyWorker?: ReturnType<typeof setInterval>; __hubWorker?: ReturnType<typeof setInterval>; __dutyWorkerLastError?: string; __hubWorkerLastError?: string; __hubBusy?: boolean };
+const state = globalThis as unknown as {
+  __dutyWorker?: ReturnType<typeof setInterval>;
+  __hubWorker?: ReturnType<typeof setInterval>;
+  __dutyWorkerLastError?: string;
+  __hubWorkerLastError?: string;
+  __hubBusy?: boolean;
+  /** When each sweep last finished well — what the health address reports. */
+  __workerLastOk?: { duty?: number; hub?: number };
+};
+
+/** For the health address: when the background checks last ran without error. */
+export function workerHealth() {
+  return { running: !!state.__dutyWorker, dutyLastOk: state.__workerLastOk?.duty ?? null, hubLastOk: state.__workerLastOk?.hub ?? null, dutyError: state.__dutyWorkerLastError ?? null, hubError: state.__hubWorkerLastError ?? null };
+}
 
 export function startDutyWorker() {
   if (state.__dutyWorker) return;
@@ -20,6 +33,7 @@ export function startDutyWorker() {
     Promise.all([sweepDutyChecks(), sweepHr()])
       .then(() => {
         state.__dutyWorkerLastError = undefined;
+        state.__workerLastOk = { ...state.__workerLastOk, duty: Date.now() };
       })
       .catch((err) => {
         // Said once per kind of failure, not every thirty seconds.
@@ -39,6 +53,7 @@ export function startDutyWorker() {
     sweepHub()
       .then(() => {
         state.__hubWorkerLastError = undefined;
+        state.__workerLastOk = { ...state.__workerLastOk, hub: Date.now() };
       })
       .catch((err) => {
         const message = String(err?.message ?? err);

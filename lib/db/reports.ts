@@ -5,6 +5,7 @@
 
 import type { RecruitmentStage } from "@/lib/types";
 import { RECRUITMENT_STAGE_LABELS } from "@/lib/labels";
+import type { Role } from "@/lib/types";
 import { db } from "./client";
 
 const PIPELINE: RecruitmentStage[] = [
@@ -12,12 +13,14 @@ const PIPELINE: RecruitmentStage[] = [
   "second_interview", "conditional_offer", "welcome_pack", "signed_docs_complete", "onboarding_complete", "deployed", "confirmed_employment",
 ];
 
-export async function getDepartmentBoard(now = new Date()) {
+export async function getDepartmentBoard(scope: { all: boolean; roles: Role[]; perPerson: boolean } = { all: true, roles: [], perPerson: true }, now = new Date()) {
+  // A department manager's board holds their own department's work only.
+  const mine = scope.all ? {} : { OR: [{ ownerRole: { in: scope.roles } }, { ownerRole: null, owner: { roles: { some: { role: { in: scope.roles }, revokedAt: null } } } }] };
   const [candidacies, sla, items] = await Promise.all([
     db.candidacy.findMany({ where: { stage: { not: "withdrawn" } }, select: { stage: true, stageSince: true } }),
     db.setting.findUnique({ where: { key: "sla.stageDays" } }),
     db.workItem.findMany({
-      where: { state: { in: ["open", "blocked"] }, OR: [{ ownerRole: { not: null } }, { owner: { department: { not: "officer" } } }] },
+      where: { state: { in: ["open", "blocked"] }, AND: [{ OR: [{ ownerRole: { not: null } }, { owner: { department: { not: "officer" } } }] }, mine] },
       select: { dueAt: true, state: true, ownerRole: true, owner: { select: { displayName: true } } },
     }),
   ]);
@@ -39,10 +42,17 @@ export async function getDepartmentBoard(now = new Date()) {
     })
     .filter((x) => x.n > 0);
 
-  // Open work by who has it — named, or still in a department's pool.
+  // Open work by who has it — named for the Managing Director; for a
+  // department manager, the team's work taken and still in the pool.
   const byOwner = new Map<string, { owner: string; onTrack: number; overdue: number }>();
   for (const w of items) {
-    const owner = w.owner?.displayName ?? `${(w.ownerRole ?? "unassigned").replace(/_/g, " ")} (nobody yet)`;
+    const owner = !scope.perPerson
+      ? w.owner && w.ownerRole
+        ? "Taken by someone in the team"
+        : w.ownerRole
+          ? "In the team's pool — nobody on it yet"
+          : "Named to someone in the team"
+      : (w.owner?.displayName ?? `${(w.ownerRole ?? "unassigned").replace(/_/g, " ")} (nobody yet)`);
     const row = byOwner.get(owner) ?? { owner, onTrack: 0, overdue: 0 };
     if (w.state !== "blocked" && w.dueAt < now) row.overdue++;
     else row.onTrack++;

@@ -783,3 +783,15 @@ export async function getAdminDashboard(now = new Date()) {
     accreditationsExpiring: expiring,
   };
 }
+
+/** How many of each Admin list exist in all, so a capped list can say how many it is not showing. */
+export async function adminListTotals() {
+  const [holidays, matters, suspensions, penalties, vouchers] = await Promise.all([
+    db.holidayRequest.count(),
+    db.authorityMatter.count(),
+    db.suspension.count(),
+    db.penalty.count(),
+    db.voucher.count(),
+  ]);
+  return { holidays, matters, suspensions, penalties, vouchers };
+}

@@ -32,6 +32,12 @@ export interface Session {
    *  guess: "who is doing what right now" is a query, not an inference. */
   workSessionId: string;
   issuedAt: number;
+  /**
+   * Something they must do before anything else (26 September 2026): choose a
+   * new password after a reset, or set up two-factor where it is required.
+   * proxy.ts keeps them on My settings until it is done.
+   */
+  must?: "password" | "2fa";
 }
 
 function secret(): string {

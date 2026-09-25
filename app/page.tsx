@@ -3,7 +3,7 @@ import type { TaskSummaryRow } from "@/components/dashboard/TaskSummary";
 import { requireSession } from "@/lib/auth/server";
 import { alertSeverity, isAlarm, openHref } from "@/lib/core/alerts";
 import { mondayOf, ukDate } from "@/lib/core/rota";
-import { departmentOfRole } from "@/lib/core/work";
+import { departmentOfRole, oversightScope } from "@/lib/core/work";
 import { db } from "@/lib/db/client";
 import { personTaskLinks } from "@/lib/db/employees";
 import { getLiveRows, getPresence, getRecentEvents } from "@/lib/db/queries";
@@ -18,17 +18,19 @@ export default async function DashboardPage() {
   const session = await requireSession();
   const dept = departmentOfRole(session.activeRole);
   const now = new Date();
-  const [liveRows, uncovered, events, presence, clockFiles, items] = await Promise.all([
+  const taskWhere = {
+    state: { in: ["open" as const, "blocked" as const] },
+    OR: [{ ownerUserId: session.userId }, { ownerUserId: null, ownerRole: { in: dept.roles } }],
+  };
+  const [liveRows, uncovered, events, presence, clockFiles, items, taskTotal] = await Promise.all([
     getLiveRows(12),
     getUncovered(48, now),
     getRecentEvents(10),
-    getPresence(),
+    // A department manager sees their own department working; the Managing Director everyone.
+    getPresence(now, oversightScope(session.activeRole).all ? null : oversightScope(session.activeRole).roles),
     getClockRows(),
     db.workItem.findMany({
-      where: {
-        state: { in: ["open", "blocked"] },
-        OR: [{ ownerUserId: session.userId }, { ownerUserId: null, ownerRole: { in: dept.roles } }],
-      },
+      where: taskWhere,
       include: {
         owner: { select: { displayName: true } },
         coverNeed: { select: { startsAt: true, postId: true } },
@@ -37,6 +39,8 @@ export default async function DashboardPage() {
       orderBy: { dueAt: "asc" },
       take: 200,
     }),
+    // The real number, not the length of the first page of it.
+    db.workItem.count({ where: taskWhere }),
   ]);
 
   const personHref = await personTaskLinks(items);
@@ -64,7 +68,7 @@ export default async function DashboardPage() {
       events={events}
       presence={presence}
       clockFiles={clockFiles}
-      tasks={{ rows: rows.slice(0, 7), total: rows.length, department: dept.label }}
+      tasks={{ rows: rows.slice(0, 7), total: taskTotal, department: dept.label }}
       role={session.activeRole}
       name={session.name}
       userId={session.userId}

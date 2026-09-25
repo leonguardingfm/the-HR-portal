@@ -85,7 +85,13 @@ export type ActionId =
   // --- The Performance hub ------------------------------------------------
   | "hub.work"
   | "hub.supervise"
-  | "hub.test";
+  | "hub.test"
+  | "hub.templates"
+  | "hub.settings"
+  // --- Accounts and security (26 September 2026) ---------------------------
+  | "role.grant"
+  | "account.reset"
+  | "security.policy";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -251,6 +257,13 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
     what: "Reassigning hub work, closing an unowned email and correcting a recorded time",
   },
   "hub.test": { roles: ["shift_supervisor", "operations_manager", "top_management"], owner: "the Shift Supervisor, the Operations Manager or the Managing Director", what: "Sending a test email into the test inbox" },
+  "hub.templates": { roles: ["operations_manager", "recruitment_manager", "admin_manager", "top_management"], owner: "the department's manager or the Managing Director", what: "Writing the hub's reply templates" },
+  "hub.settings": { roles: ["top_management"], owner: "the Managing Director", what: "Changing the hub's clocks and settings" },
+  // Who holds which role is the Managing Director's decision; getting someone
+  // back in when they are locked out is also the Admin Manager's job.
+  "role.grant": { roles: ["top_management"], owner: "the Managing Director", what: "Giving someone a role, or taking one away" },
+  "account.reset": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager or the Managing Director", what: "Resetting someone's password or two-factor" },
+  "security.policy": { roles: ["top_management"], owner: "the Managing Director", what: "Deciding who must use two-factor sign-in" },
 };
 
 export function canDo(role: Role | null | undefined, action: ActionId): boolean {

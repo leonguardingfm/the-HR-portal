@@ -1,4 +1,5 @@
 import { Card } from "@/components/ui/Card";
+import { CappedNotice } from "@/components/ui/Pager";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { StatTile } from "@/components/ui/StatTile";
 import { StatusPill, Tag } from "@/components/ui/StatusPill";
@@ -14,6 +15,7 @@ import {
   getAuthorityMatters,
   getHolidayRequests,
   getSuspensions,
+  adminListTotals,
 } from "@/lib/db/admin-queries";
 import { formatShortDate } from "@/lib/format";
 
@@ -47,11 +49,12 @@ const BODY_LABELS: Record<string, string> = {
  */
 export default async function AdminPeoplePage() {
   const session = await requireSession();
-  const [holidays, matters, suspensions, items] = await Promise.all([
+  const [holidays, matters, suspensions, items, totals] = await Promise.all([
     getHolidayRequests(),
     getAuthorityMatters(),
     getSuspensions(),
     getAdminItems({ category: "people_admin", limit: 50 }),
+    adminListTotals(),
   ]);
   const perms = adminPerms(session.activeRole);
   const holidayDenied = deniedReason(session.activeRole, "holiday.decide");
@@ -189,6 +192,7 @@ export default async function AdminPeoplePage() {
             </tbody>
           </table>
         </div>
+        <CappedNotice shown={holidays.length} total={totals.holidays} hint="The oldest decided requests are not listed; every one is in the audit log." />
       </Card>
 
       <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">
@@ -239,6 +243,7 @@ export default async function AdminPeoplePage() {
               </li>
             )}
           </ul>
+          <CappedNotice shown={matters.length} total={totals.matters} hint="The oldest closed matters are not listed; every one is in the audit log." />
           <p className="mt-3 text-[11px] leading-snug" style={{ color: "var(--text-secondary)" }}>
             Correspondence leaving the company is a request, not a task: it is signed off by the HR
             Manager or higher management before it is sent, and the Finance Officer holds no part in it.
@@ -274,6 +279,7 @@ export default async function AdminPeoplePage() {
               </li>
             )}
           </ul>
+          <CappedNotice shown={suspensions.length} total={totals.suspensions} hint="The oldest suspensions are not listed; every one is in the audit log." />
         </Card>
       </div>
 

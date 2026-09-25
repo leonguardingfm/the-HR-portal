@@ -4,7 +4,8 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { StatusPill } from "@/components/ui/StatusPill";
 import { requireSession } from "@/lib/auth/server";
 import { contractLabel } from "@/lib/core/employees";
-import { getEmployees } from "@/lib/db/employees";
+import { EMPLOYEES_PAGE, getEmployees } from "@/lib/db/employees";
+import { Pager, pageFrom } from "@/components/ui/Pager";
 import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -14,11 +15,11 @@ export const dynamic = "force-dynamic";
  * name for the record — contact details, next of kin, contract, payroll,
  * training, leave, documents, and the leaver process.
  */
-export default async function EmployeesPage({ searchParams }: { searchParams: Promise<{ q?: string; show?: string }> }) {
+export default async function EmployeesPage({ searchParams }: { searchParams: Promise<{ q?: string; show?: string; page?: string }> }) {
   await requireSession();
   const sp = await searchParams;
   const leavers = sp.show === "leavers";
-  const rows = await getEmployees({ leavers, q: sp.q });
+  const { rows, total, page } = await getEmployees({ leavers, q: sp.q, page: pageFrom(sp.page) });
   const tab = (on: boolean) => ({
     background: on ? "var(--wash)" : "transparent",
     borderColor: on ? "var(--series-1)" : "var(--hairline)",
@@ -32,7 +33,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
       />
       <Card
         title={leavers ? "Leavers" : "Current"}
-        subtitle={`${rows.length} shown`}
+        subtitle={`${total} ${leavers ? "leaver" : "employee"}${total === 1 ? "" : "s"}${sp.q ? " matching" : ""}`}
         action={
           <div className="flex flex-wrap items-center gap-2">
             <form action="/people" className="flex items-center gap-2">
@@ -84,6 +85,7 @@ export default async function EmployeesPage({ searchParams }: { searchParams: Pr
             ))}
           </ul>
         )}
+        <Pager page={page} pageSize={EMPLOYEES_PAGE} total={total} href={(p) => `/people?${new URLSearchParams({ ...(leavers ? { show: "leavers" } : {}), ...(sp.q ? { q: sp.q } : {}), page: String(p) }).toString()}`} />
       </Card>
     </div>
   );

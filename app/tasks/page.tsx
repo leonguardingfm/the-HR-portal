@@ -1,4 +1,5 @@
 import { PageHeader } from "@/components/ui/PageHeader";
+import { Pager, pageFrom } from "@/components/ui/Pager";
 import { TaskList, type TaskRow } from "@/components/tasks/TaskList";
 import { requireSession } from "@/lib/auth/server";
 import { canDo } from "@/lib/auth/permissions";
@@ -10,6 +11,9 @@ import { personTaskLinks } from "@/lib/db/employees";
 import type { Prisma } from "@prisma/client";
 
 export const dynamic = "force-dynamic";
+
+/** Soonest due first, a hundred at a time — the rest a page away, never silently gone. */
+const PAGE = 100;
 
 /**
  * One work queue, filtered.
@@ -31,10 +35,11 @@ export const dynamic = "force-dynamic";
 export default async function TasksPage({
   searchParams,
 }: {
-  searchParams: Promise<{ department?: string }>;
+  searchParams: Promise<{ department?: string; page?: string }>;
 }) {
   const session = await requireSession();
-  const { department } = await searchParams;
+  const { department, page: pageParam } = await searchParams;
+  const page = pageFrom(pageParam);
   const mine = departmentOfRole(session.activeRole);
   const oversees = session.activeRole === "top_management" || session.activeRole === "auditor";
   const visible = oversees ? QUEUE_DEPARTMENTS.filter((d) => d.id !== "management") : QUEUE_DEPARTMENTS.filter((d) => d.id === mine.id && d.id !== "management");
@@ -50,8 +55,10 @@ export default async function TasksPage({
         ? { OR: [{ ownerUserId: session.userId }, { ownerUserId: null, ownerRole: { in: mine.roles } }] }
         : {};
 
+  const listWhere: Prisma.WorkItemWhereInput = { state: { in: ["open", "blocked"] }, AND: [where, notOfficers] };
+  const total = await db.workItem.count({ where: listWhere });
   const items = await db.workItem.findMany({
-    where: { state: { in: ["open", "blocked"] }, AND: [where, notOfficers] },
+    where: listWhere,
     include: {
       owner: { select: { displayName: true } },
       adminItem: { select: { reference: true } },
@@ -59,7 +66,8 @@ export default async function TasksPage({
       openShift: { select: { startsAt: true, postId: true } },
     },
     orderBy: { dueAt: "asc" },
-    take: 300,
+    skip: (page - 1) * PAGE,
+    take: PAGE,
   });
 
   // Whether a self-closing alert's shift is still on, so Done is offered only when it can work.
@@ -115,6 +123,7 @@ export default async function TasksPage({
         description="Alerts first, then what is overdue. Take a task so the other desks can see it is handled; open it to go straight to where it is done. Alerts close themselves once the thing is put right."
       />
       <TaskList rows={rows} tabs={tabs} active={view === "everything" ? "all" : view === "department" ? dept!.id : ""} myDepartment={mine.label} />
+      <Pager page={page} pageSize={PAGE} total={total} href={(p) => `/tasks?${new URLSearchParams({ ...(department ? { department } : {}), page: String(p) }).toString()}`} />
     </div>
   );
 }

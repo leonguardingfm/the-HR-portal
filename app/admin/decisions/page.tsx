@@ -6,7 +6,8 @@ import { AdminItemList } from "@/components/admin/AdminItemList";
 import { adminPerms } from "@/lib/actions/admin-perms";
 import { requireSession } from "@/lib/auth/server";
 import { adminCategory, formatPence } from "@/lib/core/admin";
-import { getAdminItems, getPenalties, getVouchers } from "@/lib/db/admin-queries";
+import { adminListTotals, getAdminItems, getPenalties, getVouchers } from "@/lib/db/admin-queries";
+import { CappedNotice } from "@/components/ui/Pager";
 import { ROLE_LABELS } from "@/lib/labels";
 import { formatShortDate } from "@/lib/format";
 
@@ -23,10 +24,11 @@ export const dynamic = "force-dynamic";
  */
 export default async function AdminDecisionsPage() {
   const session = await requireSession();
-  const [penalties, vouchers, items] = await Promise.all([
+  const [penalties, vouchers, items, totals] = await Promise.all([
     getPenalties(),
     getVouchers(),
     getAdminItems({ category: "decisions", limit: 50 }),
+    adminListTotals(),
   ]);
   const perms = adminPerms(session.activeRole);
   const category = adminCategory("decisions");
@@ -124,6 +126,7 @@ export default async function AdminDecisionsPage() {
             </li>
           )}
         </ul>
+          <CappedNotice shown={penalties.length} total={totals.penalties} hint="The oldest are not listed; every one is in the audit log." />
       </Card>
 
       <Card
@@ -172,6 +175,7 @@ export default async function AdminDecisionsPage() {
             </li>
           )}
         </ul>
+          <CappedNotice shown={vouchers.length} total={totals.vouchers} hint="The oldest are not listed; every one is in the audit log." />
       </Card>
 
       <Card title="Decision work" subtitle="Tasks and requests in this category.">

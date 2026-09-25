@@ -10,13 +10,21 @@ import { SESSION_COOKIE, SESSION_MAX_AGE, sign, verify, type Session } from "./s
  * takes effect on their next click and not twelve hours later. Cached per
  * request, because the shell, the page and its actions all ask.
  */
-const accountIsLive = cache(async (userId: string): Promise<boolean> => {
+/**
+ * The roles the account holds right now, or null when it may not sign in at
+ * all. Checked on every request, so suspending an account, or taking away the
+ * role someone is working in, ends it at once — not when the cookie runs out
+ * (26 September 2026).
+ */
+const liveRoles = cache(async (userId: string): Promise<string[] | null> => {
   const { db } = await import("@/lib/db/client");
   const user = await db.user.findUnique({
     where: { id: userId },
     select: { active: true, status: true },
   });
-  return Boolean(user?.active && user.status === "active");
+  if (!user?.active || user.status !== "active") return null;
+  const { getEffectiveRoles } = await import("@/lib/db/roles");
+  return (await getEffectiveRoles(userId))?.all ?? [];
 });
 
 /** The signed-in session, or null. Safe to call anywhere on the server. */
@@ -24,7 +32,9 @@ export async function getSession(): Promise<Session | null> {
   const jar = await cookies();
   const session = await verify(jar.get(SESSION_COOKIE)?.value);
   if (!session) return null;
-  return (await accountIsLive(session.userId)) ? session : null;
+  const roles = await liveRoles(session.userId);
+  if (!roles || !roles.includes(session.activeRole)) return null;
+  return session;
 }
 
 /**

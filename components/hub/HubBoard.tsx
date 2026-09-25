@@ -260,6 +260,13 @@ export function HubBoard({ board, me, tab, q, priority, can, staff, clients }: P
             </ul>
           </>
         )}
+        {(board.capped.open || (tab === "closed" && board.capped.closed)) && (
+          <p role="status" className="border-t px-5 py-2.5 text-[12px]" style={{ borderColor: "var(--hairline)", background: "var(--wash-warning)" }}>
+            {tab === "closed" && board.capped.closed
+              ? `Showing the latest ${board.capped.closed.shown} of ${board.capped.closed.total} closed today — search or filter to find the others.`
+              : `Showing the newest ${board.capped.open!.shown} of ${board.capped.open!.total} open tasks — the counts above include them all; search or filter to find the others.`}
+          </p>
+        )}
         {board.portalTasks > 0 && (
           <p className="border-t px-5 py-2.5 text-[12px]" style={{ borderColor: "var(--hairline)", color: "var(--text-secondary)" }}>
             Also waiting in the portal: {board.portalTasks} {board.departments.length === 1 ? departmentLabel(board.departments[0] as HubDepartment) : ""} task{board.portalTasks === 1 ? "" : "s"} —{" "}

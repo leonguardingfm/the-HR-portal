@@ -11,9 +11,9 @@ import {
 } from "@/lib/bs7858";
 import { canGrantRole, isScreeningRole, ROLE_OPTIONS } from "@/lib/roles";
 import { ROLE_LABELS } from "@/lib/labels";
-import { formatDate } from "@/lib/format";
-import { users } from "@/lib/mock/data";
 import { Delegations } from "@/components/admin/Delegations";
+import { PeopleRoles } from "@/components/system/PeopleRoles";
+import { canDo } from "@/lib/auth/permissions";
 import { requireSession } from "@/lib/auth/server";
 import { deniedReason } from "@/lib/auth/ui";
 import { db } from "@/lib/db/client";
@@ -37,14 +37,15 @@ export const dynamic = "force-dynamic";
 
 export default async function SystemPage() {
   const session = await requireSession();
-  const [active, past, userRows] = await Promise.all([
+  const [active, past, userRows, policy] = await Promise.all([
     getActiveDelegations(),
     getPastDelegations(),
     db.user.findMany({
-      where: { active: true },
+      where: { active: true, status: "active" },
       orderBy: { displayName: "asc" },
       include: { roles: { where: { revokedAt: null } } },
     }),
+    db.setting.findUnique({ where: { key: "security.require_2fa" } }),
   ]);
 
   return (
@@ -120,88 +121,27 @@ export default async function SystemPage() {
         </Card>
       </div>
 
-      <Card
-        title="People and roles"
-        subtitle="Who holds which role, and whether they may. Set up here — nothing about team size or composition is fixed in the build, so a new starter or an internal transfer is an edit rather than a release."
-      >
-        <div className="overflow-x-auto">
-          <table className="w-full min-w-[46rem] border-collapse text-left">
-            <thead>
-              <tr className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                <th className="pb-2 pr-3 font-medium">Name</th>
-                <th className="pb-2 pr-3 font-medium">Roles held</th>
-                <th className="pb-2 pr-3 font-medium">Own screening</th>
-                <th className="pb-2 pr-3 font-medium">NDA</th>
-                <th className="pb-2 pr-3 font-medium">Training reviewed</th>
-                <th className="pb-2 font-medium">Grant check</th>
-              </tr>
-            </thead>
-            <tbody>
-              {users.map((user) => {
-                // Screening roles carry the 6.1 and 6.2 obligations; the check
-                // is computed from the evidence on file, not asserted.
-                const screeningRoles = user.roles.filter(isScreeningRole);
-                const failures = screeningRoles
-                  .map((role) => ({
-                    role,
-                    result: canGrantRole({
-                      role,
-                      ownScreeningComplete: user.ownScreeningComplete,
-                      confidentialityAgreementOnFile: user.confidentialityAgreementOnFile,
-                      trainingReviewedAt: user.trainingReviewedAt,
-                    }),
-                  }))
-                  .filter((r) => !r.result.permitted);
-
-                return (
-                  <tr key={user.id} className="border-t align-top" style={{ borderColor: "var(--hairline)" }}>
-                    <td className="py-2.5 pr-3 text-[13px] font-medium">{user.name}</td>
-                    <td className="py-2.5 pr-3">
-                      <div className="flex flex-wrap gap-1">
-                        {user.roles.map((r) => (
-                          <Tag key={r}>{ROLE_LABELS[r]}</Tag>
-                        ))}
-                      </div>
-                    </td>
-                    <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                      {user.ownScreeningComplete ? "Complete" : "Outstanding"}
-                    </td>
-                    <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                      {user.confidentialityAgreementOnFile ? "On file" : "Missing"}
-                    </td>
-                    <td className="py-2.5 pr-3 text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                      {formatDate(user.trainingReviewedAt)}
-                    </td>
-                    <td className="py-2.5">
-                      {screeningRoles.length === 0 ? (
-                        <span className="text-[12px]" style={{ color: "var(--text-muted)" }}>
-                          Not a screening role
-                        </span>
-                      ) : (
-                        <StatusPill
-                          severity={failures.length === 0 ? "good" : "critical"}
-                          label={
-                            failures.length === 0
-                              ? "6.1 and 6.2 satisfied"
-                              : failures[0].result.reason ?? "Blocked"
-                          }
-                        />
-                      )}
-                    </td>
-                  </tr>
-                );
-              })}
-            </tbody>
-          </table>
-        </div>
-        <p className="mt-4 text-[12px] leading-relaxed" style={{ color: "var(--text-muted)" }}>
-          A screening role cannot be granted until the person is screened
-          themselves, has a confidentiality agreement on file and holds training
-          that is in date <ClauseRef clause="6.1" /> <ClauseRef clause="6.2" />.
-          The portal blocks the grant rather than trusting it to be remembered,
-          and the grant lapses when the annual review does.
-        </p>
-      </Card>
+      <PeopleRoles
+        rows={userRows.map((u) => {
+          const screening = u.roles.map((r) => r.role as Role).filter(isScreeningRole);
+          const blocked = screening
+            .map((role) => canGrantRole({ role, ownScreeningComplete: u.ownScreeningComplete, confidentialityAgreementOnFile: u.confidentialityAgreementOnFile, trainingReviewedAt: u.trainingReviewedAt?.toISOString() ?? null }))
+            .find((r) => !r.permitted);
+          return {
+            id: u.id,
+            name: u.displayName,
+            username: u.username,
+            roles: u.roles.map((r) => r.role as Role),
+            lockedUntil: u.lockedUntil?.toISOString() ?? null,
+            twoFactor: !!u.totpEnabledAt,
+            lastSignInAt: u.lastSignInAt?.toISOString() ?? null,
+            screening: screening.length ? { own: u.ownScreeningComplete, nda: u.confidentialityAgreementOnFile, training: u.trainingReviewedAt?.toISOString() ?? null, blocked: blocked?.reason ?? null } : null,
+          };
+        })}
+        meId={session.userId}
+        can={{ grant: canDo(session.activeRole, "role.grant"), reset: canDo(session.activeRole, "account.reset"), policy: canDo(session.activeRole, "security.policy") }}
+        policy={policy?.value ?? "off"}
+      />
 
       <Card
         title="Assignment rules"
@@ -241,18 +181,6 @@ export default async function SystemPage() {
         note="The vetting team competence register is easy to overlook and is explicitly required: screening staff must themselves be screened, must not screen themselves, must have signed confidentiality agreements, and their training must be reviewed at least annually."
         items={[
           {
-            label: "Users, roles and separation of duties",
-            detail: "Seven roles with the permission matrix from docs/proposal/06, enforced in the API layer rather than only in the interface.",
-            clause: "6.1",
-            phase: 1,
-          },
-          {
-            label: "Vetting team competence register",
-            detail: "Who is a controller, who is an administrator, their own screening status, NDA on file, training dates and next annual review. A role grant is blocked once the review lapses.",
-            clause: "6.1, 6.2",
-            phase: 1,
-          },
-          {
             label: "Clients, sites and screening periods",
             detail: "Screening period set per client contract, which is what drives the deadline on every candidate for that client. Five years by default, so 12 weeks.",
             clause: "7.6",
@@ -261,18 +189,6 @@ export default async function SystemPage() {
           {
             label: "Email and letter templates",
             detail: "Every stage message merged from the record, so nobody retypes a name or a date, and every outbound message is stored against the candidate.",
-            phase: 2,
-          },
-          {
-            label: "Append-only audit log",
-            detail: "Every read of a screening file as well as every write — proving that unauthorised access is prevented requires logging the reads.",
-            clause: "7.2",
-            phase: 1,
-          },
-          {
-            label: "Retention and secure disposal",
-            detail: "Retention clocks per record category, with a controller-approved disposal action and a record that disposal happened.",
-            clause: "11",
             phase: 2,
           },
         ]}

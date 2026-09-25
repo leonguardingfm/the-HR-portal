@@ -13,6 +13,10 @@ import { officeHoursFor, slaPolicy } from "./hub";
 
 export type HubTab = "all" | "mine" | "unassigned" | "attention" | "waiting" | "closed";
 
+/** The most open and closed-today tasks read at once; beyond that the board says so rather than hiding them. */
+const OPEN_CAP = 1000;
+const CLOSED_CAP = 500;
+
 const rowInclude = {
   mailbox: { select: { address: true, displayName: true, mode: true, officeHoursOnly: true } },
   owner: { select: { id: true, displayName: true } },
@@ -98,13 +102,17 @@ export async function getHubBoard(session: { userId: string; activeRole: Role },
   const mine = departmentsOf(session.activeRole);
   const depts = opts.department && mine.includes(opts.department as HubDepartment) ? [opts.department as HubDepartment] : mine;
   const todayStart = ukInstant(ukDate(now), "00:00");
-  const [open, closedToday, breachesToday, mailboxes, portalTasks, policy] = await Promise.all([
-    db.hubTask.findMany({ where: { department: { in: depts }, status: { notIn: CLOSED } }, include: rowInclude, orderBy: { receivedAt: "desc" }, take: 500 }),
-    db.hubTask.findMany({ where: { department: { in: depts }, status: { in: CLOSED }, completedAt: { gte: todayStart } }, include: rowInclude, orderBy: { completedAt: "desc" }, take: 200 }),
+  const openWhere = { department: { in: depts }, status: { notIn: CLOSED } };
+  const closedWhere = { department: { in: depts }, status: { in: CLOSED }, completedAt: { gte: todayStart } };
+  const [open, closedToday, breachesToday, mailboxes, portalTasks, policy, openTotal, closedTotal] = await Promise.all([
+    db.hubTask.findMany({ where: openWhere, include: rowInclude, orderBy: { receivedAt: "desc" }, take: OPEN_CAP }),
+    db.hubTask.findMany({ where: closedWhere, include: rowInclude, orderBy: { completedAt: "desc" }, take: CLOSED_CAP }),
     db.hubSlaEvent.findMany({ where: { kind: "breach", at: { gte: todayStart }, task: { department: { in: depts } } }, select: { taskId: true } }),
     db.mailbox.findMany({ where: { active: true, department: { in: depts } }, orderBy: { displayName: "asc" } }),
     db.workItem.count({ where: { state: "open", slaDays: { gt: 0 }, ownerRole: { in: [...new Set(depts.flatMap((d) => DEPARTMENT_ROLES[d]))] as Role[] } } }),
     slaPolicy(),
+    db.hubTask.count({ where: openWhere }),
+    db.hubTask.count({ where: closedWhere }),
   ]);
   const suggestedIds = [...new Set(open.map((t) => t.suggestedOwnerId).filter((x): x is string => !!x))];
   const names = new Map((await db.user.findMany({ where: { id: { in: suggestedIds } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
@@ -166,6 +174,7 @@ export async function getHubBoard(session: { userId: string; activeRole: Role },
     },
     mailboxes: mailboxes.map((m) => ({ id: m.id, address: m.address, name: m.displayName, mode: m.mode, department: m.department, lastSyncAt: m.lastSyncAt?.toISOString() ?? null, lastSyncError: m.lastSyncError })),
     portalTasks,
+    capped: { open: openTotal > open.length ? { shown: open.length, total: openTotal } : null, closed: closedTotal > closedToday.length ? { shown: closedToday.length, total: closedTotal } : null },
   };
 }
 export type HubBoard = Awaited<ReturnType<typeof getHubBoard>>;

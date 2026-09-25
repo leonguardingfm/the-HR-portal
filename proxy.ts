@@ -20,7 +20,9 @@ import { SESSION_COOKIE, verify } from "@/lib/auth/session";
  * Called `proxy` rather than `middleware` because Next renamed the convention
  * in 16 — same functionality, and `next dev` warns on the old name.
  */
-const PUBLIC_PATHS = new Set(["/signin", "/signup", "/signup/officer"]);
+const PUBLIC_PATHS = new Set(["/signin", "/signup", "/signup/officer", "/signin/verify", "/signin/forgot"]);
+/** An emailed reset link: public, the link itself is the key. */
+const PUBLIC_PREFIXES = ["/signin/reset/"];
 /** Reachable signed in or not: it is how a dead session is cleared. */
 const SESSION_END = "/signin/ended";
 /**
@@ -43,19 +45,30 @@ export async function proxy(req: NextRequest) {
   const session = await verify(req.cookies.get(SESSION_COOKIE)?.value);
   const { pathname } = req.nextUrl;
   if (pathname === SESSION_END) return pass();
+  // The host's monitor checks this without signing in; it carries no personal data.
+  if (pathname === "/api/health") return pass();
   if (BY_LINK.some((p) => pathname.startsWith(p))) {
     // Marked, so the page renders without the staff shell around it.
     const h = new Headers(req.headers);
     h.set("x-leon-by-link", "1");
     return NextResponse.next({ request: { headers: h } });
   }
-  const isPublic = PUBLIC_PATHS.has(pathname);
+  const isPublic = PUBLIC_PATHS.has(pathname) || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p));
 
   // A screen polling in the background gets an answer it can read, not a page.
   if (!session && pathname.startsWith("/api/")) {
     return Response.json({ signedOut: true }, { status: 401 });
   }
   if (session && ANY_SIGNED_IN.has(pathname)) return pass();
+
+  // A new password after a reset, or two-factor where it is required, comes
+  // before anything else (26 September 2026).
+  if (session?.must && pathname !== "/settings" && !pathname.startsWith("/api/")) {
+    const url = req.nextUrl.clone();
+    url.pathname = "/settings";
+    url.search = `?must=${session.must}`;
+    return NextResponse.redirect(url);
+  }
 
   if (!session && !isPublic) {
     const url = req.nextUrl.clone();

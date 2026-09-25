@@ -229,9 +229,23 @@ model User {
   theme        String             @default("white")
   /// Whether the Performance hub's notifications make a sound on their screens.
   soundOn      Boolean            @default(true)
+
+  /// Sign-in protection (26 September 2026): repeated wrong passwords lock the
+  /// account for a while; a reset makes them choose a new password; two-factor
+  /// is an authenticator-app code on top of the password.
+  failedSignIns      Int             @default(0)
+  lockedUntil        DateTime?       @db.Timestamptz(3)
+  mustChangePassword Boolean         @default(false)
+  /// The authenticator secret, sealed with AUTH_SECRET — never stored readable.
+  totpSecret         String?
+  totpEnabledAt      DateTime?       @db.Timestamptz(3)
+  /// The last code's time step, so one code cannot be used twice.
+  totpLastStep       Int?
+  lastSignInAt       DateTime?       @db.Timestamptz(3)
+  passwordResets     PasswordReset[]
   /// Who decided a pending registration, and when.
-  reviewedAt   DateTime?          @db.Timestamptz(3)
-  reviewedById String?
+  reviewedAt         DateTime?       @db.Timestamptz(3)
+  reviewedById       String?
 
   /// Clause 6.1 and 6.2 evidence. A screening role cannot be granted without
   /// all three — enforced in lib/roles.ts and again on the grant mutation.
@@ -1823,6 +1837,9 @@ model BookOn {
   /// Set where Control booked the officer on for them, which is legitimate and
   /// worth distinguishing from the officer doing it.
   recordedByUserId String?
+  /// Made on the phone with no signal and sent when signal came back: `at` is
+  /// when it was made, this is when it reached us.
+  sentLateAt       DateTime?      @db.Timestamptz(3)
 
   assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   proof      DutyProof?
@@ -1854,6 +1871,10 @@ model CheckCall {
   allWell       Boolean        @default(true)
   note          String?
   takenByUserId String?
+  /// Made on the phone with no signal and sent later: `at` is when it was made.
+  sentLateAt    DateTime?      @db.Timestamptz(3)
+  /// The phone's own reference for a queued call, so a resend is never a second call.
+  clientRef     String?        @unique
 
   assignment Assignment @relation(fields: [assignmentId], references: [id], onDelete: Cascade)
   proof      DutyProof?
@@ -3423,4 +3444,36 @@ model HubNotice {
   task HubTask? @relation(fields: [taskId], references: [id])
 
   @@index([at])
+}
+
+/// A link to set a new password, emailed on request. Kept as a hash; used once;
+/// good for an hour.
+model PasswordReset {
+  id          String    @id @default(cuid())
+  userId      String
+  tokenHash   String    @unique
+  createdAt   DateTime  @default(now()) @db.Timestamptz(3)
+  expiresAt   DateTime  @db.Timestamptz(3)
+  usedAt      DateTime? @db.Timestamptz(3)
+  requestedIp String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+/// A reply the hub offers for a category of email, written by management, so a
+/// response starts from the agreed wording.
+model ReplyTemplate {
+  id          String      @id @default(cuid())
+  category    HubCategory
+  title       String
+  body        String
+  active      Boolean     @default(true)
+  createdById String
+  updatedById String?
+  createdAt   DateTime    @default(now()) @db.Timestamptz(3)
+  updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
+
+  @@index([category, active])
 }

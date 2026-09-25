@@ -10,6 +10,7 @@ import type { ActionResult } from "@/lib/actions/types";
 import { THEMES, TINTS, themeAttributes, themeOf, type ThemeSpec } from "@/lib/core/themes";
 import { ROLE_DEPARTMENT, ROLE_LABELS } from "@/lib/labels";
 import type { Role } from "@/lib/types";
+import { TwoFactorCard } from "./TwoFactorCard";
 
 type Props = {
   me: { name: string; username: string | null; email: string | null; activeRole: Role; roles: Role[] };
@@ -17,6 +18,8 @@ type Props = {
   soundOn: boolean;
   hearsHub: boolean;
   hasPassword: boolean;
+  twoFactor: { enabledAt: string | null; required: boolean };
+  must: "password" | "2fa" | null;
 };
 
 /** Put a theme on the page at once — the save follows. */
@@ -64,13 +67,11 @@ function Swatch({ t, chosen, onPick }: { t: ThemeSpec; chosen: boolean; onPick: 
   );
 }
 
-export function SettingsView({ me, theme: initialTheme, soundOn: initialSound, hearsHub, hasPassword }: Props) {
+export function SettingsView({ me, theme: initialTheme, soundOn: initialSound, hearsHub, hasPassword, twoFactor, must }: Props) {
   const [theme, setTheme] = useState(initialTheme);
   const [sound, setSound] = useState(initialSound);
   const [notice, setNotice] = useState<ActionResult | null>(null);
   const [pending, start] = useTransition();
-  const pw = useFormAction(changePassword);
-
   const pick = (id: string) => {
     setTheme(id);
     apply(id);
@@ -86,6 +87,20 @@ export function SettingsView({ me, theme: initialTheme, soundOn: initialSound, h
           Yours only, and they follow you to any device you sign in on.
         </p>
       </header>
+
+      {must && (
+        <div role="alert" className="rounded-lg border px-4 py-3 text-[13px]" style={{ borderColor: "var(--status-warning)", background: "var(--wash-warning)" }}>
+          <strong>{must === "password" ? "Choose a new password before you carry on." : "Set up two-factor sign-in before you carry on."}</strong>{" "}
+          {must === "password" ? "Your password was reset, so the temporary one works only this once." : "The Managing Director has made it required for your role."}
+        </div>
+      )}
+
+      {must && (
+        <div className="grid gap-5 md:grid-cols-2">
+          {must === "password" && hasPassword && <PasswordCard />}
+          {must === "2fa" && <TwoFactorCard enabledAt={twoFactor.enabledAt} required={twoFactor.required} />}
+        </div>
+      )}
 
       <Card title="Theme" subtitle={`Now: ${themeOf(theme).label}${pending ? " — saving…" : ""}`}>
         <div role="radiogroup" aria-label="Theme" className="space-y-4">
@@ -168,29 +183,36 @@ export function SettingsView({ me, theme: initialTheme, soundOn: initialSound, h
           )}
         </Card>
 
-        {hasPassword && (
-          <Card title="Change password">
-            <form {...pw.form} className="space-y-3">
-              <label className="block text-[12px] font-medium">
-                Current password
-                <input name="current" type="password" autoComplete="current-password" required className={`${input} mt-1`} style={inputStyle} />
-              </label>
-              <label className="block text-[12px] font-medium">
-                New password (at least 10 characters)
-                <input name="next" type="password" autoComplete="new-password" required minLength={10} className={`${input} mt-1`} style={inputStyle} />
-              </label>
-              <label className="block text-[12px] font-medium">
-                New password again
-                <input name="confirm" type="password" autoComplete="new-password" required minLength={10} className={`${input} mt-1`} style={inputStyle} />
-              </label>
-              <button type="submit" disabled={pw.pending} className="h-10 w-full rounded-md text-[13px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--series-1)" }}>
-                {pw.pending ? "Changing…" : "Change password"}
-              </button>
-              <Result state={pw.state} />
-            </form>
-          </Card>
-        )}
+        {hasPassword && must !== "password" && <PasswordCard />}
       </div>
+
+      {must !== "2fa" && <TwoFactorCard enabledAt={twoFactor.enabledAt} required={twoFactor.required} />}
     </div>
+  );
+}
+
+function PasswordCard() {
+  const pw = useFormAction(changePassword);
+  return (
+    <Card title="Change password">
+      <form {...pw.form} className="space-y-3">
+        <label className="block text-[12px] font-medium">
+          Current password
+          <input name="current" type="password" autoComplete="current-password" required className={`${input} mt-1`} style={inputStyle} />
+        </label>
+        <label className="block text-[12px] font-medium">
+          New password (at least 10 characters)
+          <input name="next" type="password" autoComplete="new-password" required minLength={10} className={`${input} mt-1`} style={inputStyle} />
+        </label>
+        <label className="block text-[12px] font-medium">
+          New password again
+          <input name="confirm" type="password" autoComplete="new-password" required minLength={10} className={`${input} mt-1`} style={inputStyle} />
+        </label>
+        <button type="submit" disabled={pw.pending} className="h-10 w-full rounded-md text-[13px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--series-1)" }}>
+          {pw.pending ? "Changing…" : "Change password"}
+        </button>
+        <Result state={pw.state} />
+      </form>
+    </Card>
   );
 }

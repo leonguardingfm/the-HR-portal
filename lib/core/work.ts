@@ -20,6 +20,18 @@ export function departmentOfRole(role: Role) {
   return QUEUE_DEPARTMENTS.find((d) => d.roles.includes(role)) ?? QUEUE_DEPARTMENTS[QUEUE_DEPARTMENTS.length - 1];
 }
 
+/**
+ * What a manager may see across people (26 September 2026): the Managing
+ * Director — and the auditor, who checks everything — see every department
+ * and every person; every other manager sees only their own department, as
+ * team totals. Departments stay separate, and individual figures are the
+ * Managing Director's.
+ */
+export function oversightScope(role: Role): { all: boolean; roles: Role[]; perPerson: boolean } {
+  if (role === "top_management" || role === "auditor") return { all: true, roles: [], perPerson: true };
+  return { all: false, roles: departmentOfRole(role).roles, perPerson: false };
+}
+
 export function rolesOfDepartment(d: { id: QueueDepartment }): Role[] {
   return QUEUE_DEPARTMENTS.find((x) => x.id === d.id)?.roles ?? [];
 }

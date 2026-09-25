@@ -16,9 +16,9 @@ export const dynamic = "force-dynamic";
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ next?: string; registered?: string; u?: string; ended?: string }>;
+  searchParams: Promise<{ next?: string; registered?: string; u?: string; ended?: string; locked?: string; expired?: string }>;
 }) {
-  const { next, registered, u, ended } = await searchParams;
+  const { next, registered, u, ended, locked, expired } = await searchParams;
   const dev = process.env.NODE_ENV !== "production";
 
   // The seeded demonstration accounts, listed only in development so each
@@ -47,8 +47,9 @@ export default async function SignInPage({
       <div className="space-y-4">
         {ended && (
           <Notice tone="info">
-            You have been signed out because your account is no longer active. Speak to
-            Administration if you think this is a mistake.
+            You have been signed out because your account, or the role you were working
+            in, has changed. Sign in again — speak to Administration if you think this is
+            a mistake.
           </Notice>
         )}
         {registered === "active" && (
@@ -63,7 +64,16 @@ export default async function SignInPage({
           </Notice>
         )}
 
+        {locked && <Notice tone="error">Too many wrong codes — this account is locked for 15 minutes.</Notice>}
+        {expired && <Notice tone="info">That sign-in took too long. Please sign in again.</Notice>}
+
         <SignInForm next={next ?? ""} username={u ?? ""} />
+
+        <p className="text-center text-[12px]">
+          <Link href="/signin/forgot" className="underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+            Forgotten your password?
+          </Link>
+        </p>
 
         <p className="text-center text-[12px]" style={{ color: "var(--text-secondary)" }}>
           New here?{" "}

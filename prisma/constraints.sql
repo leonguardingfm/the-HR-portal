@@ -1222,3 +1222,33 @@ ALTER TABLE "User"
   CHECK ("theme" IN ('white', 'dark', 'system',
     'lilac-tinted', 'lilac-shaded', 'royal-tinted', 'royal-shaded',
     'gold-tinted', 'gold-shaded', 'teal-tinted', 'teal-shaded'));
+
+-- ---------------------------------------------------------------------------
+-- 26. Sign-in security, offline duty records, reply templates  [26 September 2026]
+-- ---------------------------------------------------------------------------
+
+-- 26a. Two-factor is on only with a secret to check codes against.
+ALTER TABLE "User"
+  ADD CONSTRAINT user_totp_has_secret
+  CHECK ("totpEnabledAt" IS NULL OR "totpSecret" IS NOT NULL);
+ALTER TABLE "User"
+  ADD CONSTRAINT user_failed_sign_ins_sensible
+  CHECK ("failedSignIns" BETWEEN 0 AND 1000);
+
+-- 26b. A reset link is good for at most a day, and used at most once (usedAt).
+ALTER TABLE "PasswordReset"
+  ADD CONSTRAINT password_reset_short_lived
+  CHECK ("expiresAt" > "createdAt" AND "expiresAt" <= "createdAt" + interval '1 day');
+
+-- 26c. Sent late means it reached us after it was made — never before.
+ALTER TABLE "CheckCall"
+  ADD CONSTRAINT check_call_sent_after_made
+  CHECK ("sentLateAt" IS NULL OR "sentLateAt" >= "at");
+ALTER TABLE "BookOn"
+  ADD CONSTRAINT book_on_sent_after_made
+  CHECK ("sentLateAt" IS NULL OR "sentLateAt" >= "at");
+
+-- 26d. A reply template has a title and words.
+ALTER TABLE "ReplyTemplate"
+  ADD CONSTRAINT reply_template_whole
+  CHECK (length(btrim("title")) > 0 AND length(btrim("body")) > 0);

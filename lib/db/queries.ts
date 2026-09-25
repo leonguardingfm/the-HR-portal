@@ -725,10 +725,11 @@ export interface PresenceRow {
  * more than twelve hours are treated as gone — a browser closed without signing
  * out should not haunt the board.
  */
-export async function getPresence(now = new Date()): Promise<PresenceRow[]> {
+export async function getPresence(now = new Date(), onlyRoles: Role[] | null = null): Promise<PresenceRow[]> {
   const rows = await db.workSession.findMany({
     // Staff only: officers working their own shifts are not "who is working on what".
-    where: { signedOutAt: null, lastSeenAt: { gte: new Date(now.getTime() - 12 * 3_600_000) }, activeRole: { not: "officer" } },
+    // A department manager sees their own department; the Managing Director everyone.
+    where: { signedOutAt: null, lastSeenAt: { gte: new Date(now.getTime() - 12 * 3_600_000) }, activeRole: onlyRoles ? { in: onlyRoles } : { not: "officer" } },
     orderBy: { lastSeenAt: "desc" },
     include: { user: true },
   });

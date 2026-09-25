@@ -12,13 +12,17 @@ import { END_STAGES } from "@/lib/core/recruitment";
 import { ukDate } from "@/lib/core/rota";
 import { db } from "./client";
 
-export async function getEmployees(opts: { leavers?: boolean; q?: string } = {}) {
+export const EMPLOYEES_PAGE = 100;
+
+export async function getEmployees(opts: { leavers?: boolean; q?: string; page?: number } = {}) {
   const q = (opts.q ?? "").trim();
-  const rows = await db.employment.findMany({
-    where: {
-      state: opts.leavers ? "ended" : { not: "ended" },
-      ...(q ? { OR: [{ person: { fullName: { contains: q, mode: "insensitive" } } }, { pin: { contains: q } }, { jobTitle: { contains: q, mode: "insensitive" } }] } : {}),
-    },
+  const where = {
+    state: opts.leavers ? ("ended" as const) : { not: "ended" as const },
+    ...(q ? { OR: [{ person: { fullName: { contains: q, mode: "insensitive" as const } } }, { pin: { contains: q } }, { jobTitle: { contains: q, mode: "insensitive" as const } }] } : {}),
+  };
+  const page = Math.max(1, opts.page ?? 1);
+  const [total, rows] = await Promise.all([db.employment.count({ where }), db.employment.findMany({
+    where,
     orderBy: { person: { fullName: "asc" } },
     include: {
       person: {
@@ -32,10 +36,11 @@ export async function getEmployees(opts: { leavers?: boolean; q?: string } = {})
         },
       },
     },
-    take: 500,
-  });
+    skip: (page - 1) * EMPLOYEES_PAGE,
+    take: EMPLOYEES_PAGE,
+  })]);
   const soon = new Date(Date.now() + 60 * 86_400_000);
-  return rows.map((e) => ({
+  return { total, page, rows: rows.map((e) => ({
     personId: e.person.id,
     name: e.person.fullName,
     phone: e.person.phone,
@@ -48,7 +53,7 @@ export async function getEmployees(opts: { leavers?: boolean; q?: string } = {})
     controlTeam: e.controlTeam,
     leavePending: e.person.holidayRequests.length,
     expiringSoon: [...e.person.training.map((t) => t.expiresOn), ...e.person.documents.map((d) => d.expiresAt)].filter((d): d is Date => !!d && d <= soon).length,
-  }));
+  })) };
 }
 
 export async function getEmployee(personId: string) {
