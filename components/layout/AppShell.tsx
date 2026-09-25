@@ -58,6 +58,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             activeRole={session.activeRole}
             roles={session.roles}
             bell={hub ? <HubToasts soundOn={prefs.soundOn} /> : null}
+            organisation={prefs.organisation}
           />
           <AlertBar vapidKey={vapidPublicKey()} />
         </div>

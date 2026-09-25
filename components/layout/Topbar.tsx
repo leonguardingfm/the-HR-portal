@@ -21,10 +21,13 @@ export function Topbar({
   activeRole,
   roles,
   bell = null,
+  organisation = null,
 }: {
   name: string;
   activeRole: Role;
   roles: Role[];
+  /** A client contact's organisation, shown instead of a department. */
+  organisation?: string | null;
   /** The Performance hub's notifications, for those who get them. */
   bell?: ReactNode;
 }) {
@@ -40,7 +43,7 @@ export function Topbar({
       <div className="flex min-w-0 items-center gap-2">
         {bell}
         <span className="hidden rounded-full px-2.5 py-1 text-[11px] font-semibold whitespace-nowrap sm:inline" style={{ background: "var(--wash-neutral)", color: "var(--text-secondary)" }} title="The department you are working in">
-          {ROLE_DEPARTMENT[activeRole]}
+          {organisation ?? ROLE_DEPARTMENT[activeRole]}
         </span>
         <UserMenu name={name} activeRole={activeRole} roles={roles} pathname={pathname} />
         <form action={signOut}>

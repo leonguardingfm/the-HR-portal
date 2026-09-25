@@ -220,6 +220,8 @@ export async function getHubTask(id: string, session: { userId: string; activeRo
   return {
     ...toRow(t, session.userId, names),
     meName: name(session.userId) ?? "",
+    clientUpdate: t.clientUpdate,
+    clientUpdateAt: t.clientUpdateAt?.toISOString() ?? null,
     requiredAction: t.requiredAction,
     senderName: t.senderName,
     senderAddress: t.senderAddress,

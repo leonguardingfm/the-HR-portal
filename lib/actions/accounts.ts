@@ -224,6 +224,8 @@ export async function grantRole(userId: string, _prev: ActionResult | null, form
   if (String(userId) === session.userId) return refused("Someone else grants your own roles.");
   const user = await db.user.findUnique({ where: { id: String(userId) }, include: { roles: true } });
   if (!user || !user.active || user.status !== "active") return refused("That account is not active.");
+  // A client contact's login sees their portal and nothing else (26 September 2026).
+  if (user.clientId) return refused("That is a client's portal login. It cannot hold a staff role.");
   if (user.roles.some((r) => r.role === role && !r.revokedAt)) return refused("They already hold that role.");
   const check = canGrantRole({ role, ownScreeningComplete: user.ownScreeningComplete, confidentialityAgreementOnFile: user.confidentialityAgreementOnFile, trainingReviewedAt: user.trainingReviewedAt?.toISOString() ?? null });
   if (!check.permitted) return refused(`${check.reason}. Record it on their account first.`);

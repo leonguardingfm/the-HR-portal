@@ -56,6 +56,8 @@ export async function signUp(_prev: SignUpState, formData: FormData): Promise<Si
   if (!dept) fields.department = "Choose your department.";
   // An officer's account attaches to their existing record, after proving who they are.
   else if (dept.id === "officer") fields.department = "Officers set up their account with their PIN — use “I’m a security officer”.";
+  // Client logins are made by Leon staff, linked to the client, never self-registered (26 September 2026).
+  else if (dept.id === "client_portal") fields.department = "Client portal logins are set up by your Leon Guarding account manager.";
 
   if (!fields.username || !fields.email) {
     const taken = await db.user.findMany({

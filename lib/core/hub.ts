@@ -51,7 +51,7 @@ export type HubOutcome =
   | "dropped_by_client"
   | "no_action_required"
   | "duplicate_or_mistake";
-export type HubSource = "outlook" | "manual" | "phone" | "whatsapp" | "other";
+export type HubSource = "outlook" | "manual" | "phone" | "whatsapp" | "other" | "client_portal";
 export type HubDepartment = "control" | "recruitment" | "administration";
 /** The five colours of the hub. Never used alone: always with words and an icon. */
 export type Tone = "red" | "amber" | "blue" | "green" | "grey";
@@ -119,6 +119,7 @@ export const SOURCES: { id: HubSource; label: string }[] = [
   { id: "phone", label: "Telephone" },
   { id: "whatsapp", label: "WhatsApp" },
   { id: "other", label: "Other" },
+  { id: "client_portal", label: "Client portal" },
 ];
 export const sourceLabel = (s: string) => SOURCES.find((x) => x.id === s)?.label ?? s;
 
@@ -130,7 +131,7 @@ export const DEPARTMENTS: { id: HubDepartment; label: string }[] = [
 export const departmentLabel = (d: string) => DEPARTMENTS.find((x) => x.id === d)?.label ?? d;
 
 /** A task's reference: EM- for an email, TK- for anything logged by hand. */
-export const taskRef = (t: { number: number; source: string }) => `${t.source === "outlook" ? "EM" : "TK"}-${t.number}`;
+export const taskRef = (t: { number: number; source: string }) => `${t.source === "outlook" ? "EM" : t.source === "client_portal" ? "CP" : "TK"}-${t.number}`;
 
 // ---------------------------------------------------------------------------
 // The clocks

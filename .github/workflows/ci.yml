@@ -85,6 +85,7 @@ jobs:
           npm run db:seed
           npm run demo:hub
           npm run demo:duty
+          npm run demo:client
       - name: A browser
         run: npx playwright-core install --with-deps chromium
       - name: Build and start the portal

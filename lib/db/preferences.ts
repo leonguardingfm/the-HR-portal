@@ -9,8 +9,9 @@ import { DEFAULT_THEME } from "@/lib/core/themes";
 import { db } from "./client";
 
 export const preferencesOf = cache(async (userId: string | null | undefined) => {
-  if (!userId) return { theme: DEFAULT_THEME as string, soundOn: true, name: null as string | null };
-  const u = await db.user.findUnique({ where: { id: userId }, select: { theme: true, soundOn: true, displayName: true } });
+  if (!userId) return { theme: DEFAULT_THEME as string, soundOn: true, name: null as string | null, organisation: null as string | null };
+  const u = await db.user.findUnique({ where: { id: userId }, select: { theme: true, soundOn: true, displayName: true, client: { select: { name: true } } } });
   // The name as it is now — a correction shows at once, not at the next sign-in.
-  return { theme: u?.theme ?? DEFAULT_THEME, soundOn: u?.soundOn ?? true, name: u?.displayName ?? null };
+  // A client contact's organisation stands where staff see their department.
+  return { theme: u?.theme ?? DEFAULT_THEME, soundOn: u?.soundOn ?? true, name: u?.displayName ?? null, organisation: u?.client?.name ?? null };
 });

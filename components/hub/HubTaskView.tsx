@@ -19,6 +19,7 @@ import {
   correctHubTime,
   editHubNote,
   escalateHubTask,
+  messageHubClient,
   moveHubDepartment,
   reassignHubTask,
   recordHubFollowUp,
@@ -183,6 +184,7 @@ const TASK_KEYS: ShortcutKey[] = [
   { keys: "e", what: "Escalate" },
   { keys: "h", what: "Hand over / reassign" },
   { keys: "c", what: "Close the task" },
+  { keys: "m", what: "Message the client (portal requests)" },
   { keys: "b", what: "Back to the hub" },
   { keys: "Esc", what: "Close a drawer" },
   { keys: "?", what: "This list" },
@@ -270,6 +272,31 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
               </div>
             ) : (
               clockBox("Next update", spanText(p.update), t.updateDueAt, null, null)
+            )}
+          </div>
+        )}
+
+        {/* A client's own request: what they can read in their portal, and a way to tell them more. */}
+        {t.source === "client_portal" && (
+          <div className="flex flex-wrap items-start justify-between gap-3 rounded-lg border px-4 py-3" style={{ borderColor: "var(--series-1)", background: "var(--wash)" }}>
+            <div className="min-w-0 text-[13px]">
+              <p className="font-semibold">From the client portal · {t.senderName ?? "the client"}</p>
+              <p style={muted}>
+                {t.clientUpdate ? (
+                  <>
+                    They can read: “{t.clientUpdate}”{t.clientUpdateAt ? ` · ${ukDateTimeOf(t.clientUpdateAt)}` : ""}
+                  </>
+                ) : (
+                  "They see its progress (received, in progress, done) but no words from us yet."
+                )}
+              </p>
+            </div>
+            {can.work && !closed && (
+              <FormDrawer shortcut="m" label="Message the client" title="Message the client" subtitle="They read this in their portal, in place of any earlier message. Plain words; no internal detail or staff names." action={messageHubClient.bind(null, t.id)} submit="Send to the client" tone="plain">
+                <F label="Message">
+                  <textarea name="message" required minLength={5} rows={4} defaultValue={t.clientUpdate ?? ""} className={`${input} h-auto py-2`} style={inputStyle} />
+                </F>
+              </FormDrawer>
             )}
           </div>
         )}
@@ -733,6 +760,11 @@ function CloseDrawer({ t }: { t: HubTaskFull }) {
       <F label={`Corrective action${o?.explain || late ? " (required)" : " (optional)"}`}>
         <textarea name="corrective" rows={2} required={o?.explain || late} placeholder="What stops it happening again" className={`${input} h-auto py-2`} style={inputStyle} />
       </F>
+      {t.source === "client_portal" && (
+        <F label="What to tell the client (required — they read this in their portal)">
+          <textarea name="clientMessage" required minLength={5} rows={3} defaultValue={t.clientUpdate ?? ""} placeholder="e.g. A second officer is booked for Saturday 08:00–20:00." className={`${input} h-auto py-2`} style={inputStyle} />
+        </F>
+      )}
     </FormDrawer>
   );
 }

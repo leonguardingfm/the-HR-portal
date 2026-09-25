@@ -47,7 +47,7 @@ export function LogTaskButton({ departments, clients }: { departments: string[];
             <div className="grid grid-cols-2 gap-3">
               <F label="Came in by">
                 <select name="source" defaultValue="phone" className={input} style={inputStyle}>
-                  {SOURCES.filter((s) => s.id !== "outlook").map((s) => (
+                  {SOURCES.filter((s) => s.id !== "outlook" && s.id !== "client_portal").map((s) => (
                     <option key={s.id} value={s.id}>
                       {s.label}
                     </option>

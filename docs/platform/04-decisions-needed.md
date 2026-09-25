@@ -780,6 +780,33 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   `npm run secret:reseal`. The go-live checklist shows a change still under way.
 - Everyone signs in again once when this is deployed, because older cookies no longer open.
 
+### E39 — The client portal, phase 1 — **answered, and built**
+> **Clients see it live, after each shift, and the rota with a monthly report ("all of them").
+> Requests: yes, and they follow them. Incidents: notable and serious. Logins: Leon staff only — and
+> clients must never see other clients.** *(26 September 2026 — settles E17's open questions 2–5.)*
+
+- **Owns nothing.** Every page is a query over the same sites, rota, duty checks, incidents and hub
+  tasks Control works from.
+- **Fenced to one client.** Each page starts from the contact's client and sites, read from the
+  database on every request. The database itself refuses a login seeing another client's site, a
+  client login holding a staff role, or a login being moved to another client (§27). Another
+  client's request by address is "not found". Staff screens are closed to client logins.
+- **What they see:** *Overview*; *On duty now* (live — arrived, late, not arrived and what Control is
+  doing, check calls); *Coming up* (two weeks, gaps shown as "cover being arranged"); *Shift record*
+  (each finished shift: arrival, confirmed at site, check calls, incidents; CSV download, recorded);
+  *Incidents* (notable and serious only, as reported); *Requests*; *Monthly report* (hours covered,
+  arrival on time, check calls on time, incidents, requests; printable).
+- **Officers:** only what the client's contract requires, set per client — no names (the default),
+  names, or names and SIA numbers (E17). Never phone numbers, selfies, locations or screening.
+- **Requests** (extra cover, a change, a cancellation, a complaint, an invoice question, feedback) become
+  hub tasks for the right team, on the usual clocks, with the team alerted. The client sees
+  *Received → In progress → Done* and whatever staff write to them ("Message the client"); closing a
+  portal request needs that message. No internal notes or staff names reach the client.
+- **Logins** are made by the account manager, the Admin Manager or the Managing Director on the
+  client's *Portal access* page: temporary password shown once, the client's own password on first
+  sign-in, sites chosen per contact, a six-monthly "still needed" check, removal that ends access at
+  once. The public sign-up no longer offers a client login.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

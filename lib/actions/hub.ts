@@ -162,7 +162,14 @@ export async function handOverMyWork(_prev: ActionResult | null, formData: FormD
 export async function closeHubTask(taskId: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const { actor, error } = await guard("hub.work");
   if (error || !actor) return error!;
-  return answer(await hub.closeTask(taskId, actor, { outcome: text(formData, "outcome"), reason: text(formData, "reason"), corrective: text(formData, "corrective") }), taskId);
+  return answer(await hub.closeTask(taskId, actor, { outcome: text(formData, "outcome"), reason: text(formData, "reason"), corrective: text(formData, "corrective"), clientMessage: text(formData, "clientMessage") }), taskId);
+}
+
+/** A message the client reads in their portal, about a request they raised there. */
+export async function messageHubClient(taskId: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const { actor, error } = await guard("hub.work");
+  if (error || !actor) return error!;
+  return answer(await hub.updateClient(taskId, actor, text(formData, "message")), taskId);
 }
 
 export async function logHubTask(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {

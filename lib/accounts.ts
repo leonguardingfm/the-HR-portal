@@ -98,7 +98,8 @@ export const DEPARTMENTS: DepartmentSpec[] = [
 ];
 
 /** The departments the ordinary sign-up offers. Officers have their own. */
-export const SIGNUP_DEPARTMENTS = DEPARTMENTS.filter((d) => d.id !== "officer");
+/** Offered on the public sign-up. Not officers (their PIN) and not client contacts (made by Leon staff). */
+export const SIGNUP_DEPARTMENTS = DEPARTMENTS.filter((d) => d.id !== "officer" && d.id !== "client_portal");
 
 export const DEPARTMENT_LABELS = Object.fromEntries(
   DEPARTMENTS.map((d) => [d.id, d.label]),

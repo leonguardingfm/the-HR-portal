@@ -271,6 +271,12 @@ model User {
 
   onboardingStepsDone OnboardingStep[] @relation("OnboardingStepDoneBy")
 
+  /// A client contact's organisation (26 September 2026). Set only on client
+  /// portal logins, which can then hold no other role.
+  clientId    String?
+  client      Client?             @relation(fields: [clientId], references: [id])
+  portalSites ClientContactSite[]
+
   reviewedBy User?  @relation("AccountReviewedBy", fields: [reviewedById], references: [id])
   reviewed   User[] @relation("AccountReviewedBy")
 
@@ -380,11 +386,24 @@ model Client {
   contractEnd   DateTime? @db.Date
   active        Boolean   @default(true)
 
+  /// What the client portal shows of the officers on their sites — only what
+  /// the contract requires (E17, 26 September 2026).
+  officerIdentity OfficerIdentity @default(none)
+
   sites        Site[]
+  portalUsers  User[]
   requirements Requirement[]
   feedback     FormResponse[]
   documents    DocumentRecord[]
   hubTasks     HubTask[]
+}
+
+/// How much of an officer's identity a client sees in their portal.
+enum OfficerIdentity {
+  /// "Officer on post" — no name.
+  none
+  name
+  name_and_sia
 }
 
 model Site {
@@ -413,16 +432,31 @@ model Site {
   /// A site we no longer cover. Its posts come off the rota with it.
   active Boolean @default(true)
 
-  client        Client           @relation(fields: [clientId], references: [id])
-  posts         Post[]
-  requirements  Requirement[]
-  references    SiteReference[]
-  documents     DocumentRecord[]
-  formResponses FormResponse[]
-  exclusions    SiteExclusion[]
-  hubTasks      HubTask[]
+  client         Client              @relation(fields: [clientId], references: [id])
+  posts          Post[]
+  requirements   Requirement[]
+  references     SiteReference[]
+  documents      DocumentRecord[]
+  formResponses  FormResponse[]
+  exclusions     SiteExclusion[]
+  hubTasks       HubTask[]
+  portalContacts ClientContactSite[]
 
   @@unique([clientId, name])
+}
+
+/// Which of their organisation's sites a client contact sees. None at all
+/// means every one of that client's sites. Never another client's: the
+/// database refuses it (26 September 2026).
+model ClientContactSite {
+  userId String
+  siteId String
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  site Site @relation(fields: [siteId], references: [id])
+
+  @@id([userId, siteId])
+  @@index([siteId])
 }
 
 /// An officer the client does not want on a site, or one we have taken off it.
@@ -3078,6 +3112,8 @@ enum HubSource {
   phone
   whatsapp
   other
+  /// Raised by a client contact in the client portal.
+  client_portal
 }
 
 enum HubCategory {
@@ -3306,13 +3342,17 @@ model HubTask {
   breaches            Int         @default(0)
   managementAlertedAt DateTime?   @db.Timestamptz(3)
 
-  relatedTaskId String?
+  relatedTaskId  String?
   /// Made from the test inbox, not a real mailbox.
-  test          Boolean  @default(false)
-  createdById   String?
-  updatedById   String?
-  createdAt     DateTime @default(now()) @db.Timestamptz(3)
-  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+  test           Boolean   @default(false)
+  /// What the client is told in their portal about a request they raised —
+  /// written by staff, and the only words of ours the client sees.
+  clientUpdate   String?
+  clientUpdateAt DateTime? @db.Timestamptz(3)
+  createdById    String?
+  updatedById    String?
+  createdAt      DateTime  @default(now()) @db.Timestamptz(3)
+  updatedAt      DateTime  @updatedAt @db.Timestamptz(3)
 
   mailbox   Mailbox?       @relation(fields: [mailboxId], references: [id])
   owner     User?          @relation("HubTaskOwner", fields: [ownerUserId], references: [id])

@@ -92,7 +92,9 @@ export type ActionId =
   | "role.grant"
   | "account.reset"
   | "security.policy"
-  | "system.golive";
+  | "system.golive"
+  | "client.request"
+  | "client.portal";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -265,6 +267,8 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "role.grant": { roles: ["top_management"], owner: "the Managing Director", what: "Giving someone a role, or taking one away" },
   "account.reset": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager or the Managing Director", what: "Resetting someone's password or two-factor" },
   "security.policy": { roles: ["top_management"], owner: "the Managing Director", what: "Deciding who must use two-factor sign-in" },
+  "client.request": { roles: ["client"], owner: "the client's own contacts", what: "Sending a request from the client portal" },
+  "client.portal": { roles: ["sales", "admin_manager", "top_management"], owner: "the account manager, the Admin Manager or the Managing Director", what: "Giving a client's contacts portal logins, and taking them away" },
   "system.golive": { roles: ["top_management"], owner: "the Managing Director", what: "Working through the go-live checklist, and switching off demonstration accounts" },
 };
 

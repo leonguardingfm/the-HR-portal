@@ -650,10 +650,13 @@ export async function moveOwner(taskIds: string[], actor: Actor, d: { toUserId: 
 // Closing
 // ---------------------------------------------------------------------------
 
-export async function closeTask(taskId: string, actor: Actor, d: { outcome: string; reason: string; corrective: string }, now = new Date()): Promise<HubResult> {
+export async function closeTask(taskId: string, actor: Actor, d: { outcome: string; reason: string; corrective: string; clientMessage?: string }, now = new Date()): Promise<HubResult> {
   const t = await load(taskId);
   if (!t) return fail("That task no longer exists.");
   if (CLOSED.includes(t.status as HubStatus)) return fail("It is already closed.");
+  // A client who asked through their portal is told how it ended, in words written for them.
+  const clientMessage = (d.clientMessage ?? "").trim().slice(0, 1000);
+  if (t.source === "client_portal" && clientMessage.length < 5) return fail("Write what to tell the client — they read it in their portal.");
   if (t.ownerUserId !== actor.userId && !supervises(actor, t.department)) return fail(t.ownerUserId ? "Only its owner or the supervisor closes it." : "Accept it first — or the supervisor can close a duplicate.");
   // Late now counts as late, even if the sweep has not said so yet.
   const lateNow =
@@ -682,12 +685,96 @@ export async function closeTask(taskId: string, actor: Actor, d: { outcome: stri
         updateDueAt: null,
         handoverNeededAt: null,
         updatedById: actor.userId,
+        ...(t.source === "client_portal" ? { clientUpdate: clientMessage, clientUpdateAt: now } : {}),
       },
     });
     await tx.workItem.updateMany({ where: { hubTaskId: t.id, state: "open" }, data: { state: "done", doneAt: now } });
     await event(tx, t, "hub.closed", `${actor.name} closed ${taskRef(t)}: ${o.label}${fresh.breaches ? `, outside SLA (${fresh.breaches} breach${fresh.breaches === 1 ? "" : "es"})` : ", within SLA"}.${d.reason.trim() ? ` Reason: ${d.reason.trim()}.` : ""}${d.corrective.trim() ? ` Corrective action: ${d.corrective.trim()}.` : ""}`, actor, { outcome: o.id, breaches: fresh.breaches }, now);
   });
   return done(`Closed as ${o.label}.`);
+}
+
+// ---------------------------------------------------------------------------
+// From the client portal (26 September 2026)
+// ---------------------------------------------------------------------------
+
+/** What a client can ask for, in their words, and where it goes. */
+export const CLIENT_REQUEST_KINDS = [
+  { id: "extra_cover", label: "Extra cover or a new shift", category: "cover_request" },
+  { id: "change", label: "A change to a shift or post", category: "client_request" },
+  { id: "cancel", label: "Cancel a shift", category: "shift_cancellation" },
+  { id: "complaint", label: "A complaint", category: "complaint" },
+  { id: "invoice", label: "An invoice or account question", category: "invoice_accounts" },
+  { id: "feedback", label: "Feedback or thanks", category: "other" },
+  { id: "other", label: "Something else", category: "client_request" },
+] as const satisfies readonly { id: string; label: string; category: HubCategory }[];
+
+/**
+ * A request from a client contact. It becomes a task for the department that
+ * deals with it — the Control Room, or Accounts for invoices — on the same
+ * clocks as an email, and the department is told at once. The client follows
+ * it in their portal; nothing internal is shown to them.
+ */
+export async function createClientRequest(
+  contact: { userId: string; name: string; clientId: string; clientName: string },
+  d: { kind: string; siteId: string | null; subject: string; details: string; urgent: boolean; when: string },
+  now = new Date(),
+): Promise<HubResult> {
+  const kind = CLIENT_REQUEST_KINDS.find((k) => k.id === d.kind);
+  if (!kind) return fail("Choose what the request is about.");
+  if (d.subject.trim().length < 3) return fail("Give it a short title.");
+  if (d.details.trim().length < 5) return fail("Say a little more, so the right person can act on it.");
+  const category = kind.category as HubCategory;
+  const dept = departmentFor(category) ?? "control";
+  const priority: HubPriority = d.urgent ? (category === "complaint" ? "very_high" : "high") : category === "complaint" ? "high" : "medium";
+  const policy = await slaPolicy();
+  const clocks = clocksFor(now, priority, dept !== "control", policy);
+  const summary = `${d.details.trim()}${d.when.trim() ? `\n\nWhen: ${d.when.trim()}` : ""}`.slice(0, 1000);
+  const t = await db.$transaction(async (tx) => {
+    const t = await tx.hubTask.create({
+      data: {
+        source: "client_portal",
+        department: dept,
+        subject: d.subject.trim().slice(0, 300),
+        summary,
+        requiredAction: requiredActionFor(category),
+        senderName: `${contact.name} (${contact.clientName})`,
+        receivedAt: now,
+        category,
+        categoryNote: category === "other" ? "Feedback from the client portal" : null,
+        priority,
+        aiModel: "client",
+        aiReasons: `Raised by the client in their portal as “${kind.label}”${d.urgent ? ", marked urgent" : ""}.`,
+        clientId: contact.clientId,
+        siteId: d.siteId,
+        ackDueAt: clocks.ackDueAt,
+        actionDueAt: clocks.actionDueAt,
+        createdById: contact.userId,
+      },
+    });
+    await tx.event.create({
+      data: { type: "hub.task_created", actorUserId: contact.userId, actorRole: "client", department: dept, hubTaskId: t.id, detail: `${contact.name} of ${contact.clientName} raised ${taskRef(t)} in the client portal: “${t.subject}” — ${kind.label}${d.urgent ? ", urgent" : ""}.` },
+    });
+    await announce(tx, t, `${contact.name}, ${contact.clientName} (client portal)`);
+    return t;
+  });
+  if (t.priority === "critical") await pushCritical(t);
+  return done(`Sent. Your reference is ${taskRef(t)}.`, t.id);
+}
+
+/** What the client is told, in their portal, about a request they raised. Replaces the last message. */
+export async function updateClient(taskId: string, actor: Actor, message: string, now = new Date()): Promise<HubResult> {
+  const t = await load(taskId);
+  if (!t) return fail("That task no longer exists.");
+  if (t.source !== "client_portal") return fail("Only requests from the client portal have a message to the client.");
+  if (!works(actor, t.department as HubDepartment)) return fail("It is another department's.");
+  const text = message.trim().slice(0, 1000);
+  if (text.length < 5) return fail("Write what the client should read.");
+  await db.$transaction(async (tx) => {
+    await tx.hubTask.update({ where: { id: t.id }, data: { clientUpdate: text, clientUpdateAt: now, updatedById: actor.userId } });
+    await event(tx, t, "hub.client_updated", `${actor.name} told the client about ${taskRef(t)}: “${text}”`, actor, undefined, now);
+  });
+  return done("The client can read it in their portal now.");
 }
 
 // ---------------------------------------------------------------------------

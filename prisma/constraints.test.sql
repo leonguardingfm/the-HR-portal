@@ -925,3 +925,40 @@ SELECT expect_failure('a reply template with no words',
   $$INSERT INTO "ReplyTemplate"(id,category,title,body,"createdById","updatedAt") VALUES ('rt1','lateness','Running late','   ','u1',now())$$);
 SELECT expect_success('a reply template',
   $$INSERT INTO "ReplyTemplate"(id,category,title,body,"createdById","updatedAt") VALUES ('rt2','lateness','Running late','Thank you {sender} — we are on it.','u1',now())$$);
+
+-- ---------------------------------------------------------------------------
+-- 27. The client portal: no client sees another's
+-- ---------------------------------------------------------------------------
+
+INSERT INTO "Client"(id,name) VALUES ('c27','Other Client');
+INSERT INTO "Site"(id,"clientId",name) VALUES ('s27','c27','Other Site');
+INSERT INTO "Person"(id,"fullName","updatedAt") VALUES ('p27','Client Contact',now()), ('p27b','Loose Account',now());
+SELECT expect_success('a client contact belonging to Test Client',
+  $$INSERT INTO "User"(id,"personId","displayName","clientId") VALUES ('u27','p27','Client Contact','c1')$$);
+SELECT expect_success('…given the client role',
+  $$INSERT INTO "UserRole"(id,"userId",role,"grantedById") VALUES ('ur27','u27','client','u3')$$);
+SELECT expect_failure('…given a staff role as well',
+  $$INSERT INTO "UserRole"(id,"userId",role,"grantedById") VALUES ('ur27b','u27','control','u3')$$);
+SELECT expect_success('…shown one of their own sites',
+  $$INSERT INTO "ClientContactSite"("userId","siteId") VALUES ('u27','s1')$$);
+SELECT expect_failure('…shown another client''s site',
+  $$INSERT INTO "ClientContactSite"("userId","siteId") VALUES ('u27','s27')$$);
+SELECT expect_failure('…moved to another client',
+  $$UPDATE "User" SET "clientId" = 'c27' WHERE id = 'u27'$$);
+SELECT expect_failure('…or cut loose from their client',
+  $$UPDATE "User" SET "clientId" = NULL WHERE id = 'u27'$$);
+INSERT INTO "User"(id,"personId","displayName") VALUES ('u27b','p27b','Loose Account');
+SELECT expect_failure('a client role on a login with no client',
+  $$INSERT INTO "UserRole"(id,"userId",role,"grantedById") VALUES ('ur27c','u27b','client','u3')$$);
+SELECT expect_failure('a staff login quietly made a client''s',
+  $$UPDATE "User" SET "clientId" = 'c1' WHERE id = 'u3'$$);
+SELECT expect_failure('a portal request that does not say whose it is',
+  $$INSERT INTO "HubTask"(id,source,department,subject,"receivedAt",category,priority,"ackDueAt","actionDueAt","updatedAt")
+    VALUES ('ht27a','client_portal','control','Extra cover',now(),'cover_request','medium',now(),now(),now())$$);
+SELECT expect_success('a portal request, with its client and who raised it',
+  $$INSERT INTO "HubTask"(id,source,department,subject,"receivedAt",category,priority,"ackDueAt","actionDueAt","updatedAt","clientId","createdById")
+    VALUES ('ht27b','client_portal','control','Extra cover',now(),'cover_request','medium',now(),now(),now(),'c1','u27')$$);
+SELECT expect_failure('a message to the client with no time',
+  $$UPDATE "HubTask" SET "clientUpdate" = 'Arranged for Saturday' WHERE id = 'ht27b'$$);
+SELECT expect_success('a message to the client, dated',
+  $$UPDATE "HubTask" SET "clientUpdate" = 'Arranged for Saturday', "clientUpdateAt" = now() WHERE id = 'ht27b'$$);

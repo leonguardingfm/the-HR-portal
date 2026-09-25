@@ -1,78 +1,103 @@
+import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { requireSession } from "@/lib/auth/server";
-import { db } from "@/lib/db/client";
-import { formatDate } from "@/lib/format";
+import { Muted, NotLinked, Pill, Stat, ukDay, ukTime } from "@/components/client-portal/Bits";
+import { clientScope } from "@/lib/auth/client-scope";
+import { portalIncidents, portalLive, portalRequests } from "@/lib/db/client-portal";
+import { getControlPhone } from "@/lib/db/me";
 
 export const dynamic = "force-dynamic";
 
-const COMING = [
-  ["Your sites and posts", "Which officers are covering each post, shift by shift."],
-  ["Requirements", "Ask for cover and follow it from received to filled."],
-  ["Incidents and reports", "Incidents at your sites, and the reports that follow."],
-  ["Feedback", "Tell us how the service is going."],
-] as const;
-
 /**
- * The client portal's front page.
- *
- * A client contact sees their own account and nothing internal — the route
- * guard in proxy.ts keeps every staff screen out of reach. The views listed
- * below need the account linked to a Client record first, so they are named
- * honestly as not built yet rather than shown empty.
+ * The client portal's front page (26 September 2026): their sites right now,
+ * their requests, the latest incidents, and the Control Room's number. Only
+ * their own organisation's — see lib/db/client-portal.ts.
  */
-export default async function ClientPortalPage() {
-  const session = await requireSession();
-  const user = await db.user.findUnique({
-    where: { id: session.userId },
-    select: { displayName: true, username: true, email: true, createdAt: true },
-  });
+export default async function ClientOverviewPage() {
+  const scope = await clientScope();
+  if (!scope) {
+    return (
+      <div className="space-y-5">
+        <PageHeader title="Client portal" description="Leon Guarding's view of the cover at your sites." />
+        <NotLinked />
+      </div>
+    );
+  }
+  const now = new Date();
+  const [live, requests, incidents, phone] = await Promise.all([portalLive(scope, now), portalRequests(scope), portalIncidents(scope, new Date(now.getTime() - 30 * 86_400_000)), getControlPhone()]);
+  const onDuty = live.filter((s) => s.state.startsWith("On duty"));
+  const attention = live.filter((s) => s.tone === "bad" || s.tone === "warn");
+  const open = requests.filter((r) => r.open);
+  const hour = Number(now.toLocaleString("en-GB", { timeZone: "Europe/London", hour: "2-digit", hourCycle: "h23" }));
 
   return (
     <div className="space-y-5">
-      <PageHeader
-        title={`Welcome, ${user?.displayName ?? session.name}`}
-        description="The Leon Guarding client portal. Your account is set up; the views below will appear here once it is linked to your organisation."
-      />
+      <PageHeader title={`${hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"}, ${scope.name.split(" ")[0]}`} description={`${scope.clientName} · ${scope.sites.length} site${scope.sites.length === 1 ? "" : "s"}${scope.allSites ? "" : " shared with you"}`} />
 
-      <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,2fr)]">
-        <Card title="Your account">
-          <dl className="space-y-3 text-[13px]">
-            {[
-              ["Name", user?.displayName],
-              ["Username", user?.username],
-              ["Email", user?.email],
-              ["Member since", user ? formatDate(user.createdAt) : null],
-            ].map(([k, v]) => (
-              <div key={k}>
-                <dt className="text-[11px]" style={{ color: "var(--text-muted)" }}>
-                  {k}
-                </dt>
-                <dd className="font-medium">{v ?? "—"}</dd>
-              </div>
-            ))}
-          </dl>
-        </Card>
+      <section aria-label="Right now" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+        <Stat label="On duty now" value={onDuty.length} detail={`${live.length - onDuty.length} more due in the next three hours`} href="/client-portal/live" />
+        <Stat label="Needs attention" value={attention.length} detail={attention.length ? "Control is dealing with it" : "Everything on time"} tone={attention.length ? "warn" : "good"} href="/client-portal/live" />
+        <Stat label="Open requests" value={open.length} detail={open.length ? `Latest: ${open[0].ref}` : "Nothing outstanding"} href="/client-portal/requests" />
+        <Stat label="Incidents, last 30 days" value={incidents.length} detail={incidents.filter((i) => i.severity === "serious").length ? `${incidents.filter((i) => i.severity === "serious").length} serious` : "None serious"} href="/client-portal/incidents" tone={incidents.some((i) => i.severity === "serious") ? "bad" : undefined} />
+      </section>
 
-        <Card title="Coming to the portal" subtitle="Available once your account is linked to your organisation.">
-          <ul className="grid gap-3 sm:grid-cols-2">
-            {COMING.map(([title, body]) => (
-              <li
-                key={title}
-                className="rounded-md border p-3.5"
-                style={{ borderStyle: "dashed" }}
-              >
-                <p className="text-[13px] font-medium">{title}</p>
-                <p className="mt-1 text-[12px]" style={{ color: "var(--text-secondary)" }}>
-                  {body}
-                </p>
-              </li>
-            ))}
+      <div className="grid gap-5 xl:grid-cols-[minmax(0,3fr)_minmax(0,2fr)]">
+        <Card title="Your sites right now" action={<Link href="/client-portal/live" className="text-[12px] font-semibold" style={{ color: "var(--accent-text)" }}>On duty now →</Link>}>
+          <ul className="divide-y" style={{ borderColor: "var(--hairline)" }}>
+            {scope.sites.map((site) => {
+              const here = live.filter((s) => s.siteId === site.id);
+              const worst = here.find((s) => s.tone === "bad") ?? here.find((s) => s.tone === "warn");
+              const on = here.filter((s) => s.state.startsWith("On duty")).length;
+              return (
+                <li key={site.id} className="flex flex-wrap items-center justify-between gap-2 py-3" style={{ borderColor: "var(--hairline)" }}>
+                  <div className="min-w-0">
+                    <p className="text-[14px] font-medium">{site.name}</p>
+                    <Muted>{site.address ?? ""}</Muted>
+                  </div>
+                  {worst ? <Pill tone={worst.tone}>{worst.post}: {worst.state}</Pill> : here.length ? <Pill tone="good">{on} on duty{here.length > on ? ` · ${here.length - on} due soon` : ""}</Pill> : <Pill tone="info">No shift now or in the next three hours</Pill>}
+                </li>
+              );
+            })}
           </ul>
-          <p className="mt-4 text-[12px]" style={{ color: "var(--text-muted)" }}>
-            To have your account linked, contact your Leon Guarding account manager.
-          </p>
         </Card>
+
+        <div className="space-y-5">
+          <Card title="Need us now?">
+            <p className="text-[13px]">The Control Room is staffed around the clock.</p>
+            {phone && (
+              <a href={`tel:${phone.replace(/\s+/g, "")}`} className="mt-3 inline-flex h-10 items-center rounded-lg px-4 text-[14px] font-semibold text-white" style={{ background: "var(--button-good)" }}>
+                📞 {phone}
+              </a>
+            )}
+            <p className="mt-3 text-[13px]">
+              Or{" "}
+              <Link href="/client-portal/requests" className="font-semibold underline underline-offset-2" style={{ color: "var(--accent-text)" }}>
+                send a request
+              </Link>{" "}
+              and follow it here.
+            </p>
+          </Card>
+
+          <Card title="Your latest requests">
+            {requests.length === 0 ? (
+              <Muted>None yet.</Muted>
+            ) : (
+              <ul className="space-y-2.5">
+                {requests.slice(0, 4).map((r) => (
+                  <li key={r.id} className="flex flex-wrap items-start justify-between gap-2">
+                    <Link href={`/client-portal/requests/${r.id}`} className="min-w-0 text-[13px] hover:underline">
+                      <span className="font-medium">{r.ref}</span> {r.subject}
+                      <span className="block text-[12px]" style={{ color: "var(--text-muted)" }}>
+                        {ukDay(r.receivedAt)} {ukTime(r.receivedAt)}
+                      </span>
+                    </Link>
+                    <Pill tone={r.stage.tone}>{r.stage.label}</Pill>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </Card>
+        </div>
       </div>
     </div>
   );

@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { Drawer } from "@/components/scheduling/Drawer";
 import { Result, input, inputStyle } from "@/components/scheduling/RotaForms";
@@ -176,6 +177,9 @@ export function PlacesBoard({ clients, denied }: { clients: PlaceClient[]; denie
                 </p>
               </div>
               <div className="flex gap-1.5">
+                <Link href={`/clients/${c.id}/portal`} className={`${small} inline-flex items-center`} style={{ borderColor: "var(--hairline)" }}>
+                  Portal access
+                </Link>
                 <button type="button" disabled={!!denied} title={denied ?? undefined} className={small} style={{ borderColor: "var(--hairline)" }} onClick={() => setEditing({ kind: "client", client: c })}>
                   Edit client
                 </button>
