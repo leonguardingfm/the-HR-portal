@@ -502,9 +502,9 @@ export const NAV: NavItem[] = [
   {
     href: "/performance",
     label: "Performance",
-    purpose: "Every person, every department and the whole company: how fast work is taken on and finished, within SLA, and why not when it is not. The Managing Director's.",
+    purpose: "How fast each person takes on and finishes work, within SLA, and why not when it is not. The Managing Director sees the whole company; each department's head sees their own department.",
     group: "Management",
-    roles: ["top_management"],
+    roles: ["top_management", "operations_manager", "recruitment_manager", "admin_manager"],
     built: true,
   },
   {

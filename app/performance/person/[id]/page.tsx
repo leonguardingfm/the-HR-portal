@@ -1,9 +1,9 @@
 import Link from "next/link";
-import { notFound } from "next/navigation";
+import { notFound, redirect } from "next/navigation";
 import { Card } from "@/components/ui/Card";
 import { requireSession } from "@/lib/auth/server";
-import { DEPARTMENTS, type HubDepartment } from "@/lib/core/hub";
-import { minutesWords, periodRange } from "@/lib/core/performance";
+import { DEPARTMENTS, DEPARTMENT_ROLES, type HubDepartment } from "@/lib/core/hub";
+import { minutesWords, performanceScope, periodRange } from "@/lib/core/performance";
 import { ROLE_LABELS } from "@/lib/labels";
 import { getPerformance, getPersonPerformance } from "@/lib/db/performance";
 
@@ -11,16 +11,24 @@ export const dynamic = "force-dynamic";
 
 type SP = { period?: string; from?: string; to?: string; department?: string; test?: string };
 
-/** One person's performance, for the Managing Director: their figures, day by day, and what lies behind them. */
+/**
+ * One person's performance: their figures, day by day, and what lies behind
+ * them. The Managing Director may open anyone; a department's head only
+ * someone in their own department, and sees only that department's work.
+ */
 export default async function PersonPerformancePage({ params, searchParams }: { params: Promise<{ id: string }>; searchParams: Promise<SP> }) {
-  await requireSession();
+  const session = await requireSession();
+  const scope = performanceScope(session.activeRole);
+  if (!scope) redirect("/");
   const { id } = await params;
   const sp = await searchParams;
   const range = periodRange(sp.period ?? "7d", sp.from, sp.to);
-  const f = { from: range.from, to: range.to, department: DEPARTMENTS.some((d) => d.id === sp.department) ? (sp.department as HubDepartment) : null, includeTest: sp.test === "1" };
-  const [p, all] = await Promise.all([getPersonPerformance(id, f), getPerformance({ ...f, department: null })]);
-  if (!p) notFound();
+  const department = scope.all ? (DEPARTMENTS.some((d) => d.id === sp.department) ? (sp.department as HubDepartment) : null) : scope.department;
+  const f = { from: range.from, to: range.to, department, includeTest: sp.test === "1" };
+  const [p, all] = await Promise.all([getPersonPerformance(id, f), getPerformance({ ...f, department: scope.all ? null : scope.department })]);
   const me = all.people.find((x) => x.id === id);
+  // Someone from another department is not the head's to see — the same answer as nobody at all.
+  if (!p || (!scope.all && !me)) notFound();
   const back = new URLSearchParams(Object.entries(sp).filter(([, v]) => v) as [string, string][]).toString();
   const max = Math.max(1, ...p.daily.map((d) => Math.max(d.accepted, d.closed, d.breaches)));
   const w = Math.max(320, p.daily.length * 36);
@@ -35,7 +43,7 @@ export default async function PersonPerformancePage({ params, searchParams }: { 
       <header>
         <h1 className="text-xl font-semibold tracking-tight">{p.user.name}</h1>
         <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-          {p.user.roles.map((r) => ROLE_LABELS[r]).join(" · ")} · {range.label}
+          {p.user.roles.filter((r) => scope.all || (DEPARTMENT_ROLES[scope.department] as string[]).includes(r)).map((r) => ROLE_LABELS[r]).join(" · ")} · {range.label}
           {f.includeTest ? " · including the test inbox" : ""}
         </p>
       </header>

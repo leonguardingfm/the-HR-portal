@@ -1,6 +1,22 @@
 /** The period a performance view covers, in plain words, and time written for people. */
 
+import { MANAGER_ROLE, type HubDepartment } from "./hub";
 import { addDays, mondayOf, ukDate, ukInstant } from "./rota";
+
+/**
+ * Whose performance a role may see (26 September 2026). The Managing Director:
+ * the whole company, every department and every person. The head of a
+ * department — the Operations Manager for the Control Room, the HR Manager for
+ * HR (with Vetting, which works the same mailbox), the Admin Manager for
+ * Accounts & Admin — their own department and each person in it; nothing of
+ * another department's. Nobody else.
+ */
+export type PerformanceScope = { all: true; department: null } | { all: false; department: HubDepartment };
+export function performanceScope(role: string): PerformanceScope | null {
+  if (role === "top_management") return { all: true, department: null };
+  const d = (Object.keys(MANAGER_ROLE) as HubDepartment[]).find((k) => MANAGER_ROLE[k] === role);
+  return d ? { all: false, department: d } : null;
+}
 
 export const PERIODS = [
   { id: "today", label: "Today" },

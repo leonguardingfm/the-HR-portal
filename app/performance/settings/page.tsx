@@ -2,6 +2,7 @@ import Link from "next/link";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { ClosedDaysForm, MailboxForm, SlaForm } from "@/components/performance/HubSettingsForms";
+import { redirect } from "next/navigation";
 import { requireSession } from "@/lib/auth/server";
 import { OFFICE_HOURS, PRIORITIES, UK_BANK_HOLIDAYS, departmentLabel, spanText } from "@/lib/core/hub";
 import { db } from "@/lib/db/client";
@@ -13,7 +14,9 @@ const spanValue = (s: { minutes: number } | { workingDays: number }) => ("workin
 
 /** The hub's settings, for the Managing Director: its clocks, closure days and mailboxes. */
 export default async function HubSettingsPage() {
-  await requireSession();
+  // The hub's settings are the Managing Director's, though heads may open Performance.
+  const session = await requireSession();
+  if (session.activeRole !== "top_management") redirect("/performance");
   const [policy, closed, mailboxes] = await Promise.all([slaPolicy(), db.setting.findUnique({ where: { key: "hub.closed_days" } }), db.mailbox.findMany({ orderBy: { displayName: "asc" } })]);
   const values: Record<string, string> = {};
   for (const p of PRIORITIES) for (const c of ["accept", "action", "update"] as const) values[`${p.id}.${c}`] = spanValue(policy[p.id][c]);

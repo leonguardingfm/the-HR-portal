@@ -737,10 +737,15 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   never another department's. The Managing Director (and the auditor) see every department. Anyone
   else with the board sees their own team as totals. *(Corrected 26 September 2026: "we will add
   heads to each department … that one would have access to only their department about what is
-  happening, who is doing what.")* Performance figures stay the Managing Director's.
-- **Performance** (Managing Director only): each person, each department and the whole company, for
-  any period — time to accept, act and close, within SLA, breaches and why, handovers — with a page
-  per person and a spreadsheet download (itself recorded). A summary is emailed every Monday at
+  happening, who is doing what.")*
+- **Performance:** each person, each department and the whole company, for any period — time to
+  accept, act and close, within SLA, breaches and why, handovers — with a page per person and a
+  spreadsheet download (itself recorded). The Managing Director sees everything. **Each department's
+  head sees their own department and each person in it** — the Operations Manager the Control Room,
+  the HR Manager HR (with Vetting, which works the same mailbox), the Admin Manager Accounts & Admin
+  — and nothing of another department's, including that part of someone's work done for another
+  department. The hub settings and the weekly summaries stay the Managing Director's. *(Decided 26
+  September 2026: "yes each head also gets the Performance page, limited to their own department.")* A summary is emailed every Monday at
   07:00. Anyone who misses three or more clocks in twelve hours is raised with the Managing Director
   once a day; their manager is told that it has been.
 - **Hub settings:** the clocks per priority, office closure days (UK bank holidays are built in), and

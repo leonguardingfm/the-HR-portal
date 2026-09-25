@@ -2,7 +2,7 @@ import { type NextRequest } from "next/server";
 import { getSession } from "@/lib/auth/server";
 import { csvField } from "@/lib/core/audit";
 import { DEPARTMENTS, categoryLabel, clockMinutesBetween, outcomeOf, priorityOf, statusOf, taskRef, type HubDepartment } from "@/lib/core/hub";
-import { periodRange } from "@/lib/core/performance";
+import { performanceScope, periodRange } from "@/lib/core/performance";
 import { db } from "@/lib/db/client";
 import { officeHoursFor } from "@/lib/db/hub";
 import { getPerformance } from "@/lib/db/performance";
@@ -11,15 +11,16 @@ export const dynamic = "force-dynamic";
 
 /**
  * Performance as a spreadsheet, filtered as on screen: one row per person, or
- * one row per task with every filter the Managing Director asked for. Only the
- * Managing Director may take it, and taking it is recorded.
+ * one row per task. The Managing Director may take any of it; a department's
+ * head only their own department's. Taking it is recorded.
  */
 export async function GET(req: NextRequest) {
   const session = await getSession();
-  if (!session || session.activeRole !== "top_management") return new Response("Only the Managing Director can export performance.", { status: 403 });
+  const scope = session ? performanceScope(session.activeRole) : null;
+  if (!session || !scope) return new Response("Only the Managing Director and each department's head can export performance.", { status: 403 });
   const q = req.nextUrl.searchParams;
   const range = periodRange(q.get("period") ?? "7d", q.get("from") ?? undefined, q.get("to") ?? undefined);
-  const department = DEPARTMENTS.some((d) => d.id === q.get("department")) ? (q.get("department") as HubDepartment) : null;
+  const department = scope.all ? (DEPARTMENTS.some((d) => d.id === q.get("department")) ? (q.get("department") as HubDepartment) : null) : scope.department;
   const includeTest = q.get("test") === "1";
   const kind = q.get("kind") === "tasks" ? "tasks" : "people";
   let lines: string[];
@@ -46,7 +47,7 @@ export async function GET(req: NextRequest) {
       ),
     ];
   }
-  await db.event.create({ data: { type: "audit.performance_exported", actorUserId: session.userId, actorRole: session.activeRole, department: "administration", detail: `Downloaded performance (${kind}, ${range.label}${department ? `, ${department}` : ""}${includeTest ? ", with test inbox" : ""}): ${lines.length - 1} rows.` } });
+  await db.event.create({ data: { type: "audit.performance_exported", actorUserId: session.userId, actorRole: session.activeRole, department: department === "control" ? "control" : department === "recruitment" ? "recruitment" : "administration", detail: `Downloaded performance (${kind}, ${range.label}${department ? `, ${department}` : ""}${includeTest ? ", with test inbox" : ""}): ${lines.length - 1} rows.` } });
   return new Response("﻿" + lines.join("\r\n"), {
     headers: { "Content-Type": "text/csv; charset=utf-8", "Content-Disposition": `attachment; filename="leon-performance-${kind}-${new Date().toISOString().slice(0, 10)}.csv"`, "Cache-Control": "private, no-store" },
   });

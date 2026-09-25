@@ -196,14 +196,17 @@ export type Performance = Awaited<ReturnType<typeof getPerformance>>;
 
 /** One person, in detail: every task they held in the period, their breaches and moves. */
 export async function getPersonPerformance(userId: string, f: PerfFilter) {
-  const test: Prisma.HubTaskWhereInput = f.includeTest ? {} : { test: false };
+  // A department's head sees only the part of someone's work that is their department's.
+  const test: Prisma.HubTaskWhereInput = { ...(f.includeTest ? {} : { test: false }), ...(f.department ? { department: f.department } : {}) };
+  const deptRoles: Role[] | null = f.department ? (DEPARTMENT_ROLES[f.department] as Role[]) : null;
+  const eventDepts = f.department ? (f.department === "recruitment" ? ["recruitment", "vetting"] : [f.department]) : null;
   const [user, ownership, breaches, closedBy, portalDone, actions] = await Promise.all([
     db.user.findUnique({ where: { id: userId }, select: { id: true, displayName: true, roles: { where: { revokedAt: null }, select: { role: true } } } }),
     db.hubOwnership.findMany({ where: { at: { gte: f.from, lt: f.to }, OR: [{ toUserId: userId }, { fromUserId: userId }], task: test }, include: { task: { include: { mailbox: { select: { officeHoursOnly: true } } } } }, orderBy: { at: "desc" } }),
     db.hubSlaEvent.findMany({ where: { ownerUserId: userId, kind: "breach", at: { gte: f.from, lt: f.to }, task: test }, include: { task: { select: { id: true, number: true, source: true, subject: true, outcomeReason: true } } }, orderBy: { at: "desc" } }),
     db.hubTask.findMany({ where: { ...test, completedById: userId, completedAt: { gte: f.from, lt: f.to } }, include: { mailbox: { select: { officeHoursOnly: true } } }, orderBy: { completedAt: "desc" } }),
-    db.workItem.findMany({ where: { ownerUserId: userId, state: "done", doneAt: { gte: f.from, lt: f.to } }, select: { title: true, doneAt: true, dueAt: true } }),
-    db.event.findMany({ where: { actorUserId: userId, at: { gte: f.from, lt: f.to } }, select: { type: true, at: true } }),
+    db.workItem.findMany({ where: { ownerUserId: userId, state: "done", doneAt: { gte: f.from, lt: f.to }, ...(deptRoles ? { ownerRole: { in: deptRoles } } : {}) }, select: { title: true, doneAt: true, dueAt: true } }),
+    db.event.findMany({ where: { actorUserId: userId, at: { gte: f.from, lt: f.to }, ...(eventDepts ? { department: { in: eventDepts as never } } : {}) }, select: { type: true, at: true } }),
   ]);
   if (!user) return null;
   // Day by day: taken on, closed, breaches.
