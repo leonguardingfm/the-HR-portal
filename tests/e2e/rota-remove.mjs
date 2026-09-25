@@ -1,16 +1,19 @@
 /**
- * Removing shifts that are not needed: a client stops after ten days of a
- * month — the rest come off in one go, officers on them told; and ticked
- * shifts deleted from the roster's selection box.
+ * Marking shifts on the calendar and acting on them together: a client stops
+ * after ten days of a month — the rest are marked with a click and a
+ * Shift-click and deleted in one go, the officer on one of them told; two open
+ * shifts marked and given to an officer; a whole day marked from its heading.
  */
 import { check, go, signIn, sql, text } from "./lib.mjs";
 
 const ukDay = (offset) => new Date(Date.now() + offset * 86_400_000).toLocaleDateString("en-CA", { timeZone: "Europe/London" });
+const plus = (date, n) => new Date(new Date(`${date}T12:00:00Z`).getTime() + n * 86_400_000).toISOString().slice(0, 10);
 
 // Earlier runs' test shifts, cancelled so this run's can be made on the same dates.
 const tidy = () => {
+  // The officers first — the test's own, and any put on its open shifts — then the open shifts.
+  sql(`update "Assignment" set state = 'cancelled' where (id like 'e2e-%' or id in (select "assignmentId" from "OpenShift" where id like 'e2e-%' and "assignmentId" is not null)) and state <> 'cancelled'`);
   sql(`update "OpenShift" set "assignmentId" = null, "cancelledAt" = coalesce("cancelledAt", now()), "cancelledReason" = coalesce("cancelledReason", 'Browser test tidy-up') where id like 'e2e-%' and ("cancelledAt" is null or "assignmentId" is not null)`);
-  sql(`update "Assignment" set state = 'cancelled' where id like 'e2e-%' and state <> 'cancelled'`);
 };
 
 export default async function rotaRemove(browser) {
@@ -28,49 +31,52 @@ export default async function rotaRemove(browser) {
   sql(`update "OpenShift" set "assignmentId" = 'e2e-${stamp}-pub' where id = 'e2e-${stamp}-12'`);
   sql(`update "OpenShift" set "assignmentId" = 'e2e-${stamp}-draft' where id = 'e2e-${stamp}-13'`);
 
-  // --- "The client does not need the last ten days": Remove shifts ------------------------
-  const d = await signIn(browser, "daniel.okoye", { landing: "/scheduling" });
-  await d.getByRole("button", { name: "Remove shifts" }).click();
-  const drawer = d.getByRole("dialog");
-  await drawer.locator(`input[type="checkbox"]`).first().waitFor();
-  // The post, by its own tick box under Meridian — Depot 4.
-  const site = drawer.locator("div", { has: d.getByText("Meridian — Depot 4", { exact: true }) }).last();
-  await site.getByLabel("Day patrol").check();
-  const from = new Date(new Date(`${base}T12:00:00Z`).getTime() + 10 * 86_400_000).toISOString().slice(0, 10);
-  const to = new Date(new Date(`${base}T12:00:00Z`).getTime() + 19 * 86_400_000).toISOString().slice(0, 10);
-  await drawer.getByLabel("From").fill(from);
-  await drawer.getByLabel("To (included)").fill(to);
-  await drawer.getByLabel(/Shifts with officers on them/).check();
-  await drawer.getByRole("button", { name: "Check what will come off" }).click();
-  await drawer.getByText(/\d+ shifts? will come off/).waitFor();
-  const preview = await text(drawer);
-  check("Remove shifts shows what will come off before anything does", /10 shifts will come off/.test(preview) && /8 open/.test(preview) && /1 draft/.test(preview) && /1 with officers/.test(preview), preview.slice(0, 400));
-  check("…and names the officer who will be told", /Shanice Bennett \(1\)/.test(preview));
-  check("…and nothing has changed yet", sql(`select count(*) from "OpenShift" where id like 'e2e-${stamp}-%' and "cancelledAt" is not null`) === "0");
-  await drawer.getByLabel("Why they are not needed").fill("Client does not need cover for the last ten days");
-  await drawer.getByRole("button", { name: "Remove 10 shifts" }).click();
-  await drawer.getByText(/Removed 10 shifts/).waitFor();
+  // Four weeks on screen, from the Monday of the first day in question.
+  const monday = sql(`select to_char(date_trunc('week', date '${base}'), 'YYYY-MM-DD')`);
+  const col = (date) => Math.round((new Date(`${date}T12:00:00Z`) - new Date(`${monday}T12:00:00Z`)) / 86_400_000);
+  const d = await signIn(browser, "daniel.okoye", { landing: `/scheduling?week=${monday}&span=4` });
+  check("there is no separate Remove button — marking is on the calendar", !(await d.getByRole("button", { name: "Remove shifts" }).isVisible().catch(() => false)));
+  const row = d.locator("tbody tr").filter({ has: d.locator('th[scope="row"]', { hasText: "Day patrol" }) }).filter({ hasText: "Meridian" }).first();
+  const box = (date) => row.locator("td").nth(col(date)).getByRole("checkbox").first();
+
+  // --- The last ten days: a click, then Shift and a click --------------------------------------
+  await box(plus(base, 10)).click();
+  await box(plus(base, 19)).click({ modifiers: ["Shift"] });
+  const marked = d.getByRole("region", { name: "Marked shifts" });
+  const summary = await text(marked);
+  check("a click and a Shift-click mark the ten days between", /10 marked/.test(summary) && /8 open/.test(summary) && /1 draft/.test(summary) && /1 with officers/.test(summary), summary.slice(0, 200));
+  await marked.getByRole("button", { name: "Delete 10…" }).click();
+  const why = await text(marked);
+  check("…deleting names the officer who will be told", /Shanice Bennett/.test(why), why.slice(0, 300));
+  await marked.getByLabel(/Why are these 10 not needed/).fill("Client does not need cover for the last ten days");
+  await marked.getByRole("button", { name: "Delete 10 shifts" }).click();
+  await marked.getByText(/Removed 10 shifts/).waitFor();
   check("the ten days come off in one go", sql(`select count(*) from "OpenShift" where id like 'e2e-${stamp}-%' and "cancelledAt" is not null`) === "10");
   check("…the first ten days stay", sql(`select count(*) from "OpenShift" where id like 'e2e-${stamp}-%' and "cancelledAt" is null`) === "10");
-  check("…the officer's shift is cancelled, the draft too", sql(`select string_agg(state::text, ',' order by id) from "Assignment" where id like 'e2e-${stamp}-%'`) === "cancelled,cancelled");
+  check("…the officer's shift and the draft are cancelled", sql(`select string_agg(state::text, ',' order by id) from "Assignment" where id like 'e2e-${stamp}-%'`) === "cancelled,cancelled");
   check("…and the officer is told in their portal", sql(`select count(*) from "WorkItem" where "ownerUserId" = '${officer[1]}' and "assignmentId" = 'e2e-${stamp}-pub' and title like 'Control has cancelled your shift%'`) === "1");
-  check("…with the reason recorded", sql(`select count(*) from "Event" where type = 'rota.shifts_removed' and detail like '%last ten days%'`) >= "1");
-  await d.keyboard.press("Escape");
 
-  // --- Ticked on the roster, deleted together ------------------------------------------------
-  const monday = sql(`select to_char(date_trunc('week', date '${base}'), 'YYYY-MM-DD')`);
-  await go(d, `/scheduling?week=${monday}`);
-  await d.getByRole("button", { name: "Select shifts" }).click();
-  const boxes = d.getByRole("checkbox", { name: /^Tick Day patrol/ });
-  const n = Math.min(3, await boxes.count());
-  for (let i = 0; i < n; i++) await boxes.nth(i).check();
-  check("ticking shifts shows them in the box at the bottom", new RegExp(`${n} ticked`).test(await text(d.locator("main"))));
-  await d.getByRole("button", { name: "Delete ticked…" }).click();
-  await d.getByLabel(new RegExp(`Why are these ${n} not needed`)).fill("Client cancelled these days");
-  await d.getByRole("button", { name: `Delete ${n} shifts` }).click();
-  await d.waitForTimeout(1500);
-  check("…and deleting them takes them all off in one go", sql(`select count(*) from "OpenShift" where id like 'e2e-${stamp}-%' and "cancelledReason" = 'Client cancelled these days'`) === String(n));
-  check("rota removal: no errors in the page", d.errors.length === 0, d.errors.join(" | "));
+  // --- Two open shifts marked and given to an officer ------------------------------------------
+  await go(d, `/scheduling?week=${monday}&span=4`);
+  await box(plus(base, 1)).click();
+  await box(plus(base, 2)).click();
+  const marked2 = d.getByRole("region", { name: "Marked shifts" });
+  check("two marked", /2 marked/.test(await text(marked2)));
+  const choice = await marked2.getByLabel("Give the marked open shifts to").locator("option", { hasText: "free for all 2" }).first().getAttribute("value");
+  check("…the box lists who is free for both", !!choice);
+  if (choice) {
+    await marked2.getByLabel("Give the marked open shifts to").selectOption(choice);
+    await marked2.getByRole("button", { name: "Assign" }).click();
+    await d.waitForTimeout(2000);
+    check("…and gives them both to that officer", sql(`select count(*) from "OpenShift" where id in ('e2e-${stamp}-1','e2e-${stamp}-2') and "assignmentId" is not null`) === "2");
+  }
+
+  // --- A whole day, from its heading -------------------------------------------------------------
+  await go(d, `/scheduling?week=${monday}&span=4`);
+  await d.locator("thead th").nth(col(plus(base, 5)) + 1).getByRole("checkbox").click();
+  check("ticking a day's heading marks that day", /\d+ marked/.test(await text(d.getByRole("region", { name: "Marked shifts" }))));
+  await d.getByRole("region", { name: "Marked shifts" }).getByRole("button", { name: "Clear" }).click();
+  check("rota marking: no errors in the page", d.errors.length === 0, d.errors.join(" | "));
   await d.context().close();
   tidy();
 }

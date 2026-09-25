@@ -5,7 +5,6 @@ import { useRouter } from "next/navigation";
 import { Tag } from "@/components/ui/StatusPill";
 import { bulkAssign, bulkPublish, removeShifts } from "@/lib/actions/rota";
 import { CreateShifts } from "./CreateShifts";
-import { RemoveShifts } from "./RemoveShifts";
 import { Drawer } from "./Drawer";
 import type { ActionResult } from "@/lib/actions/types";
 import { evaluateDeployability } from "@/lib/core/deployability";
@@ -107,6 +106,32 @@ function edges(look: Look) {
 /** The colour a state's label is written in, off the chip. */
 const inkOf = (st: RosterState) => (LOOK[st].muted ? "var(--text-muted)" : LOOK[st].stripe);
 
+/** A shift that can be marked on the calendar: whether it is, and marking it (Shift for a run of days). */
+interface Mark {
+  on: boolean;
+  label: string;
+  onToggle: (range: boolean) => void;
+}
+
+/** The mark box itself: always on the calendar, never opening the shift behind it. */
+function MarkBox({ mark, className = "" }: { mark: Mark; className?: string }) {
+  return (
+    <input
+      type="checkbox"
+      checked={mark.on}
+      readOnly
+      onClick={(e) => {
+        e.stopPropagation();
+        mark.onToggle(e.shiftKey);
+      }}
+      aria-label={mark.label}
+      title="Mark it — hold Shift to mark every shift between this and the last one you marked on this post"
+      className={`h-4 w-4 cursor-pointer print:hidden ${className}`}
+      style={{ accentColor: "var(--series-1)" }}
+    />
+  );
+}
+
 function Chip({
   state,
   title,
@@ -115,6 +140,7 @@ function Chip({
   note,
   onClick,
   selected,
+  mark,
 }: {
   state: RosterState;
   title: string;
@@ -122,9 +148,19 @@ function Chip({
   line2: string;
   note?: string;
   onClick?: () => void;
-  /** In planning mode: whether it is in the selection. */
+  /** Whether it is marked. */
   selected?: boolean;
+  /** Markable on the calendar. */
+  mark?: Mark;
 }) {
+  if (mark) {
+    return (
+      <div className="relative">
+        <Chip state={state} title={title} line1={line1} line2={line2} note={note} onClick={onClick} selected={mark.on} />
+        <MarkBox mark={mark} className="absolute top-1 right-1" />
+      </div>
+    );
+  }
   const look = LOOK[state];
   const ink = look.ink ?? (look.muted ? "var(--text-secondary)" : "var(--text-primary)");
   const body = (
@@ -141,7 +177,7 @@ function Chip({
     </>
   );
   const style = { ...edges(look), outline: selected ? "2px solid var(--series-1)" : undefined, outlineOffset: 1 };
-  const cls = "block w-full rounded-md border border-l-4 px-2 py-1 text-left";
+  const cls = "block w-full rounded-md border border-l-4 py-1 pr-6 pl-2 text-left";
   return onClick ? (
     <button
       type="button"
@@ -211,6 +247,16 @@ interface Gap {
   end: string;
   startsAt: Date;
   endsAt: Date;
+}
+
+/** Marking on the calendar: what is marked, and marking more. */
+interface Marking {
+  has: (key: string) => boolean;
+  /** Everything markable in one post's day. */
+  keysOn: (postId: string, date: string) => string[];
+  toggleMany: (keys: string[]) => void;
+  /** Mark one; with range, every markable shift on the post from the last one marked to this. */
+  mark: (key: string, postId: string, date: string, range: boolean) => void;
 }
 
 /** Planning mode: what has been typed, chosen and checked, shared by every cell. */
@@ -390,7 +436,45 @@ export function WeekGrid({
     return m;
   }, [week.openShifts]);
   const [creating, setCreating] = useState<{ postId?: string; date?: string } | null>(null);
-  const [removing, setRemoving] = useState(false);
+
+  // ---- Marking on the calendar (26 September 2026) ----------------------
+  // Always on: tick open shifts, drafts and shifts with officers that have not
+  // started; hold Shift to mark a run of days on a post; tick a day or a post
+  // to mark all of it. The box at the bottom does the rest.
+  const markableByCell = useMemo(() => {
+    const m = new Map<string, string[]>();
+    const add = (cell: string, key: string) => m.set(cell, [...(m.get(cell) ?? []), key]);
+    for (const g of gaps) add(gapKey(g.post.id, g.date), selGap(g.key));
+    for (const x of week.shifts) {
+      const later = !!now && new Date(x.startsAt) > now;
+      if (x.state === "draft" || ((x.state === "published" || x.state === "amended") && !x.cameOff && later)) add(gapKey(x.postId, x.date), selShift(x.id));
+    }
+    return m;
+  }, [gaps, week.shifts, now]);
+  const lastMark = useRef<{ postId: string; date: string } | null>(null);
+  const toggleMany = useCallback((keys: string[]) => {
+    if (!keys.length) return;
+    setSelected((prev) => {
+      const next = new Set(prev);
+      const allOn = keys.every((k) => next.has(k));
+      keys.forEach((k) => (allOn ? next.delete(k) : next.add(k)));
+      return next;
+    });
+  }, []);
+  const marking: Marking = {
+    has: (k) => selected.has(k),
+    keysOn: (postId, date) => markableByCell.get(gapKey(postId, date)) ?? [],
+    toggleMany,
+    mark: (key, postId, date, range) => {
+      const last = lastMark.current;
+      if (range && last && last.postId === postId && last.date !== date) {
+        const [a, b] = [last.date, date].sort();
+        const keys = week.days.filter((d) => d >= a && d <= b).flatMap((d) => markableByCell.get(gapKey(postId, d)) ?? []);
+        setSelected((prev) => new Set([...prev, ...keys]));
+      } else toggleMany([key]);
+      lastMark.current = { postId, date };
+    },
+  };
   const closeCreate = useCallback(() => setCreating(null), []);
   const router = useRouter();
   // New open shifts are read by post: that is where they show. And if they
@@ -485,13 +569,7 @@ export function WeekGrid({
             return rest;
           });
         },
-        toggle: (keys) =>
-          setSelected((prev) => {
-            const next = new Set(prev);
-            const allOn = keys.every((k) => next.has(k));
-            keys.forEach((k) => (allOn ? next.delete(k) : next.add(k)));
-            return next;
-          }),
+        toggle: toggleMany,
         fillRegular: (post) => {
           if (!post.regular) return;
           const reg = week.officers.find((o) => o.id === post.regular!.id);
@@ -624,11 +702,8 @@ export function WeekGrid({
       setSelected(new Set());
     });
 
-  const selectDay = (d: string) =>
-    plan?.toggle([
-      ...gaps.filter((g) => g.date === d).map((g) => selGap(g.key)),
-      ...week.shifts.filter((x) => x.date === d && (x.state === "draft" || ((x.state === "published" || x.state === "amended") && !x.cameOff && !!now && new Date(x.startsAt) > now))).map((x) => selShift(x.id)),
-    ]);
+  const dayKeys = (d: string) => week.posts.flatMap((p) => markableByCell.get(gapKey(p.id, d)) ?? []);
+  const selectDay = (d: string) => toggleMany(dayKeys(d));
 
   return (
     <>
@@ -651,17 +726,6 @@ export function WeekGrid({
           {!buildDenied && (
             <button
               type="button"
-              onClick={() => setRemoving(true)}
-              className="h-8 rounded-md border px-3 text-[12px] font-semibold"
-              style={{ borderColor: "var(--status-critical)", color: "var(--critical-text)", background: "var(--surface-1)" }}
-              title="Take shifts that are not needed off the rota — a whole client, site or post, between two dates"
-            >
-              Remove shifts
-            </button>
-          )}
-          {!buildDenied && (
-            <button
-              type="button"
               onClick={() => setCreating({})}
               className="h-8 rounded-md px-3 text-[12px] font-semibold text-white"
               style={{ background: "var(--series-1)" }}
@@ -681,7 +745,7 @@ export function WeekGrid({
               className="h-8 rounded-md border px-3 text-[12px] font-semibold"
               style={planning ? { background: "var(--series-1)", color: "#fff", borderColor: "var(--series-1)" } : { borderColor: "var(--series-1)", color: "var(--accent-text)", background: "var(--surface-1)" }}
             >
-              {planning ? "Done" : "Select shifts"}
+              {planning ? "Done typing" : "Type in officers"}
             </button>
           )}
           <button type="button" onClick={() => window.print()} className="h-8 rounded-md border px-3 text-[12px]" style={{ borderColor: "var(--hairline)", background: "var(--surface-1)" }}>
@@ -692,10 +756,9 @@ export function WeekGrid({
 
       {planning && (
         <p className="mb-3 rounded-md px-3 py-2 text-[12px] leading-relaxed print:hidden" style={{ background: "var(--roster-draft-wash)" }}>
-          <strong>Selecting shifts.</strong> Tick shifts on the roster — open ones, drafts, or ones with officers — and use the box at the
-          bottom: give the open ones to an officer, publish drafts, or delete them all in one go. You can also type a PIN or name straight into
-          an open shift, or let <em>Suggest officers</em> fill them. Every entry is checked — cleared to deploy, not on leave, no clash, inside
-          their weekly hours. For a whole period, use <em>Remove shifts</em>.
+          <strong>Typing in officers.</strong> Type a PIN or name straight into any open shift, let <em>Suggest officers</em> fill them with
+          whoever is free, or fill a post with its regular officer. Every entry is checked as you type — cleared to deploy, not on leave, no
+          clash, inside their weekly hours — and saved together as drafts.
         </p>
       )}
       <datalist id="rota-officers">
@@ -745,6 +808,11 @@ export function WeekGrid({
           gapOf={gapOf}
           openByCell={openByCell}
           onSelectDay={selectDay}
+          marking={marking}
+          dayMarked={(d) => {
+            const k = dayKeys(d);
+            return k.length ? (k.every((x) => selected.has(x)) ? "all" : "some") : "none";
+          }}
           onCreate={(post, date) => setCreating({ postId: post.id, date })}
         />
       ) : (
@@ -795,60 +863,70 @@ export function WeekGrid({
                 Fill regular officers
               </button>
             </div>
-            <span className="hidden h-6 border-l sm:block" style={{ borderColor: "var(--hairline)" }} />
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[12px] font-medium" aria-live="polite">
-                {tickedCount ? `${tickedCount} ticked: ` : "Nothing ticked yet · "}
-                {selectedGaps.length} open · {selectedDrafts.length} draft{selectedDrafts.length === 1 ? "" : "s"} · {selectedPublished.length} with officers
-              </span>
-              <button type="button" onClick={() => plan!.toggle(gaps.map((g) => selGap(g.key)))} className="h-8 rounded-md border px-2.5 text-[12px]" style={{ borderColor: "var(--hairline)" }}>
-                All open shifts
-              </button>
-              <select
-                value={assignTo}
-                onChange={(e) => setAssignTo(e.target.value)}
-                disabled={selectedGaps.length === 0}
-                aria-label="Who is free for the ticked open shifts"
-                className={`${field} h-8 w-64`}
-                style={inputStyle}
-              >
-                <option value="">{selectedGaps.length ? `Who is free for these ${selectedGaps.length}…` : "Tick open shifts first"}</option>
-                {free.map((f) => (
-                  <option key={f.officer.id} value={f.officer.pin ? `${f.officer.pin} ${f.officer.name}` : f.officer.name} disabled={f.can === 0}>
-                    {f.officer.name} — {f.can === selectedGaps.length ? `free for all ${f.can}` : `free for ${f.can} of ${selectedGaps.length}`}
-                  </option>
-                ))}
-              </select>
-              <button type="button" disabled={saving || selectedGaps.length === 0 || !assignTo.trim()} onClick={assignSelected} className="h-8 rounded-md border px-3 text-[12px] font-medium disabled:opacity-50" style={{ borderColor: "var(--series-1)", color: "var(--accent-text)" }}>
-                Give them the ticked shifts
-              </button>
+          </div>
+        </div>
+      )}
 
-              <button type="button" disabled={saving || selectedDrafts.length === 0} onClick={publishSelected} className="h-8 rounded-md border px-3 text-[12px] font-medium disabled:opacity-50" style={{ borderColor: "var(--status-good)", color: "var(--good-text)" }}>
-                Publish ticked drafts
-              </button>
-              <button type="button" disabled={saving || tickedCount === 0} onClick={() => setDeleting(true)} className="h-8 rounded-md border px-3 text-[12px] font-semibold disabled:opacity-50" style={{ borderColor: "var(--status-critical)", color: "var(--critical-text)" }} title="Delete every ticked shift — open ones and drafts go; officers on ticked shifts are told">
-                Delete ticked…
+      {/* The box that appears when anything is marked: give the open ones to an officer, publish drafts, or delete them all. */}
+      {(tickedCount > 0 || bulkResult) && (
+        <div role="region" aria-label="Marked shifts" className="fixed left-1/2 z-40 w-[min(56rem,calc(100vw-2rem))] -translate-x-1/2 rounded-xl border p-3 shadow-[0_12px_40px_rgb(0_0_0/0.25)] print:hidden" style={{ bottom: planning ? 96 : 16, background: "var(--surface-1)", borderColor: "var(--series-1)" }}>
+          {tickedCount > 0 && (
+            <div className="flex flex-wrap items-center gap-2">
+              <p className="mr-1 text-[13px] font-semibold" aria-live="polite">
+                {tickedCount} marked
+                <span className="ml-1.5 text-[12px] font-normal" style={{ color: "var(--text-secondary)" }}>
+                  {[selectedGaps.length && `${selectedGaps.length} open`, selectedDrafts.length && `${selectedDrafts.length} draft${selectedDrafts.length === 1 ? "" : "s"}`, selectedPublished.length && `${selectedPublished.length} with officers`].filter(Boolean).join(" · ")}
+                </span>
+              </p>
+              {selectedGaps.length > 0 && (
+                <>
+                  <select value={assignTo} onChange={(e) => setAssignTo(e.target.value)} aria-label="Give the marked open shifts to" className={`${field} h-8 w-60`} style={inputStyle}>
+                    <option value="">Give the {selectedGaps.length} open to…</option>
+                    {free.map((f) => (
+                      <option key={f.officer.id} value={f.officer.pin ? `${f.officer.pin} ${f.officer.name}` : f.officer.name} disabled={f.can === 0}>
+                        {f.officer.name} — {f.can === selectedGaps.length ? `free for all ${f.can}` : `free for ${f.can} of ${selectedGaps.length}`}
+                      </option>
+                    ))}
+                  </select>
+                  <select value={channel} onChange={(e) => setChannel(e.target.value as AskChannel)} aria-label="Asked by" className={`${field} h-8 w-24`} style={inputStyle}>
+                    {ASK_CHANNELS.map((c) => (
+                      <option key={c} value={c}>
+                        {CHANNEL_LABELS[c]}
+                      </option>
+                    ))}
+                  </select>
+                  <button type="button" disabled={saving || !assignTo.trim()} onClick={assignSelected} className="h-8 rounded-md px-3 text-[12px] font-semibold text-white disabled:opacity-50" style={{ background: "var(--series-1)" }}>
+                    Assign
+                  </button>
+                </>
+              )}
+              {selectedDrafts.length > 0 && (
+                <button type="button" disabled={saving} onClick={publishSelected} className="h-8 rounded-md border px-3 text-[12px] font-semibold disabled:opacity-50" style={{ borderColor: "var(--status-good)", color: "var(--good-text)" }}>
+                  Publish {selectedDrafts.length}
+                </button>
+              )}
+              <button type="button" disabled={saving} onClick={() => setDeleting(true)} className="h-8 rounded-md border px-3 text-[12px] font-semibold disabled:opacity-50" style={{ borderColor: "var(--status-critical)", color: "var(--critical-text)" }}>
+                Delete {tickedCount}…
               </button>
               <button
                 type="button"
                 onClick={() => {
                   setSelected(new Set());
-                  setTypedAll({});
-                  setErrors({});
+                  setDeleting(false);
                   setBulkResult(null);
                 }}
-                className="h-8 rounded-md px-2 text-[12px]"
+                className="ml-auto h-8 rounded-md px-2 text-[12px]"
                 style={{ color: "var(--text-secondary)" }}
               >
                 Clear
               </button>
             </div>
-          </div>
+          )}
           {deleting && tickedCount > 0 && (
             <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border p-2" style={{ borderColor: "var(--status-critical)", background: "var(--wash-critical)" }}>
               <label className="text-[12px] font-medium">
                 Why are these {tickedCount} not needed?
-                <input value={deleteWhy} onChange={(e) => setDeleteWhy(e.target.value)} autoFocus placeholder="e.g. Client cancelled the weekend" className={`${field} mt-1 h-8 w-72 max-w-full`} style={inputStyle} />
+                <input value={deleteWhy} onChange={(e) => setDeleteWhy(e.target.value)} autoFocus placeholder="e.g. Client does not need cover from the 16th" className={`${field} mt-1 h-8 w-80 max-w-full`} style={inputStyle} />
               </label>
               <button type="button" disabled={saving || deleteWhy.trim().length < 3} onClick={deleteSelected} className="h-8 rounded-md px-3 text-[12px] font-semibold text-white disabled:opacity-50" style={{ background: "var(--status-critical)" }}>
                 {saving ? "Deleting…" : `Delete ${tickedCount} shift${tickedCount === 1 ? "" : "s"}`}
@@ -858,16 +936,27 @@ export function WeekGrid({
               </button>
               {selectedPublished.length > 0 && (
                 <p className="w-full text-[12px]">
-                  {selectedPublished.length} ha{selectedPublished.length === 1 ? "s an officer" : "ve officers"} on {selectedPublished.length === 1 ? "it" : "them"} — each is cancelled, and the officer told in their portal.
+                  Officers on {selectedPublished.length === 1 ? "one of these" : `${selectedPublished.length} of these`} will be told in their portal that it is cancelled:{" "}
+                  {[...new Set(selectedPublished.map((id) => week.shifts.find((x) => x.id === id)?.personName).filter(Boolean))].join(", ")}.
                 </p>
               )}
             </div>
           )}
-          {bulkResult && <Result state={bulkResult} />}
+          {bulkResult && (
+            <div className="mt-2 flex items-start gap-2">
+              <div className="flex-1">
+                <Result state={bulkResult} />
+              </div>
+              {tickedCount === 0 && (
+                <button type="button" onClick={() => setBulkResult(null)} aria-label="Close" className="text-[12px]" style={{ color: "var(--text-secondary)" }}>
+                  ✕
+                </button>
+              )}
+            </div>
+          )}
         </div>
       )}
 
-      {removing && <RemoveShifts posts={week.posts} today={today} onClose={() => setRemoving(false)} />}
 
       {creating && (
         <CreateShifts
@@ -921,7 +1010,7 @@ export function WeekGrid({
 
 const pinned = "sticky left-0 z-10";
 
-function DayHeads({ days, today, first, onSelectDay }: { days: string[]; today: string; first: string; onSelectDay?: (d: string) => void }) {
+function DayHeads({ days, today, first, onSelectDay, dayMarked }: { days: string[]; today: string; first: string; onSelectDay?: (d: string) => void; dayMarked?: (d: string) => "all" | "some" | "none" }) {
   return (
     <thead>
       <tr>
@@ -951,10 +1040,8 @@ function DayHeads({ days, today, first, onSelectDay }: { days: string[]; today: 
                 {weekday(d) === 0 || d === days[0] ? <span className="ml-1 text-[11px] font-normal">{dayLabel(d).split(" ")[2]}</span> : null}
                 {d === today && <span className="ml-1 text-[11px] font-normal">today</span>}
               </span>
-              {onSelectDay && d >= today && (
-                <button type="button" onClick={() => onSelectDay(d)} className="text-[10px] font-medium underline-offset-2 hover:underline print:hidden" style={{ color: "var(--accent-text)" }} aria-label={`Tick every gap and draft on ${dayLabel(d)}`}>
-                  tick
-                </button>
+              {onSelectDay && dayMarked && d >= today && dayMarked(d) !== "none" && (
+                <MarkBox mark={{ on: dayMarked(d) === "all", label: `Mark every shift on ${dayLabel(d)}`, onToggle: () => onSelectDay(d) }} />
               )}
             </span>
           </th>
@@ -986,6 +1073,8 @@ function ByPost({
   openByCell,
   onSelectDay,
   onCreate,
+  marking,
+  dayMarked,
 }: {
   week: RotaWeek;
   today: string;
@@ -999,6 +1088,8 @@ function ByPost({
   openByCell: Map<string, RotaOpenShift[]>;
   onSelectDay: (d: string) => void;
   onCreate: (post: RotaPost, date: string) => void;
+  marking: Marking;
+  dayMarked: (d: string) => "all" | "some" | "none";
 }) {
   const groups = useMemo(() => {
     const g: { site: string; client: string; posts: RotaPost[] }[] = [];
@@ -1021,7 +1112,7 @@ function ByPost({
   return (
     <div>
       <table className="w-full table-fixed border-collapse text-[12px]" style={{ minWidth: tableWidth(week.days.length) }}>
-        <DayHeads days={week.days} today={today} first="Post" onSelectDay={plan ? onSelectDay : undefined} />
+        <DayHeads days={week.days} today={today} first="Post" onSelectDay={onSelectDay} dayMarked={dayMarked} />
         <tbody>
           {groups.map((g) => (
             <SiteGroup
@@ -1038,6 +1129,7 @@ function ByPost({
               plan={plan}
               gapOf={gapOf}
               openByCell={openByCell}
+              marking={marking}
             />
           ))}
         </tbody>
@@ -1047,8 +1139,8 @@ function ByPost({
 }
 
 /** A gap in planning mode: tick it, or type the officer straight in. */
-function GapCell({ gap, plan, underway }: { gap: Gap; plan: Planning; underway: boolean }) {
-  const ticked = plan.selected.has(selGap(gap.key));
+function GapCell({ gap, plan, underway, marking }: { gap: Gap; plan: Planning; underway: boolean; marking: Marking }) {
+  const ticked = marking.has(selGap(gap.key));
   const value = plan.typed[gap.key] ?? "";
   const check = plan.preview[gap.key];
   const refused = check?.reason ?? plan.errors[gap.key];
@@ -1058,7 +1150,7 @@ function GapCell({ gap, plan, underway }: { gap: Gap; plan: Planning; underway: 
       style={{ borderColor: ticked ? "var(--series-1)" : refused ? "var(--status-critical)" : "var(--status-warning)", background: "var(--wash-warning)", outline: ticked ? "2px solid var(--series-1)" : undefined, outlineOffset: 1 }}
     >
       <label className="flex items-center gap-1 text-[10px] font-medium">
-        <input type="checkbox" checked={ticked} onChange={() => plan.toggle([selGap(gap.key)])} className="h-3 w-3" aria-label={`Tick ${gap.post.name}, ${dayLabel(gap.date)}`} />
+        <MarkBox mark={{ on: ticked, label: `Mark the open shift on ${gap.post.name}, ${dayLabel(gap.date)}`, onToggle: (range) => marking.mark(selGap(gap.key), gap.post.id, gap.date, range) }} className="h-3.5 w-3.5" />
         <span className="tnum tabular-nums" style={{ color: underway ? "var(--critical-text)" : "var(--text-secondary)" }}>
           {underway ? "Now" : `${gap.start}–${gap.end}`}
         </span>
@@ -1098,6 +1190,7 @@ function SiteGroup({
   plan,
   gapOf,
   openByCell,
+  marking,
 }: {
   group: { site: string; client: string; posts: RotaPost[] };
   week: RotaWeek;
@@ -1111,6 +1204,7 @@ function SiteGroup({
   plan: Planning | null;
   gapOf: Map<string, Gap>;
   openByCell: Map<string, RotaOpenShift[]>;
+  marking: Marking;
 }) {
   return (
     <>
@@ -1127,14 +1221,15 @@ function SiteGroup({
       {group.posts.map((p) => {
         const filled = week.shifts.filter((x) => x.postId === p.id && !x.cameOff).length;
         const open = week.openShifts.filter((o) => o.postId === p.id).length;
-        const rowKeys = [
-          ...week.openShifts.filter((o) => o.postId === p.id && gapOf.has(o.id)).map((o) => selGap(o.id)),
-          ...week.shifts.filter((x) => x.postId === p.id && x.state === "draft").map((x) => selShift(x.id)),
-        ];
+        const rowKeys = week.days.flatMap((d) => marking.keysOn(p.id, d));
+        const rowOn = rowKeys.length > 0 && rowKeys.every((k) => marking.has(k));
         return (
           <tr key={p.id} className="border-t align-top" style={{ borderColor: "var(--hairline)" }}>
             <th scope="row" className={`${pinned} py-2 pr-3 text-left font-normal`} style={{ background: "var(--surface-1)" }}>
-              <p className="text-[13px] font-semibold">{p.name}</p>
+              <p className="flex items-center gap-1.5 text-[13px] font-semibold">
+                {rowKeys.length > 0 && <MarkBox mark={{ on: rowOn, label: `Mark every shift on ${p.name}, ${p.siteName}`, onToggle: () => marking.toggleMany(rowKeys) }} />}
+                {p.name}
+              </p>
               <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                 {p.siteName.split(" — ")[0]}
                 {p.loneWorking && " · lone working"}
@@ -1149,11 +1244,8 @@ function SiteGroup({
                 )}
                 {p.regular && <span> · Regular: {shortName(p.regular.name)}</span>}
               </p>
-              {plan && (
+              {plan && p.regular && (
                 <div className="mt-1.5 flex flex-wrap gap-1 print:hidden">
-                  <button type="button" disabled={rowKeys.length === 0} onClick={() => plan.toggle(rowKeys)} className="h-6 rounded border px-1.5 text-[10px] font-medium disabled:opacity-40" style={{ borderColor: "var(--hairline)" }}>
-                    Tick row
-                  </button>
                   {p.regular && (
                     <button type="button" onClick={() => plan.fillRegular(p)} className="h-6 rounded border px-1.5 text-[10px] font-medium" style={{ borderColor: "var(--hairline)" }} title={`Type ${p.regular.name} into every empty open shift on this post`}>
                       Fill with {p.regular.name.split(" ")[0]}
@@ -1184,8 +1276,9 @@ function SiteGroup({
                     ))}
                     {shifts.map((s) => {
                       const st = shiftState(s, now);
-                      // Drafts, and shifts with officers that have not started, can be ticked.
-                      const pickable = !!plan && (s.state === "draft" || ((s.state === "published" || s.state === "amended") && !s.cameOff && new Date(s.startsAt) > now!));
+                      // Drafts, and shifts with officers that have not started, can be marked.
+                      const k = selShift(s.id);
+                      const markable = marking.keysOn(p.id, d).includes(k);
                       return (
                         <Chip
                           key={s.id}
@@ -1194,8 +1287,8 @@ function SiteGroup({
                           line1={shortName(s.personName)}
                           line2={`${s.start}–${s.end}`}
                           note={shiftNote(s, st)}
-                          onClick={pickable ? () => plan!.toggle([selShift(s.id)]) : openDay}
-                          selected={pickable ? plan!.selected.has(selShift(s.id)) : undefined}
+                          onClick={openDay}
+                          mark={markable ? { on: marking.has(k), label: `Mark ${s.personName}, ${p.name}, ${dayLabel(d)} ${s.start}–${s.end}`, onToggle: (range) => marking.mark(k, p.id, d, range) } : undefined}
                         />
                       );
                     })}
@@ -1210,10 +1303,11 @@ function SiteGroup({
                           </p>
                         );
                       }
-                      if (plan && gap) return <GapCell key={o.id} gap={gap} plan={plan} underway={underway} />;
+                      if (plan && gap) return <GapCell key={o.id} gap={gap} plan={plan} underway={underway} marking={marking} />;
                       return (
                         <Chip
                           key={o.id}
+                          mark={gap ? { on: marking.has(selGap(o.id)), label: `Mark the open shift on ${p.name}, ${dayLabel(d)} ${o.start}–${o.end}`, onToggle: (range) => marking.mark(selGap(o.id), p.id, d, range) } : undefined}
                           state="open"
                           title={`${p.name}, ${p.siteName}: open shift ${dayLabel(d)} ${o.start}–${o.end}${underway ? " — nobody on now" : ""}`}
                           line1={underway ? "Nobody on now" : "Open shift"}

@@ -864,21 +864,24 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   It meets WCAG AA contrast (checked with the rest), keeps still for anyone who asks for reduced
   motion, and is simple on a phone.
 
-### E43 — Removing shifts that are not needed, and doing it in one go — **answered, and built**
+### E43 — Removing shifts that are not needed: marked on the calendar — **answered, and built**
 > **"The client required shifts for one month but after ten days does not require services for the
 > last fifteen days. How will I remove those shifts? Add a little box to delete or assign those
-> shifts to someone in one go."** *(Control Room, 26 September 2026.)*
+> shifts to someone in one go."** · **"Instead of an option in the corner, I want a marking option on
+> the calendar that shows the shifts. Keep it direct on the front layout."** *(Control Room, 26
+> September 2026.)*
 
-- **Remove shifts** (Scheduling, beside *Create shifts*): tick the posts — a whole client or site at
-  once — the dates, the days of the week, and which shifts: open ones (and cover still being found),
-  drafts, and, if chosen, shifts with officers on them. *Check what will come off* shows the count,
-  the officers who will be told and the first shifts, before anything changes; a reason is required.
-  Open shifts and drafts come off; a shift with an officer on it is cancelled and the officer is told
-  in their portal and on their phone. Nothing that has started is touched, nothing is deleted, and
-  everything is recorded.
-- **Select shifts** (was *Assign in bulk*): tick shifts on the roster — open ones, drafts, or ones with
-  officers — and the box at the bottom gives the open ones to an officer, publishes drafts, or
-  **deletes them all in one go**, with the reason. Clicking a day's heading ticks that whole day.
+- **Marking is on the calendar itself**, always: every open shift, draft and shift with an officer
+  that has not started has a small box. Tick one; hold **Shift** and tick another on the same post
+  to mark every shift between them; tick a **day's heading** for the whole day, or a **post's name**
+  for the whole row. Four weeks can be on screen at once.
+- **A box appears at the bottom** as soon as anything is marked: how many, and of what — **give the
+  open ones to an officer** (it lists who is free for all of them), **publish** the drafts, or
+  **delete** them all with a reason. Open shifts and drafts go; a shift with an officer on it is
+  cancelled and the officer is told in their portal and on their phone, and the box names them
+  first. Nothing that has started is touched, nothing is deleted, and everything is recorded.
+- The separate *Remove shifts* panel was removed in favour of this; *Type in officers* (was *Assign in
+  bulk*) remains for typing PINs straight into open shifts.
 
 ## Still open from the HR scope
 
