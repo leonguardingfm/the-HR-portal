@@ -1,12 +1,17 @@
-/** Who sees whose performance: only the Managing Director sees people; managers see their own team's totals. */
+/**
+ * Who sees whom. The Managing Director: everyone. The head of a department:
+ * their own team, by name — never another department. Performance figures
+ * and the audit log: the Managing Director only.
+ */
 import { BASE, check, go, signIn, sql, text } from "./lib.mjs";
 
 export default async function oversight(browser) {
-  // A manager: their own department only, and no one by name.
+  // The head of the Control Room: their own team, by name, and nobody else's.
   const olivia = await signIn(browser, "olivia", { landing: "/reports" });
   const board = await text(olivia.locator("main"));
-  check("a manager's Department board is their own department", /Control Room/.test(board) && !/Accounts & Admin|Recruitment work|Vetting work/.test(board), board.slice(0, 300));
-  check("…with no one named from another department", !/\bPriya\b|\bDouglas\b|\bKirsty\b|\bJoel\b/.test(board), board.slice(0, 400));
+  check("the Control Room head's board is the Control Room", /Control Room/.test(board) && !/Recruitment pipeline/.test(board), board.slice(0, 300));
+  check("…showing who in the team is doing what", /Hannah Brooks|Daniel Okoye|Sam Carter/.test(board), board.slice(0, 500));
+  check("…and no one from another department", !/\bPriya\b|\bDouglas\b|\bKirsty\b|\bJoel\b/.test(board), board.slice(0, 500));
   await go(olivia, "/performance");
   check("a manager cannot open the Performance portal", new URL(olivia.url()).pathname !== "/performance", olivia.url());
   const csv = await olivia.request.get(`${BASE}/performance/export?kind=people`);
@@ -14,6 +19,13 @@ export default async function oversight(browser) {
   await go(olivia, "/system/audit");
   check("…nor the audit log", new URL(olivia.url()).pathname !== "/system/audit", olivia.url());
   await olivia.context().close();
+
+  // The head of HR: HR's people, and not the Control Room's.
+  const hr = await signIn(browser, "eleanor", { role: /Recruitment Manager|HR manager|Head of HR/i, landing: "/reports" });
+  const hrBoard = await text(hr.locator("main"));
+  check("the HR head's board shows HR's people", /\bPriya\b|\bJoel\b/.test(hrBoard), hrBoard.slice(0, 500));
+  check("…and not the Control Room's", !/Hannah Brooks|Daniel Okoye|Sam Carter/.test(hrBoard), hrBoard.slice(0, 500));
+  await hr.context().close();
 
   // The Managing Director: everyone, by name, and the whole company.
   const md = await signIn(browser, "vivien", { role: /Higher Management/, landing: "/performance?period=30d" });

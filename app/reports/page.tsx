@@ -15,10 +15,10 @@ export const dynamic = "force-dynamic";
  * The Department board: who is working on what, where the pipeline stands,
  * how long people wait in each stage, and whose desk the open work is on.
  *
- * The Managing Director sees every department and every person. Every other
- * manager sees their own department only, as team totals (26 September
- * 2026): departments stay separate, and individual figures are the Managing
- * Director's.
+ * The Managing Director sees every department and every person. The head of
+ * a department sees their own department and who in it is doing what; never
+ * another department's (26 September 2026). Portal tasks and the Performance
+ * hub's tasks are counted together.
  */
 export default async function ReportsPage() {
   const session = await requireSession();
@@ -30,7 +30,7 @@ export default async function ReportsPage() {
     <div className="space-y-5">
       <PageHeader
         title="Department board"
-        description={scope.all ? "Every department, and who is working on what — read from the records, not compiled." : `${dept.label}: who is working now and where the team's work stands. Other departments' work is theirs; individual figures are the Managing Director's.`}
+        description={scope.all ? "Every department, and who is working on what — read from the records, not compiled." : scope.perPerson ? `${dept.label}: who is working now, and who in your team is doing what. Other departments' work is theirs to see.` : `${dept.label}: who is working now and where the team's work stands.`}
       />
 
       <ActiveNow rows={presence} youUserId={session.userId} />
@@ -48,7 +48,7 @@ export default async function ReportsPage() {
 
       <Card
         title={scope.perPerson ? "Open work by who has it" : `${dept.label}'s open work`}
-        subtitle={scope.perPerson ? "For balancing the work, not for measuring people. Work still in a department's pool is shown as such." : "Taken, and still in the team's pool — for balancing the work."}
+        subtitle={scope.perPerson ? "Portal tasks and hub tasks together, for balancing the work. Work nobody has taken yet is shown as such." : "Taken, and still in the team's pool — for balancing the work."}
       >
         <WorkloadChart data={board.workload} />
       </Card>

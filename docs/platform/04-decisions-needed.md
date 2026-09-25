@@ -731,8 +731,13 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
 - **Roles:** the Managing Director gives and takes away roles (Shift Supervisor included), resets
   passwords and two-factor, and unlocks accounts, on System → People and roles. The last Managing
   Director cannot be removed. A role taken away stops working at once.
-- **The Department board:** managers see their own department only, as team totals. Only the
-  Managing Director (and the auditor) see people by name — as decided in E35.
+- **The Department board:** each department's **head** — the Operations Manager for the Control
+  Room, the HR Manager for HR, the Vetting Controller for Vetting, the Admin Manager for Admin —
+  sees their own department and who in it is doing what, by name, portal and hub tasks together;
+  never another department's. The Managing Director (and the auditor) see every department. Anyone
+  else with the board sees their own team as totals. *(Corrected 26 September 2026: "we will add
+  heads to each department … that one would have access to only their department about what is
+  happening, who is doing what.")* Performance figures stay the Managing Director's.
 - **Performance** (Managing Director only): each person, each department and the whole company, for
   any period — time to accept, act and close, within SLA, breaches and why, handovers — with a page
   per person and a spreadsheet download (itself recorded). A summary is emailed every Monday at

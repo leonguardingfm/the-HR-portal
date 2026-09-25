@@ -151,7 +151,7 @@ export default async function PermissionsPage() {
                     </th>
                   </tr>,
                   ...groupItems.map((item) => (
-                    <tr key={item.href} className="border-t" style={{ borderColor: "var(--hairline)" }}>
+                    <tr key={`${group}:${item.href}`} className="border-t" style={{ borderColor: "var(--hairline)" }}>
                       <th scope="row" className="px-1 py-2 text-left font-normal">
                         <span className="font-medium">{item.label}</span>
                         <span className="block" style={{ color: "var(--text-muted)" }}>

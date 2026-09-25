@@ -4,7 +4,7 @@ import { BASE, check, go, signIn, switchRole } from "./lib.mjs";
 const DESKS = [
   { user: "daniel.okoye", pages: ["/", "/tasks", "/hub", "/live", "/duty/check-calls", "/settings"] },
   { user: "sam.supervisor", pages: ["/", "/hub", "/duty/book-ons"] },
-  { user: "olivia", pages: ["/", "/reports", "/hub", "/hub/templates"] },
+  { user: "olivia", pages: ["/", "/reports", "/hub", "/hub/templates", "/system/permissions"] },
   { user: "priya", pages: ["/", "/tasks", "/hub", "/people"] },
   { user: "douglas", pages: ["/", "/admin/people", "/hub/templates"] },
 ];
@@ -21,7 +21,7 @@ export default async function smoke(browser) {
   }
 
   const md = await signIn(browser, "vivien", { role: /Higher Management/ });
-  for (const path of ["/performance", "/performance/settings", "/system", "/system/audit", "/system/go-live", "/hub/templates", "/reports"]) {
+  for (const path of ["/performance", "/performance/settings", "/system", "/system/audit", "/system/go-live", "/system/permissions", "/hub/templates", "/reports"]) {
     const res = await go(md, path);
     check(`the Managing Director opens ${path}`, !!res && res.status() < 400 && new URL(md.url()).pathname === path, `${res?.status()} ${md.url()}`);
   }
