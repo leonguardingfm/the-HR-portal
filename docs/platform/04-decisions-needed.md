@@ -763,6 +763,23 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
 - **Audit log** search and download for the Managing Director and the auditor; lists that are cut
   short now say so and page; tests live in the repository and run on every push.
 
+### E38 — Sign-in by encrypted JSON Web Token, on a strong private secret — **answered, and built**
+> **"Add JWT tokenization for a strong, private auth key sign-in secret."** *(26 September 2026.)*
+
+- The sign-in cookie is now a standard **JSON Web Token, encrypted** (JWE, `dir` + A256GCM, with the
+  `jose` library): tamper-proof, and unreadable to anyone holding a copy — it no longer shows the
+  person's name or roles. It carries the standard claims (issuer, audience, subject, issued, expires,
+  unique id), all checked on every page; it stops after twelve hours; and it is still checked
+  against the live account, so a suspended person or a removed role is refused at once.
+- The two-factor step has its own token, good for five minutes and for nothing else — it cannot be
+  used as a sign-in, nor a sign-in as it.
+- **The secret:** at least 32 characters of real randomness; placeholders and repetitive values are
+  refused, and a live server will not start without a strong one. `npm run secret:new` makes one.
+  Keys are derived from it for each use, never used raw.
+- **Changing it** without signing anyone out or breaking two-factor: `AUTH_SECRET_PREVIOUS`, then
+  `npm run secret:reseal`. The go-live checklist shows a change still under way.
+- Everyone signs in again once when this is deployed, because older cookies no longer open.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

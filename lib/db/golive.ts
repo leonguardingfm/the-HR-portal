@@ -6,6 +6,7 @@
 
 import { access, constants } from "node:fs/promises";
 import path from "node:path";
+import { previousAuthSecret, secretProblem } from "@/lib/auth/secret";
 import { MANUAL_CHECKS } from "@/lib/core/golive";
 import { workerHealth } from "@/lib/worker";
 import { db } from "./client";
@@ -55,10 +56,10 @@ export async function goLiveChecks(): Promise<{ checks: Check[]; manual: { key: 
     {
       key: "secret",
       group: "The server",
-      label: "A strong, private sign-in secret (AUTH_SECRET)",
-      state: secret.length >= 32 && !secret.includes("dev-only") && !secret.includes("change-me") ? "ok" : "fail",
-      detail: secret ? `Set, ${secret.length} characters.` : "Not set.",
-      fix: "Set AUTH_SECRET to at least 32 random characters: openssl rand -base64 48. Never reuse the development one.",
+      label: "A strong, private sign-in secret (AUTH_SECRET) protecting the sign-in tokens",
+      state: secretProblem(secret) ? "fail" : previousAuthSecret() ? "warn" : "ok",
+      detail: secretProblem(secret) ? `Not strong enough: ${secretProblem(secret)}.` : previousAuthSecret() ? `Strong (${secret.length} characters). A change of secret is under way — AUTH_SECRET_PREVIOUS is still set.` : `Strong (${secret.length} characters). Sign-ins are encrypted tokens that stop after twelve hours.`,
+      fix: previousAuthSecret() && !secretProblem(secret) ? "Run npm run secret:reseal, then remove AUTH_SECRET_PREVIOUS once twelve hours have passed." : "Make one with npm run secret:new and put it in the host's secret store as AUTH_SECRET. Never reuse the development one.",
     },
     { key: "url", group: "The server", label: "The portal's own address is https (APP_URL)", state: env.APP_URL?.startsWith("https://") ? "ok" : "fail", detail: env.APP_URL ? env.APP_URL : "Not set.", fix: "Set APP_URL to the portal's https address, e.g. https://portal.yourcompany.co.uk — links in emails use it." },
     {

@@ -9,7 +9,8 @@ import { DEV_SEED_PASSWORD, PASSWORD_MIN, departmentSpec, roleHome } from "@/lib
 import { ACCOUNT_LOCK, STAFF_ROLES_NEEDING_2FA, addressBlockedFor, clearFailures, noteFailure, type TwoFactorPolicy } from "@/lib/auth/limits";
 import { decoyHash, hashPassword, verifyPassword } from "@/lib/auth/password";
 import { checkCode } from "@/lib/auth/totp";
-import { appUrl, hashToken, newLinkToken, sealToken, sendEmail, unsealToken } from "@/lib/db/email";
+import { issueToken, readToken } from "@/lib/auth/jwt";
+import { appUrl, hashToken, newLinkToken, sendEmail, unsealToken } from "@/lib/db/email";
 import type { Role } from "@/lib/types";
 
 export interface SignInState {
@@ -93,7 +94,8 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
   // Two-factor: the password has opened the second step, not the portal.
   if (user.totpEnabledAt && user.totpSecret) {
     const jar = await cookies();
-    jar.set(PENDING_2FA, sealToken(JSON.stringify({ userId: user.id, next, exp: Date.now() + 5 * 60_000 })), {
+    // Its own kind of token: it opens the code step for five minutes and nothing else.
+    jar.set(PENDING_2FA, await issueToken("2fa-pending", user.id, { next }, 5 * 60), {
       httpOnly: true,
       sameSite: "lax",
       secure: process.env.NODE_ENV === "production",
@@ -108,9 +110,9 @@ export async function signIn(_prev: SignInState, formData: FormData): Promise<Si
 /** The second step: the six-digit code from their authenticator app. */
 export async function verifyTwoFactor(_prev: SignInState, formData: FormData): Promise<SignInState> {
   const jar = await cookies();
-  const raw = unsealToken(jar.get(PENDING_2FA)?.value ?? null);
-  const pending = raw ? (JSON.parse(raw) as { userId: string; next: string; exp: number }) : null;
-  if (!pending || pending.exp < Date.now()) {
+  const claims = await readToken("2fa-pending", jar.get(PENDING_2FA)?.value);
+  const pending = claims?.sub ? { userId: claims.sub, next: typeof claims.next === "string" ? claims.next : "/" } : null;
+  if (!pending) {
     jar.delete(PENDING_2FA);
     redirect("/signin?expired=1");
   }

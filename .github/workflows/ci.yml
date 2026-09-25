@@ -49,6 +49,8 @@ jobs:
         run: npm run typecheck
       - name: Who may do what
         run: npm run test:permissions
+      - name: Sign-in tokens and the secret behind them
+        run: npm run test:tokens
       - name: Colour contrast in every theme
         run: npm run test:contrast
       - name: The database's own rules

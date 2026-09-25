@@ -16,6 +16,7 @@ import { createCipheriv, createDecipheriv, createHash, randomBytes } from "node:
 import { headers } from "next/headers";
 import nodemailer, { type Transporter } from "nodemailer";
 import type { Prisma } from "@prisma/client";
+import { authSecret, previousAuthSecret } from "@/lib/auth/secret";
 import { db } from "./client";
 
 export interface OutgoingEmail {
@@ -74,11 +75,8 @@ export function newLinkToken(): { token: string; hash: string } {
 export const hashToken = (token: string) => createHash("sha256").update(token).digest("hex");
 
 /** The key a link is sealed with: the server's own secret, never stored with the data. */
-function sealKey(): Buffer {
-  const secret = process.env.AUTH_SECRET ?? (process.env.NODE_ENV === "production" ? "" : "dev-only-insecure-secret-change-me");
-  if (!secret) throw new Error("AUTH_SECRET must be set to seal links.");
-  return createHash("sha256").update(`link-seal:${secret}`).digest();
-}
+const sealKeyFor = (secret: string) => createHash("sha256").update(`link-seal:${secret}`).digest();
+const sealKey = () => sealKeyFor(authSecret());
 
 /** A link token, sealed (AES-256-GCM) so a reminder can carry it again. */
 export function sealToken(token: string): string {
@@ -88,11 +86,22 @@ export function sealToken(token: string): string {
   return [iv, c.getAuthTag(), body].map((b) => b.toString("base64url")).join(".");
 }
 
+/** Opens with the current secret — or, while it is being changed, the previous one. */
 export function unsealToken(sealed: string | null): string | null {
+  return unsealWith(sealed, authSecret()) ?? unsealWithPrevious(sealed);
+}
+
+function unsealWithPrevious(sealed: string | null): string | null {
+  const previous = previousAuthSecret();
+  return previous ? unsealWith(sealed, previous) : null;
+}
+
+/** For moving sealed values to a new secret: opens with exactly this one, or null. */
+export function unsealWith(sealed: string | null, secret: string): string | null {
   if (!sealed) return null;
   try {
     const [iv, tag, body] = sealed.split(".").map((p) => Buffer.from(p, "base64url"));
-    const d = createDecipheriv("aes-256-gcm", sealKey(), iv);
+    const d = createDecipheriv("aes-256-gcm", sealKeyFor(secret), iv);
     d.setAuthTag(tag);
     return Buffer.concat([d.update(body), d.final()]).toString("utf8");
   } catch {

@@ -1,9 +1,9 @@
 /**
  * The session.
  *
- * A signed, http-only cookie carrying the user id and the role they are
- * working as. Signed with Web Crypto rather than node:crypto so the same code
- * verifies in proxy.ts (edge runtime) and in server components.
+ * An http-only cookie carrying the user id and the role they are working as,
+ * as an encrypted JWT. Web Crypto and jose rather than node:crypto, so the
+ * same code opens it in proxy.ts and in server components.
  *
  * THIS IS THE SSO SEAM. `createSession` is called today by a development
  * sign-in that checks a person exists and holds the role. In R1 it is called
@@ -17,6 +17,7 @@
  */
 
 import type { Role } from "@/lib/types";
+import { issueToken, readToken } from "./jwt";
 
 const COOKIE = "leon_session";
 const MAX_AGE_SECONDS = 12 * 60 * 60;
@@ -40,68 +41,30 @@ export interface Session {
   must?: "password" | "2fa";
 }
 
-function secret(): string {
-  const s = process.env.AUTH_SECRET;
-  if (s && s.length >= 16) return s;
-  if (process.env.NODE_ENV === "production") {
-    throw new Error("AUTH_SECRET must be set (at least 16 characters) in production.");
-  }
-  // Development only, and deliberately obvious in a git diff.
-  return "dev-only-insecure-secret-change-me";
-}
-
-const enc = new TextEncoder();
-
-async function key(): Promise<CryptoKey> {
-  return crypto.subtle.importKey(
-    "raw",
-    enc.encode(secret()),
-    { name: "HMAC", hash: "SHA-256" },
-    false,
-    ["sign", "verify"],
-  );
-}
-
-const b64url = (bytes: ArrayBuffer | Uint8Array): string => {
-  const view = bytes instanceof Uint8Array ? bytes : new Uint8Array(bytes);
-  let s = "";
-  for (const b of view) s += String.fromCharCode(b);
-  return btoa(s).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
-};
-
-const fromB64url = (s: string): Uint8Array<ArrayBuffer> => {
-  const padded = s.replace(/-/g, "+").replace(/_/g, "/") + "=".repeat((4 - (s.length % 4)) % 4);
-  const bin = atob(padded);
-  const out = new Uint8Array(new ArrayBuffer(bin.length));
-  for (let i = 0; i < bin.length; i++) out[i] = bin.charCodeAt(i);
-  return out;
-};
-
+/**
+ * The cookie is an encrypted JSON Web Token (26 September 2026 — see
+ * lib/auth/jwt.ts): unreadable and tamper-proof, for signing in only, and
+ * stopping after twelve hours. Who it is for is the token's subject.
+ */
 export async function sign(session: Session): Promise<string> {
-  const payload = b64url(enc.encode(JSON.stringify(session)));
-  const mac = await crypto.subtle.sign("HMAC", await key(), enc.encode(payload));
-  return `${payload}.${b64url(mac)}`;
+  const { userId, issuedAt: _issuedAt, ...rest } = session;
+  return issueToken("session", userId, rest, MAX_AGE_SECONDS);
 }
 
-/** Returns null for anything that does not verify — never throws at a caller. */
+/** Returns null for anything that does not open — never throws at a caller. */
 export async function verify(token: string | undefined | null): Promise<Session | null> {
-  if (!token) return null;
-  const [payload, mac] = token.split(".");
-  if (!payload || !mac) return null;
-  try {
-    const ok = await crypto.subtle.verify(
-      "HMAC",
-      await key(),
-      fromB64url(mac),
-      enc.encode(payload),
-    );
-    if (!ok) return null;
-    const session = JSON.parse(new TextDecoder().decode(fromB64url(payload))) as Session;
-    if (Date.now() - session.issuedAt > MAX_AGE_SECONDS * 1000) return null;
-    return session;
-  } catch {
-    return null;
-  }
+  const c = await readToken("session", token);
+  if (!c || typeof c.sub !== "string" || typeof c.activeRole !== "string" || typeof c.workSessionId !== "string" || !Array.isArray(c.roles)) return null;
+  return {
+    userId: c.sub,
+    personId: String(c.personId ?? ""),
+    name: String(c.name ?? ""),
+    activeRole: c.activeRole as Role,
+    roles: c.roles as Role[],
+    workSessionId: c.workSessionId,
+    issuedAt: (c.iat ?? 0) * 1000,
+    ...(c.must === "password" || c.must === "2fa" ? { must: c.must } : {}),
+  };
 }
 
 export const SESSION_COOKIE = COOKIE;

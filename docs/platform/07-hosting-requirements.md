@@ -37,6 +37,10 @@ storage; file storage 50 GB growing about 10 GB a year. Expect about 60 staff us
   platform-managed keys as a minimum).
 - **Secrets** (below) kept in the host's secret store or protected environment settings — never in
   the code repository, never in logs.
+- **Sign-in** is an encrypted JSON Web Token (JWE: A256GCM) in an http-only, secure, same-site cookie,
+  good for twelve hours, with its key derived from `AUTH_SECRET`. The portal will not start in
+  production if `AUTH_SECRET` is missing or weak. Changing the secret needs no downtime: see
+  `AUTH_SECRET_PREVIOUS` below.
 - **Admin access** to servers and the database by named people only, with multi-factor
   authentication, and a log of who accessed what.
 - **Patching:** the operating system and Node.js kept patched (monthly, and within 7 days for
@@ -76,7 +80,8 @@ notifications.
 | Name | What |
 |---|---|
 | `DATABASE_URL` | PostgreSQL connection string (TLS required) |
-| `AUTH_SECRET` | Long random value that signs sign-ins and seals emailed links |
+| `AUTH_SECRET` | The private key material for sign-in tokens, two-factor keys and emailed links. At least 32 characters of real randomness — generate it with `npm run secret:new` (64 random bytes) and put it straight into the secret store |
+| `AUTH_SECRET_PREVIOUS` | Only while changing the secret: the old value, so nobody is signed out or loses two-factor. Then run `npm run secret:reseal`, and remove this after twelve hours |
 | `APP_URL` | The portal's public address, e.g. `https://portal.leonguarding.co.uk` |
 | `DOCUMENT_STORAGE_DIR` | The persistent encrypted volume for files (or the object-storage settings, if used) |
 | `VAPID_PUBLIC_KEY`, `VAPID_PRIVATE_KEY`, `VAPID_SUBJECT` | Phone and desk alerts |
