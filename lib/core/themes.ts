@@ -10,8 +10,8 @@ export type ThemeId =
   | "white"
   | "dark"
   | "system"
-  | "navy-tinted"
-  | "navy-shaded"
+  | "lilac-tinted"
+  | "lilac-shaded"
   | "royal-tinted"
   | "royal-shaded"
   | "gold-tinted"
@@ -19,7 +19,7 @@ export type ThemeId =
   | "teal-tinted"
   | "teal-shaded";
 
-export type Tint = "navy" | "royal" | "gold" | "teal";
+export type Tint = "lilac" | "royal" | "gold" | "teal";
 
 export interface ThemeSpec {
   id: ThemeId;
@@ -32,7 +32,7 @@ export interface ThemeSpec {
 }
 
 export const TINTS: { id: Tint; label: string }[] = [
-  { id: "navy", label: "Navy" },
+  { id: "lilac", label: "Lilac" },
   { id: "royal", label: "Royal blue" },
   { id: "gold", label: "Gold" },
   { id: "teal", label: "Teal" },
@@ -42,8 +42,8 @@ export const THEMES: ThemeSpec[] = [
   { id: "white", label: "White", mode: "light", tint: null, swatch: { page: "#f9f9f7", card: "#ffffff", accent: "#2a78d6", ink: "#0b0b0b" } },
   { id: "dark", label: "Dark", mode: "dark", tint: null, swatch: { page: "#0d0d0d", card: "#1a1a19", accent: "#3987e5", ink: "#ffffff" } },
   { id: "system", label: "Match my device", mode: "system", tint: null, swatch: { page: "#f9f9f7", card: "#1a1a19", accent: "#2a78d6", ink: "#52514e" } },
-  { id: "navy-tinted", label: "Navy, tinted", mode: "light", tint: "navy", swatch: { page: "#eef2f8", card: "#f8fafd", accent: "#0b1f3a", ink: "#0b1f3a" } },
-  { id: "navy-shaded", label: "Navy, shaded", mode: "dark", tint: "navy", swatch: { page: "#0a1424", card: "#111e33", accent: "#6f9be0", ink: "#e8eef8" } },
+  { id: "lilac-tinted", label: "Lilac, tinted", mode: "light", tint: "lilac", swatch: { page: "#f5f1fb", card: "#fcfaff", accent: "#8a6cc7", ink: "#2a1f3d" } },
+  { id: "lilac-shaded", label: "Lilac, shaded", mode: "dark", tint: "lilac", swatch: { page: "#17121f", card: "#21192d", accent: "#c3a8f0", ink: "#f1ebfb" } },
   { id: "royal-tinted", label: "Royal blue, tinted", mode: "light", tint: "royal", swatch: { page: "#eef3fd", card: "#f8faff", accent: "#1f4fbf", ink: "#0d1f4d" } },
   { id: "royal-shaded", label: "Royal blue, shaded", mode: "dark", tint: "royal", swatch: { page: "#0b1330", card: "#131e45", accent: "#7ea4ff", ink: "#e9efff" } },
   { id: "gold-tinted", label: "Gold, tinted", mode: "light", tint: "gold", swatch: { page: "#faf6ea", card: "#fdfbf4", accent: "#a67c00", ink: "#2b2208" } },

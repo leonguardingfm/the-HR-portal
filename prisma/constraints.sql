@@ -1215,9 +1215,10 @@ ALTER TABLE "HubNotice"
 -- ---------------------------------------------------------------------------
 
 -- 25a. A theme is one of the offered ones: white, dark, following the device,
--- or one of four colours tinted (light) or shaded (dark).
+-- or one of four colours tinted (light) or shaded (dark). Lilac replaced navy
+-- on 25 September 2026.
 ALTER TABLE "User"
   ADD CONSTRAINT user_theme_known
   CHECK ("theme" IN ('white', 'dark', 'system',
-    'navy-tinted', 'navy-shaded', 'royal-tinted', 'royal-shaded',
+    'lilac-tinted', 'lilac-shaded', 'royal-tinted', 'royal-shaded',
     'gold-tinted', 'gold-shaded', 'teal-tinted', 'teal-shaded'));

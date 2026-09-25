@@ -156,30 +156,30 @@
    status and chart colours keep their meaning in every theme.
 --------------------------------------------------------------------------- */
 
-:root[data-theme="light"][data-tint="navy"] {
-  --page:            #eef2f8;
-  --surface-1:       #f8fafd;
-  --text-primary:    #0b1f3a;
-  --text-secondary:  #3d4a5f;
-  --text-muted:      #7a8699;
-  --gridline:        #d9e0ec;
-  --baseline:        #b9c4d6;
-  --hairline:        rgba(11, 31, 58, 0.12);
-  --wash:            rgba(11, 31, 58, 0.05);
-  --wash-neutral:    rgba(11, 31, 58, 0.06);
+:root[data-theme="light"][data-tint="lilac"] {
+  --page:            #f5f1fb;
+  --surface-1:       #fcfaff;
+  --text-primary:    #2a1f3d;
+  --text-secondary:  #5a4d70;
+  --text-muted:      #948aa6;
+  --gridline:        #e6ddf3;
+  --baseline:        #cbbbe3;
+  --hairline:        rgba(110, 70, 170, 0.13);
+  --wash:            rgba(110, 70, 170, 0.05);
+  --wash-neutral:    rgba(110, 70, 170, 0.06);
 }
 
-:root[data-theme="dark"][data-tint="navy"] {
-  --page:            #0a1424;
-  --surface-1:       #111e33;
-  --text-primary:    #e8eef8;
-  --text-secondary:  #b8c4d8;
-  --text-muted:      #7f8ca3;
-  --gridline:        #1e2d47;
-  --baseline:        #2a3b59;
-  --hairline:        rgba(160, 190, 235, 0.14);
-  --wash:            rgba(160, 190, 235, 0.06);
-  --wash-neutral:    rgba(160, 190, 235, 0.08);
+:root[data-theme="dark"][data-tint="lilac"] {
+  --page:            #17121f;
+  --surface-1:       #21192d;
+  --text-primary:    #f1ebfb;
+  --text-secondary:  #cdc0e2;
+  --text-muted:      #9587ab;
+  --gridline:        #2f2540;
+  --baseline:        #3f3354;
+  --hairline:        rgba(205, 180, 245, 0.14);
+  --wash:            rgba(205, 180, 245, 0.06);
+  --wash-neutral:    rgba(205, 180, 245, 0.08);
 }
 
 :root[data-theme="light"][data-tint="royal"] {

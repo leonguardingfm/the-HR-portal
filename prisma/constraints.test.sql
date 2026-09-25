@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- Two hundred and fifty-eight assertions. Each one names a rule the platform claims to
+-- Two hundred and fifty-nine assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -892,7 +892,9 @@ SELECT expect_success('a critical email alarm for Control',
 -- 25. Personal settings
 -- ---------------------------------------------------------------------------
 
-SELECT expect_success('a navy theme, shaded',
+SELECT expect_success('a lilac theme, shaded',
+  $$UPDATE "User" SET theme = 'lilac-shaded' WHERE id = 'u1'$$);
+SELECT expect_failure('navy, which lilac replaced',
   $$UPDATE "User" SET theme = 'navy-shaded' WHERE id = 'u1'$$);
 SELECT expect_failure('a theme that is not offered',
   $$UPDATE "User" SET theme = 'purple' WHERE id = 'u1'$$);

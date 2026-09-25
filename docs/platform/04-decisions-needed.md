@@ -711,8 +711,8 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   name, then Sign out. The name opens a menu with their roles (when they hold more than one) and My
   settings. The Auto/Light/Dark button has moved into settings.
 - **My settings** (under Settings, below System, for everyone including officers):
-  - theme: **White** (the default), Dark, Match my device, or **Navy, Royal blue, Gold or Teal**,
-    each tinted (light) or shaded (dark);
+  - theme: **White** (the default), Dark, Match my device, or **Lilac, Royal blue, Gold or Teal**,
+    each tinted (light) or shaded (dark) — Lilac replaced Navy the same day;
   - the hub's notification sound;
   - their account details, and changing their own password.
 - The theme is saved to the person's account, applied by the server (no flash of white), and follows
