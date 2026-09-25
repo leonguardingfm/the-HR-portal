@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useState } from "react";
+import { BrandShield } from "./BrandLogo";
 import { isActive, navGroupsForRole } from "./nav";
 import type { Role } from "@/lib/types";
 
@@ -32,6 +33,9 @@ export function MobileNav({ role, locked = [] }: { role: Role; locked?: string[]
   return (
     <div className="flex flex-col gap-2">
       <div className="flex items-center gap-2">
+        <Link href="/" aria-label="Leon Guarding — home" className="shrink-0">
+          <BrandShield className="h-7 w-auto" />
+        </Link>
         <button
           type="button"
           onClick={() => setOpenMenu((v) => !v)}

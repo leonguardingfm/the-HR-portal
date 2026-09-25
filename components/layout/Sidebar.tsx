@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { BrandLogo } from "./BrandLogo";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useEffect, useState } from "react";
 import { isActive, navGroupsForRole, type NavGroup } from "./nav";
@@ -74,8 +75,10 @@ export function Sidebar({ role, userId, locked = [] }: { role: Role; userId: str
       style={{ borderColor: "var(--hairline)" }}
     >
       <div className="mb-4 px-2 pt-1">
-        <p className="text-[13px] font-semibold tracking-tight">Leon Guarding</p>
-        <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
+        <Link href="/" aria-label="Leon Guarding — home" className="block w-fit">
+          <BrandLogo className="h-12 w-auto" />
+        </Link>
+        <p className="mt-1.5 text-[11px]" style={{ color: "var(--text-muted)" }}>
           Workforce &amp; Operations
         </p>
       </div>

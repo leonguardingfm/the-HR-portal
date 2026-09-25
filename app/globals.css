@@ -369,6 +369,16 @@ html:has(.auth-shell) body {
   .auth-float, .auth-float-slow { animation: none; }
 }
 
+/* The logo inside the portal: black lettering on light themes, white on dark
+   ones — by the theme chosen, or the device's when it follows the device. */
+.brand-on-dark { display: none; }
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) .brand-on-light { display: none; }
+  :root:where(:not([data-theme="light"])) .brand-on-dark { display: block; }
+}
+:root[data-theme="dark"] .brand-on-light { display: none; }
+:root[data-theme="dark"] .brand-on-dark { display: block; }
+
 /* Keyboard focus is always visible, in every theme (26 September 2026). Only
    for the keyboard: a mouse click does not leave a ring behind. */
 :where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"]), [role="button"], [role="menuitem"], [role="menuitemradio"]):focus-visible {
