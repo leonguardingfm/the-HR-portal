@@ -29,9 +29,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   const watches = WATCHES_LIVE.includes(session.activeRole);
   const officer = session.activeRole === "officer";
   const hub = hearsHub(session.activeRole);
-  // A client sees only the pages their organisation pays for (26 September 2026).
+  // A client sees every page, and the ones their organisation has not paid for are locked (26 September 2026).
   const s = prefs.services;
-  const hidden = s ? [...(s.portal ? [] : ["/client-portal/live", "/client-portal/rota", "/client-portal/shifts", "/client-portal/incidents", "/client-portal/site-issues", "/client-portal/requests", "/client-portal/report"]), ...(s.live ? [] : ["/client-portal/live"]), ...(s.siteIssues ? [] : ["/client-portal/site-issues"])] : [];
+  const locked = s ? [...(s.portal ? [] : ["/client-portal/live", "/client-portal/rota", "/client-portal/shifts", "/client-portal/incidents", "/client-portal/site-issues", "/client-portal/requests", "/client-portal/report"]), ...(s.live ? [] : ["/client-portal/live"]), ...(s.siteIssues ? [] : ["/client-portal/site-issues"])] : [];
 
   return (
     // Every screen stays current by itself, and the alarm is on every page.
@@ -49,7 +49,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
               item knows it is the current one. Wrapped so the shell can still
               be rendered ahead of the request's search params being known. */}
           <Suspense fallback={null}>
-            <Sidebar role={session.activeRole} userId={session.userId} hidden={hidden} />
+            <Sidebar role={session.activeRole} userId={session.userId} locked={locked} />
           </Suspense>
         </div>
       </aside>
@@ -70,7 +70,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           style={{ borderColor: "var(--hairline)" }}
         >
           <Suspense fallback={null}>
-            <MobileNav role={session.activeRole} hidden={hidden} />
+            <MobileNav role={session.activeRole} locked={locked} />
           </Suspense>
         </div>
         <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 outline-none sm:px-6">

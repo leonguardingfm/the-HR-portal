@@ -50,14 +50,19 @@ export function NotLinked() {
   );
 }
 
-/** A paid extra this client does not have. Said plainly, once. */
+/** A paid extra this client does not have: listed in their menu, locked here until it is switched on. */
 export function NotInService({ title, what }: { title: string; what: string }) {
   return (
-    <Card title={title}>
-      <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-        {what} is not part of your organisation&apos;s service at the moment. If you would like it, speak to your Leon Guarding account manager.
-      </p>
-    </Card>
+    <div className="space-y-5">
+      <h1 className="text-xl font-semibold tracking-tight">
+        {title} <span aria-hidden>🔒</span>
+      </h1>
+      <Card title="Not included in your service yet">
+        <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+          {what} is an extra that is not part of your organisation&apos;s service at the moment. If you would like it, speak to your Leon Guarding account manager — it is switched on as soon as it is agreed.
+        </p>
+      </Card>
+    </div>
   );
 }
 

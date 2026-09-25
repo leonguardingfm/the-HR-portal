@@ -99,7 +99,7 @@ export function SignUpForm({
           value={dept}
           onChange={(e) => setDept(e.target.value)}
           aria-invalid={f.department ? true : undefined}
-          className="mt-1.5 h-10 w-full rounded-md border px-3 text-[13px] outline-none focus:border-[var(--series-1)] focus:ring-2 focus:ring-[var(--series-1)]/30"
+          className="mt-1.5 h-11 w-full rounded-xl border px-3.5 text-[14px] outline-none focus:border-[var(--series-1)] focus:ring-2 focus:ring-[var(--series-1)]/30"
           style={{
             background: "var(--surface-1)",
             color: dept ? "var(--text-primary)" : "var(--text-muted)",

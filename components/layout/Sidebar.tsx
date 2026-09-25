@@ -27,10 +27,10 @@ import type { Role } from "@/lib/types";
 
 const STORAGE_PREFIX = "leon.nav.open.";
 
-export function Sidebar({ role, userId, hidden = [] }: { role: Role; userId: string; hidden?: string[] }) {
+export function Sidebar({ role, userId, locked = [] }: { role: Role; userId: string; locked?: string[] }) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
-  const groups = navGroupsForRole(role, hidden);
+  const groups = navGroupsForRole(role);
 
   // Start from the defaults so the server and the first client render agree.
   // The stored preference is applied in an effect, which is also why a browser
@@ -117,20 +117,28 @@ export function Sidebar({ role, userId, hidden = [] }: { role: Role; userId: str
               <div id={panelId} hidden={!expanded} className="flex flex-col gap-0.5">
                 {items.map((item) => {
                   const active = isActive(item, pathname, search);
+                  // A client's paid extra they do not have: still listed, locked (26 September 2026).
+                  const lock = locked.includes(item.href);
                   return (
                     <Link
                       key={item.href}
                       href={item.href}
-                      title={item.purpose}
+                      title={lock ? `${item.purpose} Not included in your organisation's service.` : item.purpose}
+                      aria-label={lock ? `${item.label} (locked — not included in your service)` : undefined}
                       aria-current={active ? "page" : undefined}
                       className="flex items-center justify-between gap-2 rounded pr-2 pl-[1.4rem] py-1.5 text-[13px] transition-colors"
                       style={{
                         background: active ? "var(--wash)" : "transparent",
-                        color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                        color: active ? "var(--text-primary)" : lock ? "var(--text-muted)" : "var(--text-secondary)",
                         fontWeight: active ? 600 : 400,
                       }}
                     >
                       <span className="min-w-0 truncate">{item.label}</span>
+                      {lock && (
+                        <span aria-hidden className="shrink-0 text-[11px]">
+                          🔒
+                        </span>
+                      )}
                       {!item.built && (
                         <span
                           className="shrink-0 text-[10px]"

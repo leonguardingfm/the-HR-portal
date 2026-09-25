@@ -848,6 +848,22 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   what they find, Control sees it and can ring the client, and nothing reaches the portal — Control
   cannot share it, and records it internally.
 
+### E42 — Extras shown locked, not hidden; the account pages redesigned — **answered, and built**
+> **"Don't remove those options from the client's portal. Just don't let them be accessible until and
+> unless they are allowed."** · **"Redesign the layout of the sign-up page with our Leon Guarding
+> company logo. Keep it futuristic with a modern colour palette."** *(26 September 2026.)*
+
+- A client sees every option in their menu. The paid extras they do not have carry a 🔒; opening one
+  shows "Not included in your service yet — speak to your account manager", never the feature
+  itself. (Replaces hiding them, in E41.)
+- **Every account page** — sign in, create an account, the officer's set-up, two-factor, forgotten
+  and reset password — now shares one design after the references: always dark (this replaces
+  E36's "the sign-in page is always white"), frosted glass, Leon gold with a cool teal light, the
+  company logo (made transparent, with white lettering for the dark), a gold button, and on large
+  screens a showcase: the shield lit in gold over a grid floor, with glass cards floating above it.
+  It meets WCAG AA contrast (checked with the rest), keeps still for anyone who asks for reduced
+  motion, and is simple on a phone.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

@@ -68,6 +68,8 @@ for (const tint of ["lilac", "royal", "gold", "teal"]) {
   themes[`${name} tinted`] = { ...light, ...block(new RegExp(`:root\\[data-theme="light"\\]\\[data-tint="${tint}"\\]\\s*\\{`)) };
   themes[`${name} shaded`] = { ...dark, ...block(new RegExp(`:root\\[data-theme="dark"\\]\\[data-tint="${tint}"\\]\\s*\\{`)) };
 }
+// The account pages: always dark glass and gold, whatever the theme (26 September 2026).
+themes["Account pages (dark glass)"] = { ...light, ...block(/\.auth-shell\s*\{/) };
 
 const WHITE: Rgba = [255, 255, 255, 1];
 type Pair = { fg: string; bg: string; on?: string; min: number; what: string };
@@ -88,9 +90,12 @@ for (const line of ["--series-1", "--status-critical", "--focus-ring"]) pairs.pu
 
 let failures = 0;
 for (const [theme, t] of Object.entries(themes)) {
+  // The account pages' buttons are gold with dark text, not white on blue.
+  const own: Pair[] = t["--button-fg"] ? [{ fg: "--button-fg", bg: "--button-solid", min: TEXT, what: "text on the gold button" }] : [];
+  const skip = (p: Pair) => !!t["--button-fg"] && p.fg === "#fff" && p.bg === "--series-1";
   const get = (k: string) => (k.startsWith("#") ? parse(k) : parse(t[k] ?? (() => { throw new Error(`${theme}: ${k} is not defined`); })()));
   const rows: string[] = [];
-  for (const p of pairs) {
+  for (const p of [...pairs.filter((x) => !skip(x)), ...own]) {
     const base = p.on ? get(p.on) : get("--page");
     const bg = over(get(p.bg), base);
     const fg = over(get(p.fg), bg);
@@ -100,7 +105,7 @@ for (const [theme, t] of Object.entries(themes)) {
       rows.push(`  ✕ ${p.fg} on ${p.bg}${p.on ? ` (over ${p.on})` : ""}: ${r.toFixed(2)} — needs ${p.min} (${p.what})`);
     }
   }
-  console.log(`${rows.length ? "FAIL" : "PASS"}  ${theme}${rows.length ? "" : `  <- ${pairs.length} pairs`}`);
+  console.log(`${rows.length ? "FAIL" : "PASS"}  ${theme}${rows.length ? "" : `  <- ${pairs.length - pairs.filter(skip).length + own.length} pairs`}`);
   for (const r of rows) console.log(r);
 }
 if (failures) {

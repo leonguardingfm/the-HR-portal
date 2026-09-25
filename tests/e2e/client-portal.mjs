@@ -123,9 +123,10 @@ export default async function clientPortal(browser) {
   // --- Tom at Riverside: not Meridian's, no officer names, and only what Riverside pays for ------
   const tom = await signIn(browser, "tom.riverside");
   const tomMenu = await text(tom.locator("aside"));
-  check("Riverside pays for the portal alone: no live view or site issues in the menu", !/On duty now/.test(tomMenu) && !/Needs attention/.test(tomMenu) && /Coming up/.test(tomMenu), tomMenu);
+  const locked = await tom.locator('aside a[aria-label*="locked"]').allInnerTexts();
+  check("Riverside pays for the portal alone: live view and site issues stay in the menu, locked", /On duty now/.test(tomMenu) && /Needs attention/.test(tomMenu) && locked.length === 2 && locked.every((l) => /On duty now|Needs attention/.test(l)), `${tomMenu} | locked: ${locked.join(", ")}`);
   await go(tom, "/client-portal/live");
-  check("…and the live view by its address says it is not part of their service", /not part of your organisation.s service/.test(await text(tom.locator("main"))));
+  check("…and opening one shows it is locked, not the feature", /Not included in your service yet/.test(await text(tom.locator("main"))) && !/Officer assigned|Due at|On duty since/.test(await text(tom.locator("main"))));
   await go(tom, "/client-portal");
   check("…their overview shows the week ahead instead", /Shifts in the next 7 days/.test(await text(tom.locator("main"))));
   const other = await go(tom, `/client-portal/requests/${taskId}`);

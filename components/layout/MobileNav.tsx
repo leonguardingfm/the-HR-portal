@@ -18,10 +18,10 @@ import type { Role } from "@/lib/types";
  * The heading of the group you are in starts open; the rest are closed, which
  * is what makes the whole list reachable in one thumb's reach.
  */
-export function MobileNav({ role, hidden = [] }: { role: Role; hidden?: string[] }) {
+export function MobileNav({ role, locked = [] }: { role: Role; locked?: string[] }) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
-  const groups = navGroupsForRole(role, hidden);
+  const groups = navGroupsForRole(role);
   const [openMenu, setOpenMenu] = useState(false);
 
   const current =
@@ -77,14 +77,20 @@ export function MobileNav({ role, hidden = [] }: { role: Role; hidden?: string[]
                       href={item.href}
                       onClick={() => setOpenMenu(false)}
                       aria-current={active ? "page" : undefined}
+                      aria-label={locked.includes(item.href) ? `${item.label} (locked — not included in your service)` : undefined}
                       className="rounded px-2 py-1.5 text-[13px]"
                       style={{
                         background: active ? "var(--wash)" : "transparent",
-                        color: active ? "var(--text-primary)" : "var(--text-secondary)",
+                        color: active ? "var(--text-primary)" : locked.includes(item.href) ? "var(--text-muted)" : "var(--text-secondary)",
                         fontWeight: active ? 600 : 400,
                       }}
                     >
                       {item.label}
+                      {locked.includes(item.href) && (
+                        <span aria-hidden className="ml-1.5 text-[11px]">
+                          🔒
+                        </span>
+                      )}
                       {!item.built && (
                         <span className="ml-1.5 text-[10px]" style={{ color: "var(--text-muted)" }}>
                           plan

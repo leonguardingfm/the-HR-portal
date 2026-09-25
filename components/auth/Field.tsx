@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 
 const inputClass =
-  "h-10 w-full rounded-md border px-3 text-[13px] outline-none transition-shadow focus:border-[var(--series-1)] focus:ring-2 focus:ring-[var(--series-1)]/30";
+  "h-11 w-full rounded-xl border px-3.5 text-[14px] outline-none transition-shadow focus:border-[var(--series-1)] focus:ring-2 focus:ring-[var(--series-1)]/30";
 
 /**
  * One labelled form field. The error sits under the input and is wired to it
@@ -82,8 +82,8 @@ export function SubmitButton({ pending, children }: { pending: boolean; children
     <button
       type="submit"
       disabled={pending}
-      className="h-10 w-full rounded-md text-[13px] font-medium text-white transition-opacity hover:opacity-90 focus-visible:outline-2 focus-visible:outline-offset-2 disabled:opacity-60"
-      style={{ background: "var(--series-1)", outlineColor: "var(--series-1)" }}
+      className="h-11 w-full rounded-full text-[14px] font-semibold transition-[opacity,transform] hover:opacity-95 active:scale-[0.99] disabled:opacity-60"
+      style={{ background: "var(--button-bg, var(--series-1))", color: "var(--button-fg, #fff)" }}
     >
       {pending ? "Please wait…" : children}
     </button>

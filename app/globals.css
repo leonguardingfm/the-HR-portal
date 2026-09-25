@@ -301,6 +301,74 @@ body {
   border-color: var(--hairline);
 }
 
+/* ---------------------------------------------------------------------------
+   The account pages — sign in, create an account, two-factor, password reset
+   (26 September 2026): dark glass and Leon gold, whatever theme a person
+   later chooses. The tokens are redefined for this part of the page only, so
+   the forms inside need no changes of their own.
+--------------------------------------------------------------------------- */
+
+.auth-shell {
+  color-scheme: dark;
+  --page:            #06080c;
+  --surface-1:       rgba(0, 0, 0, 0.38);
+  --text-primary:    #f4f1ea;
+  --text-secondary:  #bdb9b0;
+  --text-muted:      #9a958b;
+  --hairline:        rgba(255, 255, 255, 0.13);
+  --wash:            rgba(255, 255, 255, 0.05);
+  --wash-neutral:    rgba(255, 255, 255, 0.07);
+  --wash-critical:   rgba(240, 90, 90, 0.16);
+  --wash-good:       rgba(80, 200, 120, 0.14);
+  --wash-warning:    rgba(232, 196, 106, 0.13);
+  --accent-text:     #e9c86f;
+  --critical-text:   #f59a9a;
+  --good-text:       #7fd896;
+  --warning-text:    #e9c86f;
+  --serious-text:    #f3a37f;
+  --gold-text:       #e9c86f;
+  --series-1:        #d9a93f;
+  --focus-ring:      #e9c86f;
+  --button-solid:    #d9a93f;
+  --button-bg:       linear-gradient(135deg, #f2d27f 0%, #d9a93f 55%, #b8862a 100%);
+  --button-fg:       #0b0b0b;
+  background: var(--page);
+  color: var(--text-primary);
+}
+html:has(.auth-shell),
+html:has(.auth-shell) body {
+  background: #06080c;
+}
+
+/* Frosted glass, after the references: light from above, a hairline edge. */
+.auth-glass {
+  background: linear-gradient(160deg, rgba(255, 255, 255, 0.085), rgba(255, 255, 255, 0.025));
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.10), 0 30px 80px -24px rgba(0, 0, 0, 0.75);
+  backdrop-filter: blur(22px) saturate(140%);
+  -webkit-backdrop-filter: blur(22px) saturate(140%);
+}
+
+/* The showcase's floor: a grid running away into the dark. */
+.auth-floor {
+  background-image: linear-gradient(rgba(233, 200, 111, 0.16) 1px, transparent 1px), linear-gradient(90deg, rgba(233, 200, 111, 0.16) 1px, transparent 1px);
+  background-size: 56px 56px;
+  transform: perspective(520px) rotateX(62deg);
+  transform-origin: 50% 0;
+  mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 60%, transparent);
+  -webkit-mask-image: linear-gradient(to bottom, transparent, #000 30%, #000 60%, transparent);
+}
+
+@keyframes auth-float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+.auth-float { animation: auth-float 7s ease-in-out infinite; }
+.auth-float-slow { animation: auth-float 9s ease-in-out infinite; animation-delay: -3s; }
+@media (prefers-reduced-motion: reduce) {
+  .auth-float, .auth-float-slow { animation: none; }
+}
+
 /* Keyboard focus is always visible, in every theme (26 September 2026). Only
    for the keyboard: a mouse click does not leave a ring behind. */
 :where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"]), [role="button"], [role="menuitem"], [role="menuitemradio"]):focus-visible {

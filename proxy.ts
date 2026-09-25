@@ -95,8 +95,8 @@ export async function proxy(req: NextRequest) {
 }
 
 export const config = {
-  // Everything except Next's own assets, the icons, the installable-app
-  // manifest and the service worker — which the browser fetches for itself and
+  // Everything except Next's own assets, the icons and the company logo, the
+  // installable-app manifest and the service worker — which the browser fetches for itself and
   // which carry nothing private.
-  matcher: ["/((?!_next/static|_next/image|icon.svg|favicon.ico|icons/|apple-icon.png|manifest.webmanifest|sw.js).*)"],
+  matcher: ["/((?!_next/static|_next/image|icon.svg|favicon.ico|icons/|brand/|apple-icon.png|manifest.webmanifest|sw.js).*)"],
 };
