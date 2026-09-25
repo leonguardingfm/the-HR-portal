@@ -1310,3 +1310,53 @@ ALTER TABLE "HubTask"
 ALTER TABLE "HubTask"
   ADD CONSTRAINT hub_task_client_update_dated
   CHECK (("clientUpdate" IS NULL) = ("clientUpdateAt" IS NULL));
+
+-- ---------------------------------------------------------------------------
+-- §28. Site issues (26 September 2026): found by an officer, approved by
+-- Control before a client sees them, confirmed fixed by an officer on site.
+-- ---------------------------------------------------------------------------
+
+-- 28a. Kept from the client only with a reason; shown to the client only in words Control approved.
+ALTER TABLE "SiteIssue"
+  ADD CONSTRAINT site_issue_kept_internal_has_reason
+  CHECK (status::text <> 'kept_internal' OR ("internalReason" IS NOT NULL AND "reviewedAt" IS NOT NULL));
+ALTER TABLE "SiteIssue"
+  ADD CONSTRAINT site_issue_shared_was_approved
+  CHECK (status::text NOT IN ('open', 'client_fixed', 'resolved') OR ("clientText" IS NOT NULL AND length(btrim("clientText")) > 0 AND "reviewedAt" IS NOT NULL AND "reviewedById" IS NOT NULL));
+
+-- 28b. "Fixed" says when the client said so; resolved means an officer checked it.
+ALTER TABLE "SiteIssue"
+  ADD CONSTRAINT site_issue_client_fixed_dated
+  CHECK (status::text <> 'client_fixed' OR "clientFixedAt" IS NOT NULL);
+ALTER TABLE "SiteIssue"
+  ADD CONSTRAINT site_issue_resolved_checked
+  CHECK (status::text <> 'resolved' OR ("resolvedAt" IS NOT NULL AND "checkedAt" IS NOT NULL));
+ALTER TABLE "SiteIssue"
+  ADD CONSTRAINT site_issue_described
+  CHECK (length(btrim("description")) >= 3);
+
+-- 28c. A photo is kept as taken: only whether the client sees it may change, and it is never deleted.
+CREATE OR REPLACE FUNCTION site_issue_photo_immutable() RETURNS trigger AS $$
+BEGIN
+  IF TG_OP = 'DELETE' THEN
+    RAISE EXCEPTION 'site_issue_photo_immutable: a site issue photo is never deleted';
+  END IF;
+  IF NEW."issueId" IS DISTINCT FROM OLD."issueId" OR NEW."storageKey" IS DISTINCT FROM OLD."storageKey" OR NEW.sha256 IS DISTINCT FROM OLD.sha256 OR NEW."mimeType" IS DISTINCT FROM OLD."mimeType" OR NEW."sizeBytes" IS DISTINCT FROM OLD."sizeBytes" THEN
+    RAISE EXCEPTION 'site_issue_photo_immutable: a site issue photo is kept as taken';
+  END IF;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER site_issue_photo_immutable
+  BEFORE UPDATE OR DELETE ON "SiteIssuePhoto"
+  FOR EACH ROW EXECUTE FUNCTION site_issue_photo_immutable();
+
+-- 28d. A work item still has exactly one subject — now including a site issue.
+ALTER TABLE "WorkItem" DROP CONSTRAINT work_item_one_subject;
+ALTER TABLE "WorkItem"
+  ADD CONSTRAINT work_item_one_subject
+  CHECK (num_nonnulls(
+    "personId", "screeningFileId", "requirementId",
+    "assignmentId", "documentId", "formResponseId", "adminItemId",
+    "coverNeedId", "openShiftId", "incidentId", "hubTaskId", "siteIssueId"
+  ) = 1);

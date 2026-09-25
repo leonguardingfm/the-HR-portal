@@ -94,7 +94,9 @@ export type ActionId =
   | "security.policy"
   | "system.golive"
   | "client.request"
-  | "client.portal";
+  | "client.portal"
+  | "client.site_issue"
+  | "site_issue.review";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -268,7 +270,10 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "account.reset": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager or the Managing Director", what: "Resetting someone's password or two-factor" },
   "security.policy": { roles: ["top_management"], owner: "the Managing Director", what: "Deciding who must use two-factor sign-in" },
   "client.request": { roles: ["client"], owner: "the client's own contacts", what: "Sending a request from the client portal" },
-  "client.portal": { roles: ["sales", "admin_manager", "top_management"], owner: "the account manager, the Admin Manager or the Managing Director", what: "Giving a client's contacts portal logins, and taking them away" },
+  // Control Room managers only (26 September 2026).
+  "client.portal": { roles: ["operations_manager", "shift_supervisor"], owner: "the Operations Manager or a Shift Supervisor", what: "Giving a client's contacts portal logins, and taking them away" },
+  "client.site_issue": { roles: ["client"], owner: "the client's own contacts", what: "Saying an issue at your site has been fixed" },
+  "site_issue.review": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "the Control Room", what: "Reviewing what officers report wrong at a site, and deciding what the client sees" },
   "system.golive": { roles: ["top_management"], owner: "the Managing Director", what: "Working through the go-live checklist, and switching off demonstration accounts" },
 };
 

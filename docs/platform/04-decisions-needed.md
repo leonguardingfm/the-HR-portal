@@ -802,10 +802,34 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   hub tasks for the right team, on the usual clocks, with the team alerted. The client sees
   *Received → In progress → Done* and whatever staff write to them ("Message the client"); closing a
   portal request needs that message. No internal notes or staff names reach the client.
-- **Logins** are made by the account manager, the Admin Manager or the Managing Director on the
-  client's *Portal access* page: temporary password shown once, the client's own password on first
+- **Logins** are made by the Control Room's managers — the Operations Manager or a Shift Supervisor,
+  and nobody else *(changed 26 September 2026)* — on the client's *Portal access* page: temporary password shown once, the client's own password on first
   sign-in, sites chosen per contact, a six-monthly "still needed" check, removal that ends access at
   once. The public sign-up no longer offers a client login.
+
+### E40 — Site issues, and only the sites we cover — **answered, and built**
+> **"An option in which the officer can share if there is some breakage or leakage or anything like
+> that to secure the client's site. Let Control approve first, and then it shows on the client
+> portal."** · Photos: the client sees the ones Control approves. · Closing: the client says it is
+> fixed, and the next officer on site confirms. · Only the sites we cover are offered to a client's
+> contacts. · Client logins: Control Room managers only. *(26 September 2026.)*
+
+- **The officer**, during a shift or up to twelve hours after, reports what they found — the kind (door
+  or lock, leak, fence or gate, lighting, fire safety, CCTV or alarm, damage, hazard, other), how
+  urgent, where on the site, what they saw — with up to four photos, shrunk on the phone to send
+  quickly. Urgent sounds Control's alarm; anything else goes on Control's list.
+- **Control** (*Site issues*, under Control Room) reviews each one: shares it with the client in words
+  Control writes, with the photos Control ticks — leaving out any that show people — or keeps it
+  internal, saying why. Nothing reaches the client before this, and the officer's own words never do.
+- **The client** (*Needs attention*) sees what to put right, with the photos, and says when it is
+  fixed. The next officer on duty at that site is asked to check: fixed closes it; not fixed reopens
+  it, and Control is told. If no officer is due there soon, Control can confirm it, saying how it
+  knows.
+- **Photos** are kept exactly as taken and never deleted; only whether the client sees one changes.
+  Another client — or anyone not entitled — gets "not found".
+- **Sites offered** to a client's contacts are only those our officers work at (a shift in the last
+  ninety days or the next sixty). A contact can be given any number of them; none ticked means all
+  of them — including any site we start covering later.
 
 ## Still open from the HR scope
 

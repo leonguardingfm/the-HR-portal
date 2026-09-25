@@ -962,3 +962,40 @@ SELECT expect_failure('a message to the client with no time',
   $$UPDATE "HubTask" SET "clientUpdate" = 'Arranged for Saturday' WHERE id = 'ht27b'$$);
 SELECT expect_success('a message to the client, dated',
   $$UPDATE "HubTask" SET "clientUpdate" = 'Arranged for Saturday', "clientUpdateAt" = now() WHERE id = 'ht27b'$$);
+
+-- ---------------------------------------------------------------------------
+-- 28. Site issues: reviewed before a client sees them, checked on site
+-- ---------------------------------------------------------------------------
+
+SELECT expect_success('an officer reports a broken lock',
+  $$INSERT INTO "SiteIssue"(id,"siteId","reportedByPersonId",kind,urgency,description) VALUES ('si1','s1','p1','door_or_lock','urgent','Fire exit lock broken')$$);
+SELECT expect_failure('…with no words at all',
+  $$INSERT INTO "SiteIssue"(id,"siteId","reportedByPersonId",kind,urgency,description) VALUES ('si0','s1','p1','damage','soon','  ')$$);
+SELECT expect_failure('shown to the client without approved words',
+  $$UPDATE "SiteIssue" SET status = 'open' WHERE id = 'si1'$$);
+SELECT expect_success('shown to the client in words Control approved',
+  $$UPDATE "SiteIssue" SET status = 'open', "clientText" = 'The fire exit lock is broken', "reviewedAt" = now(), "reviewedById" = 'u3' WHERE id = 'si1'$$);
+SELECT expect_failure('the client says fixed, with no time',
+  $$UPDATE "SiteIssue" SET status = 'client_fixed' WHERE id = 'si1'$$);
+SELECT expect_success('the client says fixed',
+  $$UPDATE "SiteIssue" SET status = 'client_fixed', "clientFixedAt" = now() WHERE id = 'si1'$$);
+SELECT expect_failure('closed without an officer checking',
+  $$UPDATE "SiteIssue" SET status = 'resolved', "resolvedAt" = now() WHERE id = 'si1'$$);
+SELECT expect_success('closed once an officer checked',
+  $$UPDATE "SiteIssue" SET status = 'resolved', "resolvedAt" = now(), "checkedAt" = now(), "checkedByPersonId" = 'p1' WHERE id = 'si1'$$);
+SELECT expect_success('another report',
+  $$INSERT INTO "SiteIssue"(id,"siteId","reportedByPersonId",kind,urgency,description) VALUES ('si2','s1','p1','lighting','routine','Car park light out')$$);
+SELECT expect_failure('kept from the client with no reason',
+  $$UPDATE "SiteIssue" SET status = 'kept_internal', "reviewedAt" = now() WHERE id = 'si2'$$);
+SELECT expect_success('kept from the client, with why',
+  $$UPDATE "SiteIssue" SET status = 'kept_internal', "reviewedAt" = now(), "internalReason" = 'Our own lamp' WHERE id = 'si2'$$);
+SELECT expect_success('a photo kept with it',
+  $$INSERT INTO "SiteIssuePhoto"(id,"issueId","storageKey","mimeType","sizeBytes",sha256) VALUES ('sp1','si1','k1','image/jpeg',10,'h')$$);
+SELECT expect_success('Control chooses to share the photo',
+  $$UPDATE "SiteIssuePhoto" SET shared = true WHERE id = 'sp1'$$);
+SELECT expect_failure('the photo swapped for another',
+  $$UPDATE "SiteIssuePhoto" SET "storageKey" = 'k2', sha256 = 'h2' WHERE id = 'sp1'$$);
+SELECT expect_failure('the photo deleted',
+  $$DELETE FROM "SiteIssuePhoto" WHERE id = 'sp1'$$);
+SELECT expect_success('an alert about a site issue has one subject',
+  $$INSERT INTO "WorkItem"(id,title,"siteIssueId","ownerRole","dueAt","slaDays") VALUES ('w28','Urgent site issue: fire exit','si1','control',now(),0)$$);

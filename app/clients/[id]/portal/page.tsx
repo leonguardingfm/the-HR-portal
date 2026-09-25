@@ -6,6 +6,7 @@ import { PageHeader } from "@/components/ui/PageHeader";
 import { canDo } from "@/lib/auth/permissions";
 import { requireSession } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
+import { coveredSiteIds } from "@/lib/db/client-portal";
 import { formatDate } from "@/lib/format";
 
 export const dynamic = "force-dynamic";
@@ -15,7 +16,8 @@ const REVIEW_DAYS = 183;
 /**
  * A client's portal logins (26 September 2026): who at the client can see it,
  * which sites each sees, and what the contract lets them see of our officers.
- * Made and removed by Leon staff only; reviewed every six months.
+ * Made and removed by the Control Room's managers only; reviewed every six
+ * months. Only sites our officers work at are offered.
  */
 export default async function ClientPortalAccessPage({ params }: { params: Promise<{ id: string }> }) {
   const session = await requireSession();
@@ -35,6 +37,10 @@ export default async function ClientPortalAccessPage({ params }: { params: Promi
     },
   });
   if (!client) notFound();
+  // Only the sites our officers work at are offered; a contact never sees the others.
+  const covered = await coveredSiteIds(client.id);
+  const pickable = client.sites.filter((s) => covered.includes(s.id));
+  const notCovered = client.sites.filter((s) => !covered.includes(s.id));
   const may = canDo(session.activeRole, "client.portal");
   const now = Date.now();
   const due = (u: { reviewedAt: Date | null; createdAt: Date }) => now - (u.reviewedAt ?? u.createdAt).getTime() > REVIEW_DAYS * 86_400_000;
@@ -50,10 +56,10 @@ export default async function ClientPortalAccessPage({ params }: { params: Promi
       </nav>
       <PageHeader
         title={`Client portal · ${client.name}`}
-        description={`${active.length} active login${active.length === 1 ? "" : "s"}. They see only ${client.name}'s own sites — never another client's — and nothing internal.${may ? "" : " Only the account manager, the Admin Manager or the Managing Director can change these."}`}
+        description={`${active.length} active login${active.length === 1 ? "" : "s"}. They see only ${client.name}'s own sites — never another client's — and nothing internal.${may ? "" : " Only the Operations Manager or a Shift Supervisor can change these."}`}
       />
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Card title="Logins" subtitle="Each is checked every six months: are they still at the client, and should they still see this?" action={may && client.active ? <AddContactForm clientId={client.id} sites={client.sites} /> : undefined}>
+        <Card title="Logins" subtitle="Each is checked every six months: are they still at the client, and should they still see this?" action={may && client.active ? <AddContactForm clientId={client.id} sites={pickable} /> : undefined}>
           {active.length === 0 ? (
             <p className="py-6 text-center text-[13px]" style={{ color: "var(--text-secondary)" }}>
               Nobody at {client.name} has a login yet.
@@ -74,11 +80,15 @@ export default async function ClientPortalAccessPage({ params }: { params: Promi
                       {u.totpEnabledAt ? " · two-factor on" : ""}
                     </p>
                   </div>
-                  {may && <ContactTools userId={u.id} sites={client.sites} chosen={u.portalSites.map((s) => s.siteId)} />}
+                  {may && <ContactTools userId={u.id} sites={pickable} chosen={u.portalSites.map((s) => s.siteId)} />}
                 </li>
               ))}
             </ul>
           )}
+          <p className="mt-3 text-[12px]" style={{ color: "var(--text-muted)" }}>
+            Sites our officers work at ({pickable.length}): {pickable.map((s) => s.name).join(", ") || "none yet"}.
+            {notCovered.length ? ` Not offered, as we do not cover them: ${notCovered.map((s) => s.name).join(", ")}.` : ""} Each contact can be given any number of these; ticking none gives them all.
+          </p>
           {removed.length > 0 && (
             <p className="mt-3 text-[12px]" style={{ color: "var(--text-muted)" }}>
               Removed: {removed.map((u) => u.displayName).join(", ")}. Their history is kept.

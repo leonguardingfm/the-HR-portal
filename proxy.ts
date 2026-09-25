@@ -30,6 +30,8 @@ const SESSION_END = "/signin/ended";
  * answers only about the person asking, so there is nothing to fence.
  */
 const ANY_SIGNED_IN = new Set(["/api/pulse", "/api/me/queue"]);
+/** Reached by anyone signed in; the route itself decides whose they are (site issue photos: Control, the officer, the client). */
+const ANY_SIGNED_IN_PREFIXES = ["/api/site-issues/photo/"];
 /**
  * The links emailed to candidates and referees. Open to anyone holding one,
  * signed in or not: the link itself is the key, checked by the page and by
@@ -59,7 +61,7 @@ export async function proxy(req: NextRequest) {
   if (!session && pathname.startsWith("/api/")) {
     return Response.json({ signedOut: true }, { status: 401 });
   }
-  if (session && ANY_SIGNED_IN.has(pathname)) return pass();
+  if (session && (ANY_SIGNED_IN.has(pathname) || ANY_SIGNED_IN_PREFIXES.some((p) => pathname.startsWith(p)))) return pass();
 
   // A new password after a reset, or two-factor where it is required, comes
   // before anything else (26 September 2026).

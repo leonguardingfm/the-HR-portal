@@ -26,6 +26,7 @@ import {
   WithdrawOfferButton,
 } from "./MyForms";
 import { OutboxPanel, useOutbox } from "./Outbox";
+import { ReportSiteIssue, SiteIssueCheck, type OfficerCheck } from "./SiteIssueForms";
 
 type Duty = LiveRow & { s: DutyStatus; start: Date; end: Date };
 
@@ -39,6 +40,8 @@ interface Props {
   openShifts: MyOpenShift[];
   availability: { said: Record<string, "available" | "unavailable">; days: CalendarDay[] };
   leave: MyLeave;
+  /** Issues at the site the officer is on now that the client says are fixed — for them to check. */
+  checks: OfficerCheck[];
 }
 
 const tel = (n: string) => `tel:${n.replace(/[^\d+]/g, "")}`;
@@ -50,7 +53,7 @@ const tel = (n: string) => `tel:${n.replace(/[^\d+]/g, "")}`;
  * shifts they could take, which days they are free, and what is coming and
  * done. Built for a phone, in a car park, at night.
  */
-export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, openShifts, availability, leave }: Props) {
+export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, openShifts, availability, leave, checks }: Props) {
   const now = useNow(30_000);
   const [notice, setNotice] = useState<ActionResult | null>(null);
   const outbox = useOutbox();
@@ -102,6 +105,10 @@ export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, open
       )}
 
       <OutboxPanel {...outbox} />
+
+      {checks.map((c) => (
+        <SiteIssueCheck key={c.id} c={c} onResult={setNotice} />
+      ))}
 
       <DeviceAlertsCard vapidKey={vapidKey} />
 
@@ -155,6 +162,9 @@ export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, open
             Something to report from {justFinished.post.name}, {justFinished.siteName}?
           </p>
           <IncidentForm assignmentId={justFinished.assignment.id} onResult={setNotice} />
+          <div className="mt-2">
+            <ReportSiteIssue assignmentId={justFinished.assignment.id} site={justFinished.siteName} onResult={setNotice} />
+          </div>
         </section>
       )}
 
@@ -490,6 +500,7 @@ function NowCard({ d, now, name, pin, onResult, queuedBookOn }: { d: Duty; now: 
         </div>
       )}
       {started && <IncidentForm assignmentId={d.assignment.id} onResult={onResult} />}
+      {started && <ReportSiteIssue assignmentId={d.assignment.id} site={d.siteName} onResult={onResult} />}
     </section>
   );
 }

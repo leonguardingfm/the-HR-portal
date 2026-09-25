@@ -56,7 +56,7 @@ export async function getPulse(session: { userId: string; personId: string; acti
           take: 60,
           select: {
             id: true, title: true, slaDays: true, createdAt: true, ownerRole: true, ownerUserId: true,
-            personId: true, assignmentId: true, coverNeedId: true, openShiftId: true, incidentId: true, hubTaskId: true,
+            personId: true, assignmentId: true, coverNeedId: true, openShiftId: true, incidentId: true, hubTaskId: true, siteIssueId: true,
             owner: { select: { displayName: true } },
             coverNeed: { select: { startsAt: true, postId: true } },
             openShift: { select: { startsAt: true, postId: true } },

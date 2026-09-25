@@ -17,9 +17,14 @@ export default async function clientPortal(browser) {
   check("the public sign-up offers no client login", !/Client Portal/.test(await text(anon.locator("main"))));
   await anon.context().close();
 
+  // --- Only the Control Room's managers make client logins --------------------------
+  const admin = await signIn(browser, "douglas", { landing: `/clients/${meridian}/portal` });
+  check("the Admin Manager cannot add client logins", !(await admin.getByRole("button", { name: "+ Add a contact" }).isVisible().catch(() => false)));
+  await admin.context().close();
+
   // --- Leon staff make a login, limited to one site ------------------------------
-  const staff = await signIn(browser, "douglas", { landing: `/clients/${meridian}/portal` });
-  check("the Admin Manager opens Meridian's portal access", /Client portal · Meridian Logistics/.test(await text(staff.locator("main"))));
+  const staff = await signIn(browser, "olivia", { landing: `/clients/${meridian}/portal` });
+  check("the Operations Manager opens Meridian's portal access", /Client portal · Meridian Logistics/.test(await text(staff.locator("main"))));
   await staff.getByRole("button", { name: "+ Add a contact" }).click();
   await staff.getByLabel("Full name").fill(`E2E Contact ${stamp}`);
   await staff.getByLabel("Work email").fill(`e2e.${stamp}@example.com`);
@@ -126,7 +131,7 @@ export default async function clientPortal(browser) {
   await tom.context().close();
 
   // --- Access removed: they cannot sign in -------------------------------------------------
-  const staff2 = await signIn(browser, "douglas", { landing: `/clients/${meridian}/portal` });
+  const staff2 = await signIn(browser, "olivia", { landing: `/clients/${meridian}/portal` });
   const row = staff2.locator("li", { hasText: `E2E Contact ${stamp}` });
   await row.getByRole("button", { name: "Remove" }).click();
   await row.getByLabel("Why").fill("E2E test finished");

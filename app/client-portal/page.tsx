@@ -5,6 +5,7 @@ import { Muted, NotLinked, Pill, Stat, ukDay, ukTime } from "@/components/client
 import { clientScope } from "@/lib/auth/client-scope";
 import { portalIncidents, portalLive, portalRequests } from "@/lib/db/client-portal";
 import { getControlPhone } from "@/lib/db/me";
+import { clientSiteIssues } from "@/lib/db/site-issues";
 
 export const dynamic = "force-dynamic";
 
@@ -24,7 +25,8 @@ export default async function ClientOverviewPage() {
     );
   }
   const now = new Date();
-  const [live, requests, incidents, phone] = await Promise.all([portalLive(scope, now), portalRequests(scope), portalIncidents(scope, new Date(now.getTime() - 30 * 86_400_000)), getControlPhone()]);
+  const [live, requests, incidents, phone, issues] = await Promise.all([portalLive(scope, now), portalRequests(scope), portalIncidents(scope, new Date(now.getTime() - 30 * 86_400_000)), getControlPhone(), clientSiteIssues(scope, now)]);
+  const toFix = issues.filter((i) => i.status === "open");
   const onDuty = live.filter((s) => s.state.startsWith("On duty"));
   const attention = live.filter((s) => s.tone === "bad" || s.tone === "warn");
   const open = requests.filter((r) => r.open);
@@ -34,9 +36,10 @@ export default async function ClientOverviewPage() {
     <div className="space-y-5">
       <PageHeader title={`${hour < 12 ? "Good morning" : hour < 18 ? "Good afternoon" : "Good evening"}, ${scope.name.split(" ")[0]}`} description={`${scope.clientName} · ${scope.sites.length} site${scope.sites.length === 1 ? "" : "s"}${scope.allSites ? "" : " shared with you"}`} />
 
-      <section aria-label="Right now" className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <section aria-label="Right now" className="grid grid-cols-2 gap-3 lg:grid-cols-5">
         <Stat label="On duty now" value={onDuty.length} detail={`${live.length - onDuty.length} more due in the next three hours`} href="/client-portal/live" />
         <Stat label="Needs attention" value={attention.length} detail={attention.length ? "Control is dealing with it" : "Everything on time"} tone={attention.length ? "warn" : "good"} href="/client-portal/live" />
+        <Stat label="Needs attention at your sites" value={toFix.length} detail={toFix.length ? `${toFix.filter((i) => i.urgency === "urgent").length ? `${toFix.filter((i) => i.urgency === "urgent").length} urgent · ` : ""}found by our officers` : "Nothing to put right"} tone={toFix.some((i) => i.urgency === "urgent") ? "bad" : toFix.length ? "warn" : "good"} href="/client-portal/site-issues" />
         <Stat label="Open requests" value={open.length} detail={open.length ? `Latest: ${open[0].ref}` : "Nothing outstanding"} href="/client-portal/requests" />
         <Stat label="Incidents, last 30 days" value={incidents.length} detail={incidents.filter((i) => i.severity === "serious").length ? `${incidents.filter((i) => i.severity === "serious").length} serious` : "None serious"} href="/client-portal/incidents" tone={incidents.some((i) => i.severity === "serious") ? "bad" : undefined} />
       </section>

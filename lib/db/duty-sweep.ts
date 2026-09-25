@@ -408,7 +408,7 @@ export async function deliverAlerts(now = new Date()): Promise<number> {
     where: { state: "open", slaDays: 0, createdAt: { gt: new Date(now.getTime() - 24 * 3_600_000) } },
     select: {
       id: true, title: true, slaDays: true, ownerRole: true, ownerUserId: true,
-      personId: true, assignmentId: true, coverNeedId: true, openShiftId: true, incidentId: true, hubTaskId: true,
+      personId: true, assignmentId: true, coverNeedId: true, openShiftId: true, incidentId: true, hubTaskId: true, siteIssueId: true,
       coverNeed: { select: { startsAt: true, postId: true } },
       openShift: { select: { startsAt: true, postId: true } },
       deliveries: { select: { at: true } },

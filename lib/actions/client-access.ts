@@ -6,11 +6,12 @@ import { hashPassword } from "@/lib/auth/password";
 import { ACTIONS, canDo, type ActionId } from "@/lib/auth/permissions";
 import { getSession } from "@/lib/auth/server";
 import { db } from "@/lib/db/client";
+import { coveredSiteIds } from "@/lib/db/client-portal";
 import { ok, refused, type ActionResult } from "./types";
 
 /**
- * Client portal logins, made and taken away by Leon staff only — the account
- * manager, the Admin Manager or the Managing Director (26 September 2026).
+ * Client portal logins, made and taken away by the Control Room's managers
+ * only — the Operations Manager or a Shift Supervisor (26 September 2026).
  * Each login belongs to one client for good, sees only the sites chosen for
  * it, and can hold no other role; the database holds all three rules too
  * (constraints §27). Every change is recorded.
@@ -30,12 +31,12 @@ function temporaryPassword(): string {
   return Array.from(crypto.getRandomValues(new Uint8Array(12)), (b) => alphabet[b % alphabet.length]).join("").replace(/(.{4})(?=.)/g, "$1-");
 }
 
-/** The sites asked for, if every one is this client's. */
+/** The sites asked for, if every one is this client's and one our officers work at. */
 async function ownSites(clientId: string, formData: FormData): Promise<string[] | null> {
   const ids = [...new Set(formData.getAll("siteId").map(String).filter(Boolean))];
   if (!ids.length) return [];
-  const found = await db.site.count({ where: { id: { in: ids }, clientId } });
-  return found === ids.length ? ids : null;
+  const covered = await coveredSiteIds(clientId);
+  return ids.every((id) => covered.includes(id)) ? ids : null;
 }
 
 /** A contact of this client, or null. */
@@ -73,7 +74,7 @@ export async function addPortalContact(clientId: string, _prev: ActionResult | n
   if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return refused("Give their work email address.");
   if (!USERNAME_PATTERN.test(username)) return refused("A username is 3–32 lower-case letters, numbers, dots, dashes or underscores.");
   const sites = await ownSites(c.id, formData);
-  if (sites === null) return refused("Choose from this client's own sites.");
+  if (sites === null) return refused("Choose from the sites our officers work at for this client.");
   if (await db.user.findFirst({ where: { OR: [{ username }, { email }] }, select: { id: true } })) return refused("That username or email is already in use.");
   const temp = temporaryPassword();
   const passwordHash = await hashPassword(temp);
@@ -95,7 +96,7 @@ export async function setContactSites(userId: string, _prev: ActionResult | null
   const u = await contactOf(userId);
   if (!u?.clientId) return refused("That is not a client portal login.");
   const sites = await ownSites(u.clientId, formData);
-  if (sites === null) return refused("Choose from this client's own sites.");
+  if (sites === null) return refused("Choose from the sites our officers work at for this client.");
   await db.$transaction([
     db.clientContactSite.deleteMany({ where: { userId: u.id } }),
     db.clientContactSite.createMany({ data: sites.map((siteId) => ({ userId: u.id, siteId })) }),

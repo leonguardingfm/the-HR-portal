@@ -38,6 +38,8 @@ export type AlertKind =
   | "officer_decision"
   | "officer_leave"
   | "hub_critical"
+  | "site_issue_urgent"
+  | "site_issue"
   | "other";
 
 interface KindSpec {
@@ -67,6 +69,9 @@ export const ALERT_KIND_SPECS: Record<AlertKind, KindSpec> = {
   incident: { prefix: "Incident reported", page: "live", severity: "serious", alarm: true, selfClosing: false },
   // A critical email on the Performance hub: closes itself when someone accepts it.
   hub_critical: { prefix: "Critical email", page: "hub", severity: "critical", alarm: true, selfClosing: true },
+  // An officer found something wrong at a client's site; Control reviews it (26 September 2026).
+  site_issue_urgent: { prefix: "Urgent site issue", page: "live", severity: "critical", alarm: true, selfClosing: true },
+  site_issue: { prefix: "Site issue to review", page: "live", severity: "warning", alarm: false, selfClosing: true },
   away_from_site: { prefix: "Selfie away from the site", page: "book-ons", severity: "serious", alarm: true, selfClosing: false },
   no_photo: { prefix: "No selfie", page: "book-ons", severity: "warning", alarm: true, selfClosing: false },
   chase: { prefix: "Chase-up not confirmed", page: "chase-ups", severity: "serious", alarm: true, selfClosing: true },
@@ -104,6 +109,7 @@ export interface QueueItem {
   openShiftId?: string | null;
   incidentId?: string | null;
   hubTaskId?: string | null;
+  siteIssueId?: string | null;
   ownerRole?: string | null;
 }
 
@@ -135,6 +141,7 @@ export function openHref(
 ): string {
   const spec = ALERT_KIND_SPECS[alertKind(w.title)];
   if (w.hubTaskId) return `/hub/${w.hubTaskId}`;
+  if (w.siteIssueId) return `/duty/site-issues#${w.siteIssueId}`;
   if (w.coverNeedId || w.openShiftId) return ctx.rotaHref ?? "/scheduling";
   if (w.incidentId) return "/live#incidents";
   if (w.assignmentId) {

@@ -105,6 +105,7 @@ model Person {
   training       TrainingRecord[]
   emails         EmailMessage[]
   hubTasks       HubTask[]
+  siteIssues     SiteIssue[]
 
   @@index([fullName])
   @@index([lifecycle])
@@ -441,6 +442,7 @@ model Site {
   exclusions     SiteExclusion[]
   hubTasks       HubTask[]
   portalContacts ClientContactSite[]
+  issues         SiteIssue[]
 
   @@unique([clientId, name])
 }
@@ -529,6 +531,7 @@ model Post {
   asks          ShiftAsk[]
   coverNeeds    CoverNeed[]
   openShifts    OpenShift[]
+  siteIssues    SiteIssue[]
 
   @@unique([siteId, name])
 }
@@ -912,6 +915,8 @@ model WorkItem {
   incidentId      String?
   /// An email or task on the Performance hub — a critical one sounds the alarm.
   hubTaskId       String?
+  /// Something an officer found wrong at a client's site, for Control to review.
+  siteIssueId     String?
 
   ownerUserId String?
   ownerRole   Role?
@@ -938,6 +943,7 @@ model WorkItem {
   openShift     OpenShift?          @relation(fields: [openShiftId], references: [id])
   incident      Incident?           @relation(fields: [incidentId], references: [id])
   hubTask       HubTask?            @relation(fields: [hubTaskId], references: [id])
+  siteIssue     SiteIssue?          @relation(fields: [siteIssueId], references: [id])
   deliveries    AlertDelivery[]
 
   @@index([ownerUserId, state, dueAt])
@@ -1634,6 +1640,7 @@ model Assignment {
   proofs        DutyProof[]
   runningLate   RunningLate[]
   welfareVisits WelfareVisit[]
+  siteIssues    SiteIssue[]
 
   @@index([startsAt, endsAt])
   @@index([personId, startsAt])
@@ -3516,4 +3523,108 @@ model ReplyTemplate {
   updatedAt   DateTime    @updatedAt @db.Timestamptz(3)
 
   @@index([category, active])
+}
+
+// ===========================================================================
+// SITE ISSUES (26 September 2026)
+// ===========================================================================
+
+/// What an officer can report wrong at a client's site.
+enum SiteIssueKind {
+  door_or_lock
+  leak_or_flood
+  fence_or_gate
+  lighting
+  fire_safety
+  cctv_or_alarm
+  damage
+  hazard
+  other
+}
+
+enum SiteIssueUrgency {
+  /// Unsafe or unsecured now — Control is alarmed at once.
+  urgent
+  /// Needs putting right within days.
+  soon
+  routine
+}
+
+/// reported → (Control) → open, or kept_internal. open → (client) →
+/// client_fixed → (an officer checks) → resolved, or back to open.
+enum SiteIssueStatus {
+  reported
+  kept_internal
+  open
+  client_fixed
+  resolved
+}
+
+/// Something wrong at a client's site — a broken lock, a leak, a gap in the
+/// fence — found by our officer. Control reviews it before the client sees
+/// it, in words Control approves, with the photos Control chooses. The client
+/// says when it is fixed; the next officer on site confirms it.
+model SiteIssue {
+  id           String  @id @default(cuid())
+  number       Int     @unique @default(autoincrement())
+  siteId       String
+  postId       String?
+  assignmentId String?
+
+  reportedByPersonId String
+  reportedByUserId   String?
+  reportedAt         DateTime         @default(now()) @db.Timestamptz(3)
+  kind               SiteIssueKind
+  urgency            SiteIssueUrgency
+  /// Where on the site: "rear fire exit, warehouse B".
+  location           String?
+  /// The officer's own words. Internal.
+  description        String
+
+  status         SiteIssueStatus @default(reported)
+  /// The words the client reads, approved by Control.
+  clientText     String?
+  reviewedById   String?
+  reviewedAt     DateTime?       @db.Timestamptz(3)
+  /// Why Control kept it from the client.
+  internalReason String?
+
+  clientFixedAt   DateTime? @db.Timestamptz(3)
+  clientFixedById String?
+  clientFixedNote String?
+
+  /// The last check by an officer on site after the client said it was fixed.
+  checkedAt         DateTime? @db.Timestamptz(3)
+  checkedByPersonId String?
+  checkedByUserId   String?
+  checkNote         String?
+  resolvedAt        DateTime? @db.Timestamptz(3)
+  reopenCount       Int       @default(0)
+
+  site       Site             @relation(fields: [siteId], references: [id])
+  post       Post?            @relation(fields: [postId], references: [id])
+  assignment Assignment?      @relation(fields: [assignmentId], references: [id])
+  reportedBy Person           @relation(fields: [reportedByPersonId], references: [id])
+  photos     SiteIssuePhoto[]
+  workItems  WorkItem[]
+
+  @@index([siteId, status])
+  @@index([status, reportedAt])
+}
+
+/// A photo of a site issue, kept as taken. Only "shared" may change, when
+/// Control chooses which photos the client sees.
+model SiteIssuePhoto {
+  id         String   @id @default(cuid())
+  issueId    String
+  storageKey String   @unique
+  mimeType   String
+  sizeBytes  Int
+  sha256     String
+  shared     Boolean  @default(false)
+  createdAt  DateTime @default(now()) @db.Timestamptz(3)
+
+  issue SiteIssue @relation(fields: [issueId], references: [id])
+
+  @@index([issueId])
 }

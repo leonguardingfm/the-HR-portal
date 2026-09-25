@@ -37,6 +37,22 @@ export interface PortalScope {
   allSites: boolean;
 }
 
+/**
+ * The sites where our officers work (26 September 2026): a site with a shift
+ * on the rota in the last ninety days or the next sixty. A client may have
+ * sites we do not cover; those are never offered, and never shown.
+ */
+export const COVERED_WINDOW = { pastDays: 90, aheadDays: 60 };
+export async function coveredSiteIds(clientId: string, now = new Date()): Promise<string[]> {
+  const from = new Date(now.getTime() - COVERED_WINDOW.pastDays * 86_400_000);
+  const to = new Date(now.getTime() + COVERED_WINDOW.aheadDays * 86_400_000);
+  const rows = await db.site.findMany({
+    where: { clientId, active: true, posts: { some: { assignments: { some: { state: { not: "cancelled" }, startsAt: { lt: to }, endsAt: { gt: from } } } } } },
+    select: { id: true },
+  });
+  return rows.map((r) => r.id);
+}
+
 /** The contact's client and sites, from the database. Null for anyone who is not a linked, active client contact. */
 export async function portalScope(session: { userId: string; activeRole: Role }): Promise<PortalScope | null> {
   if (session.activeRole !== "client") return null;
@@ -46,8 +62,11 @@ export async function portalScope(session: { userId: string; activeRole: Role })
   });
   if (!u || !u.active || u.status !== "active" || !u.clientId || !u.client || !u.client.active) return null;
   const chosen = u.portalSites.map((s) => s.siteId);
+  // Only sites we cover — and of those, the ones chosen for this contact, if any were.
+  const covered = await coveredSiteIds(u.clientId);
+  const visible = chosen.length ? covered.filter((id) => chosen.includes(id)) : covered;
   const sites = await db.site.findMany({
-    where: { clientId: u.clientId, active: true, ...(chosen.length ? { id: { in: chosen } } : {}) },
+    where: { clientId: u.clientId, id: { in: visible } },
     orderBy: { name: "asc" },
     select: { id: true, name: true, address: true },
   });
