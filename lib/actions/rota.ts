@@ -671,7 +671,9 @@ export async function publishWeek(_prev: ActionResult | null, formData: FormData
 export interface BulkEntry {
   /** The page's own name for the entry, handed back with any refusal. */
   key: string;
-  openShiftId: string;
+  /** An open shift — or, marked on the calendar, a shift needing cover after someone came off. */
+  openShiftId?: string;
+  coverNeedId?: string;
   personId: string;
 }
 
@@ -702,16 +704,49 @@ export async function bulkAssign(payload: { entries: BulkEntry[]; channel: strin
   const note = String(payload.note ?? "").trim().slice(0, 300) || "Planned in bulk";
   const now = new Date();
 
-  const open = await db.openShift.findMany({
-    where: { id: { in: entries.map((e) => String(e.openShiftId)) }, cancelledAt: null, assignmentId: null },
-    include: { post: { include: { site: true } } },
-  });
+  const [open, needs] = await Promise.all([
+    db.openShift.findMany({
+      where: { id: { in: entries.filter((e) => e?.openShiftId).map((e) => String(e.openShiftId)) }, cancelledAt: null, assignmentId: null },
+      include: { post: { include: { site: true } } },
+    }),
+    // Cover marked on the calendar (26 September 2026): the same checks, and on the rota at once.
+    // Still needing cover — or left uncovered, and someone found after all.
+    db.coverNeed.findMany({
+      where: { id: { in: entries.filter((e) => e?.coverNeedId).map((e) => String(e.coverNeedId)) }, coveredAt: null },
+      include: { post: { include: { site: true } }, from: { select: { personId: true } } },
+    }),
+  ]);
   const openOf = new Map(open.map((o) => [o.id, o]));
+  const needOf = new Map(needs.map((n) => [n.id, n]));
 
   const refusedList: { key: string; reason: string }[] = [];
-  const items: (PlanItem & { openShiftId: string })[] = [];
+  const items: (PlanItem & { openShiftId?: string; coverNeedId?: string })[] = [];
   const seen = new Set<string>();
   for (const e of entries) {
+    if (e?.coverNeedId) {
+      const n = needOf.get(String(e.coverNeedId));
+      if (!n || n.endsAt <= now) {
+        refusedList.push({ key: String(e.key ?? ""), reason: "That cover has just been settled, or its time has passed." });
+        continue;
+      }
+      if (seen.has(n.id)) {
+        refusedList.push({ key: e.key, reason: "That shift is in this plan twice." });
+        continue;
+      }
+      seen.add(n.id);
+      if (n.from.personId === String(e.personId)) {
+        refusedList.push({ key: e.key, reason: "That is the officer who came off." });
+        continue;
+      }
+      const w = fromNow({ startsAt: n.startsAt, endsAt: n.endsAt }, now);
+      const askedWrong = askProblem({ channel, answer: "yes", windows: [w], now });
+      if (askedWrong) {
+        refusedList.push({ key: e.key, reason: askedWrong });
+        continue;
+      }
+      items.push({ key: e.key, coverNeedId: n.id, postId: n.postId, personId: String(e.personId), ...w, label: `${n.post.name}, ${n.post.site.name}` });
+      continue;
+    }
     const o = openOf.get(String(e?.openShiftId));
     if (!o) {
       refusedList.push({ key: String(e?.key ?? ""), reason: "That shift has just been filled or removed." });
@@ -753,7 +788,7 @@ export async function bulkAssign(payload: { entries: BulkEntry[]; channel: strin
     exclusionsFor(personIds),
   ]);
   const personOf = new Map(people.map((p) => [p.id, p]));
-  const postOf = new Map(open.map((o) => [o.postId, o.post]));
+  const postOf = new Map([...open.map((o) => [o.postId, o.post] as const), ...needs.map((n) => [n.postId, n.post] as const)]);
 
   const group = <T extends { startsAt: Date; endsAt: Date }>(rows: T[], by: (r: T) => string, label: (r: T) => string) => {
     const m = new Map<string, Busy[]>();
@@ -778,7 +813,7 @@ export async function bulkAssign(payload: { entries: BulkEntry[]; channel: strin
   });
   refusedList.push(...plan.refused.map((r) => ({ key: r.item.key, reason: r.reason })));
   if (plan.accepted.length === 0) return { ok: false, message: "Nothing was saved — every entry was refused.", saved: 0, refused: refusedList };
-  const accepted = plan.accepted as (PlanItem & { openShiftId: string })[];
+  const accepted = plan.accepted as (PlanItem & { openShiftId?: string; coverNeedId?: string })[];
 
   try {
     await db.$transaction(
@@ -789,8 +824,8 @@ export async function bulkAssign(payload: { entries: BulkEntry[]; channel: strin
             postId: i.postId,
             startsAt: i.startsAt,
             endsAt: i.endsAt,
-            // A shift already under way is on the rota at once; the rest are drafts to publish.
-            ...(i.startsAt <= now
+            // Cover, or a shift already under way, is on the rota at once; the rest are drafts to publish.
+            ...(i.coverNeedId || i.startsAt <= now
               ? { state: "published" as const, publishedAt: now, publishedById: session.userId, publishCheckNote: "Passed with no warnings" }
               : { state: "draft" as const }),
           })),
@@ -799,7 +834,8 @@ export async function bulkAssign(payload: { entries: BulkEntry[]; channel: strin
         const idOf = new Map(made.map((m) => [`${m.personId}|${m.postId}|${m.startsAt.getTime()}`, m.id]));
         const idFor = (i: PlanItem) => idOf.get(`${i.personId}|${i.postId}|${i.startsAt.getTime()}`)!;
         for (const i of accepted) {
-          await tx.openShift.update({ where: { id: i.openShiftId }, data: { assignmentId: idFor(i) } });
+          if (i.coverNeedId) await tx.coverNeed.update({ where: { id: i.coverNeedId }, data: { coverAssignmentId: idFor(i), coveredAt: now, closedAt: null, closedReason: null, closedById: null } });
+          else await tx.openShift.update({ where: { id: i.openShiftId! }, data: { assignmentId: idFor(i) } });
         }
         await tx.shiftAsk.createMany({
           data: accepted.map((i) => ({
@@ -1074,23 +1110,28 @@ export async function declineOffer(volunteerId: string, _prev: ActionResult | nu
 export interface RemovePicked {
   openShiftIds: string[];
   assignmentIds: string[];
+  /** Shifts needing cover after someone came off: marked as not needed — left uncovered, with the reason. */
+  coverNeedIds?: string[];
 }
 
 const MAX_REMOVE = 1000;
 
-async function removalTargets(picked: RemovePicked | undefined, now: Date): Promise<{ problem: string } | { open: { id: string; label: string }[]; drafts: { id: string; label: string }[]; published: { id: string; label: string; personId: string; personName: string; userId: string | null }[]; started: number }> {
+async function removalTargets(picked: RemovePicked | undefined, now: Date): Promise<{ problem: string } | { open: { id: string; label: string }[]; cover: { id: string; label: string }[]; drafts: { id: string; label: string }[]; published: { id: string; label: string; personId: string; personName: string; userId: string | null }[]; started: number }> {
   const slot = { startsAt: true, endsAt: true, post: { select: { name: true, site: { select: { name: true } } } } } as const;
   const label = (x: { startsAt: Date; endsAt: Date; post: { name: string; site: { name: string } } }) => `${x.post.name}, ${x.post.site.name} — ${shiftLabel(x)}`;
   const openIds = [...new Set((picked?.openShiftIds ?? []).map(String))];
   const assignmentIds = [...new Set((picked?.assignmentIds ?? []).map(String))];
-  if (!openIds.length && !assignmentIds.length) return { problem: "Mark the shifts first." };
-  if (openIds.length + assignmentIds.length > MAX_REMOVE) return { problem: `That is more than ${MAX_REMOVE} shifts at once.` };
+  const coverIds = [...new Set((picked?.coverNeedIds ?? []).map(String))];
+  if (!openIds.length && !assignmentIds.length && !coverIds.length) return { problem: "Mark the shifts first." };
+  if (openIds.length + assignmentIds.length + coverIds.length > MAX_REMOVE) return { problem: `That is more than ${MAX_REMOVE} shifts at once.` };
   const openWhere: Prisma.OpenShiftWhereInput | null = openIds.length ? { id: { in: openIds }, cancelledAt: null, assignmentId: null } : null;
   const draftWhere: Prisma.AssignmentWhereInput | null = assignmentIds.length ? { id: { in: assignmentIds }, state: "draft", leftCover: null } : null;
   const publishedWhere: Prisma.AssignmentWhereInput | null = assignmentIds.length ? { id: { in: assignmentIds }, state: { in: ["published", "amended"] }, leftCover: null } : null;
 
-  const [open, drafts, published] = await Promise.all([
+  const [open, cover, drafts, published] = await Promise.all([
     openWhere ? db.openShift.findMany({ where: openWhere, select: { id: true, ...slot }, orderBy: { startsAt: "asc" }, take: MAX_REMOVE + 1 }) : [],
+    // Cover still being found is not needed either; one already under way can be given up too, so it is judged by its end.
+    coverIds.length ? db.coverNeed.findMany({ where: { id: { in: coverIds }, coveredAt: null, endsAt: { gt: now } }, select: { id: true, ...slot }, orderBy: { startsAt: "asc" } }) : [],
     draftWhere ? db.assignment.findMany({ where: draftWhere, select: { id: true, ...slot }, orderBy: { startsAt: "asc" }, take: MAX_REMOVE + 1 }) : [],
     publishedWhere
       ? db.assignment.findMany({ where: publishedWhere, select: { id: true, personId: true, person: { select: { fullName: true, user: { select: { id: true } } } }, ...slot }, orderBy: { startsAt: "asc" }, take: MAX_REMOVE + 1 })
@@ -1101,6 +1142,7 @@ async function removalTargets(picked: RemovePicked | undefined, now: Date): Prom
   const keep = <T extends { startsAt: Date }>(xs: T[]) => xs.filter(future);
   const result = {
     open: keep(open).map((x) => ({ id: x.id, label: label(x) })),
+    cover: cover.map((x) => ({ id: x.id, label: label(x) })),
     drafts: keep(drafts).map((x) => ({ id: x.id, label: label(x) })),
     published: keep(published).map((x) => ({ id: x.id, label: label(x), personId: x.personId, personName: x.person.fullName, userId: x.person.user?.id ?? null })),
     started,
@@ -1117,7 +1159,7 @@ export async function removeShifts(sel: { picked: RemovePicked; reason: string }
   const now = new Date();
   const t = await removalTargets(sel?.picked, now);
   if ("problem" in t) return refused(t.problem);
-  const total = t.open.length + t.drafts.length + t.published.length;
+  const total = t.open.length + t.cover.length + t.drafts.length + t.published.length;
   if (!total) return refused(t.started ? "Those shifts have already started — they cannot be removed." : "Those shifts have already gone.");
 
   const assignmentIds = [...t.drafts, ...t.published].map((a) => a.id);
@@ -1125,6 +1167,7 @@ export async function removeShifts(sel: { picked: RemovePicked; reason: string }
     db.openShift.updateMany({ where: { id: { in: t.open.map((o) => o.id) } }, data: { cancelledAt: now, cancelledReason: reason } }),
     // The open shift a draft or a published shift was filling is not needed either.
     db.openShift.updateMany({ where: { assignmentId: { in: assignmentIds } }, data: { assignmentId: null, cancelledAt: now, cancelledReason: reason } }),
+    db.coverNeed.updateMany({ where: { id: { in: t.cover.map((c) => c.id) } }, data: { closedAt: now, closedReason: `Not needed: ${reason}`, closedById: session.userId } }),
     db.assignment.updateMany({ where: { id: { in: assignmentIds } }, data: { state: "cancelled" } }),
     db.assignmentAmendment.createMany({ data: t.published.map((p) => ({ assignmentId: p.id, byUserId: session.userId, change: "Shift cancelled — not needed", reason, previousPersonId: p.personId })) }),
     // Each officer is told, in their portal and on their phone.
@@ -1140,7 +1183,7 @@ export async function removeShifts(sel: { picked: RemovePicked; reason: string }
         actorUserId: session.userId,
         actorRole: session.activeRole,
         department: "control",
-        detail: `${session.name} took ${total} shift${total === 1 ? "" : "s"} off the rota — ${t.open.length} open, ${t.drafts.length} draft${t.drafts.length === 1 ? "" : "s"}, ${t.published.length} with officers (who were told): ${reason}`,
+        detail: `${session.name} took ${total} shift${total === 1 ? "" : "s"} off the rota — ${t.open.length} open, ${t.cover.length} needing cover, ${t.drafts.length} draft${t.drafts.length === 1 ? "" : "s"}, ${t.published.length} with officers (who were told): ${reason}`,
       },
     }),
   ]);

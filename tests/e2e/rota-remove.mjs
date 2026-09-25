@@ -11,8 +11,8 @@ const plus = (date, n) => new Date(new Date(`${date}T12:00:00Z`).getTime() + n *
 
 // Earlier runs' test shifts, cancelled so this run's can be made on the same dates.
 const tidy = () => {
-  // The officers first — the test's own, and any put on its open shifts — then the open shifts.
-  sql(`update "Assignment" set state = 'cancelled' where (id like 'e2e-%' or id in (select "assignmentId" from "OpenShift" where id like 'e2e-%' and "assignmentId" is not null)) and state <> 'cancelled'`);
+  // The officers first — the test's own, and any put on its open shifts or its cover — then the open shifts.
+  sql(`update "Assignment" set state = 'cancelled' where (id like 'e2e-%' or id in (select "assignmentId" from "OpenShift" where id like 'e2e-%' and "assignmentId" is not null) or id in (select "coverAssignmentId" from "CoverNeed" where id like 'e2e-%' and "coverAssignmentId" is not null)) and state <> 'cancelled'`);
   sql(`update "OpenShift" set "assignmentId" = null, "cancelledAt" = coalesce("cancelledAt", now()), "cancelledReason" = coalesce("cancelledReason", 'Browser test tidy-up') where id like 'e2e-%' and ("cancelledAt" is null or "assignmentId" is not null)`);
 };
 
@@ -81,6 +81,26 @@ export default async function rotaRemove(browser) {
     await marked2.getByRole("button", { name: "Assign" }).click();
     await d.waitForTimeout(2000);
     check("…and gives them both to that officer", sql(`select count(*) from "OpenShift" where id in ('e2e-${stamp}-1','e2e-${stamp}-2') and "assignmentId" is not null`) === "2");
+  }
+
+  // --- A shift needing cover (someone came off): hovered, picked and given to an officer ----------
+  sql(`insert into "Assignment"(id,"personId","postId","startsAt","endsAt",state) values ('e2e-${stamp}-off','${officer[0]}','${post}',${at(21, "09:00")},${at(21, "17:00")},'cancelled')`);
+  sql(`insert into "CoverNeed"(id,"postId","startsAt","endsAt",reason,"fromAssignmentId","raisedById") values ('e2e-${stamp}-need','${post}',${at(21, "09:00")},${at(21, "17:00")},'sick','e2e-${stamp}-off','${control}')`);
+  await go(d, `/scheduling?week=${monday}&span=4`);
+  const needCell = row.locator("td").nth(col(plus(base, 21))).locator(".mark-host").first();
+  await needCell.hover();
+  await d.waitForTimeout(200);
+  check("hovering a shift needing cover shows its box", (await opacity(needCell.getByRole("checkbox"))) === "1");
+  await needCell.getByRole("checkbox").click();
+  const marked3 = d.getByRole("region", { name: "Marked shifts" });
+  check("…it is marked as needing cover", /1 marked/.test(await text(marked3)) && /1 needing cover/.test(await text(marked3)));
+  const coverer = await marked3.getByLabel("Give the marked open shifts to").locator("option", { hasText: "free for all 1" }).first().getAttribute("value");
+  check("…the box lists who is free — never the officer who came off", !!coverer && !/Shanice Bennett/.test(coverer ?? ""), coverer ?? "");
+  if (coverer) {
+    await marked3.getByLabel("Give the marked open shifts to").selectOption(coverer);
+    await marked3.getByRole("button", { name: "Assign" }).click();
+    await d.waitForTimeout(2000);
+    check("…and giving it covers it, on the rota at once", sql(`select (n."coveredAt" is not null) || '|' || a.state from "CoverNeed" n join "Assignment" a on a.id = n."coverAssignmentId" where n.id = 'e2e-${stamp}-need'`) === "true|published");
   }
 
   // --- A whole day, from its heading -------------------------------------------------------------

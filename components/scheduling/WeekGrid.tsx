@@ -273,6 +273,8 @@ interface Planning {
 }
 
 const gapKey = (postId: string, date: string) => `${postId}|${date}`;
+/** A shift needing cover after someone came off, marked on the calendar. */
+const selNeed = (coverNeedId: string) => `need:${coverNeedId}`;
 const selGap = (openShiftId: string) => `gap:${openShiftId}`;
 const selShift = (id: string) => `shift:${id}`;
 
@@ -445,12 +447,14 @@ export function WeekGrid({
     const m = new Map<string, string[]>();
     const add = (cell: string, key: string) => m.set(cell, [...(m.get(cell) ?? []), key]);
     for (const g of gaps) add(gapKey(g.post.id, g.date), selGap(g.key));
+    // Cover still needed, or left uncovered: someone may yet be found, or it may not be needed at all.
+    for (const n of week.coverNeeds) if (n.status !== "covered" && !!now && new Date(n.endsAt) > now) add(gapKey(n.postId, n.date), selNeed(n.id));
     for (const x of week.shifts) {
       const later = !!now && new Date(x.startsAt) > now;
       if (x.state === "draft" || ((x.state === "published" || x.state === "amended") && !x.cameOff && later)) add(gapKey(x.postId, x.date), selShift(x.id));
     }
     return m;
-  }, [gaps, week.shifts, now]);
+  }, [gaps, week.shifts, week.coverNeeds, now]);
   const lastMark = useRef<{ postId: string; date: string } | null>(null);
   const toggleMany = useCallback((keys: string[]) => {
     if (!keys.length) return;
@@ -595,11 +599,23 @@ export function WeekGrid({
     .filter((k) => k.startsWith("shift:"))
     .map((k) => k.slice(6))
     .filter((id) => week.shifts.some((x) => x.id === id && (x.state === "published" || x.state === "amended")));
-  const tickedCount = selectedGaps.length + selectedDrafts.length + selectedPublished.length;
+  const selectedNeeds = [...selected]
+    .filter((k) => k.startsWith("need:"))
+    .map((k) => k.slice(5))
+    .filter((id) => week.coverNeeds.some((n) => n.id === id && n.status !== "covered"));
+  // Everything that can be given to an officer: open shifts and cover needed.
+  const toFill: { key: string; openShiftId?: string; coverNeedId?: string; postId: string; startsAt: Date; endsAt: Date; cameOff: string | null }[] = [
+    ...selectedGaps.map((id) => ({ key: id, openShiftId: id, postId: gapOf.get(id)!.post.id, startsAt: gapOf.get(id)!.startsAt, endsAt: gapOf.get(id)!.endsAt, cameOff: null })),
+    ...selectedNeeds.map((id) => {
+      const n = week.coverNeeds.find((x) => x.id === id)!;
+      return { key: selNeed(id), coverNeedId: id, postId: n.postId, startsAt: new Date(n.startsAt), endsAt: new Date(n.endsAt), cameOff: n.fromPersonId };
+    }),
+  ];
+  const tickedCount = selectedGaps.length + selectedNeeds.length + selectedDrafts.length + selectedPublished.length;
   const [deleting, setDeleting] = useState(false);
   const [deleteWhy, setDeleteWhy] = useState("");
 
-  function send(entries: { key: string; openShiftId: string; personId: string }[]) {
+  function send(entries: { key: string; openShiftId?: string; coverNeedId?: string; personId: string }[]) {
     startSaving(async () => {
       const r = await bulkAssign({ entries, channel });
       setBulkResult(r);
@@ -607,7 +623,7 @@ export function WeekGrid({
       setErrors(refused);
       const sent = new Set(entries.map((e) => e.key));
       setTypedAll((t) => Object.fromEntries(Object.entries(t).filter(([k]) => !sent.has(k) || refused[k])));
-      setSelected((prev) => new Set([...prev].filter((k) => !(k.startsWith("gap:") && sent.has(k.slice(4)) && !refused[k.slice(4)]))));
+      setSelected((prev) => new Set([...prev].filter((k) => !((k.startsWith("gap:") && sent.has(k.slice(4)) && !refused[k.slice(4)]) || (k.startsWith("need:") && sent.has(k) && !refused[k])))));
     });
   }
   const saveTyped = () =>
@@ -620,7 +636,7 @@ export function WeekGrid({
       setBulkResult({ ok: false, message: `Assign to whom? ${r.error}.` });
       return;
     }
-    send(selectedGaps.map((key) => ({ key, openShiftId: key, personId: r.officer.id })));
+    send(toFill.map((f) => ({ key: f.key, ...(f.coverNeedId ? { coverNeedId: f.coverNeedId } : { openShiftId: f.openShiftId }), personId: r.officer.id })));
   };
   // Suggest: the ticked open shifts, or every one on screen, filled with
   // whoever is free — typed in for Control to look over, never saved unseen.
@@ -671,23 +687,23 @@ export function WeekGrid({
 
   // Who is free for the ticked open shifts, and for how many of them.
   const free = useMemo(() => {
-    if (selectedGaps.length === 0) return [];
-    const ticked = selectedGaps.map((k) => gapOf.get(k)!).filter(Boolean);
+    if (toFill.length === 0) return [];
     return week.officers
       .map((officer) => {
         const plan = planBatch(
-          ticked.map((g) => ({ key: g.key, postId: g.post.id, personId: officer.id, ...fromNow({ startsAt: g.startsAt, endsAt: g.endsAt }, now) })),
+          toFill.filter((g) => g.cameOff !== officer.id).map((g) => ({ key: g.key, postId: g.postId, personId: officer.id, ...fromNow({ startsAt: g.startsAt, endsAt: g.endsAt }, now) })),
           { busyByPerson: availability.busyByPerson, busyByPost: availability.busyByPost, weeklyHoursOf: availability.weeklyHoursOf, blockerFor: availability.blockerFor, now },
         );
         return { officer, can: plan.accepted.length };
       })
       .sort((a, b) => b.can - a.can || a.officer.name.localeCompare(b.officer.name));
-    // selectedGaps is worked out from the selection and the open shifts, so those are what it follows.
-  }, [selected, gapOf, week.officers, availability, now]);
+    // toFill is worked out from the selection, the open shifts and the cover needs, so those are what it follows.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selected, gapOf, week.officers, week.coverNeeds, availability, now]);
 
   const deleteSelected = () =>
     startSaving(async () => {
-      const r = await removeShifts({ picked: { openShiftIds: selectedGaps, assignmentIds: [...selectedDrafts, ...selectedPublished] }, reason: deleteWhy });
+      const r = await removeShifts({ picked: { openShiftIds: selectedGaps, coverNeedIds: selectedNeeds, assignmentIds: [...selectedDrafts, ...selectedPublished] }, reason: deleteWhy });
       setBulkResult(r);
       if (r.ok) {
         setSelected(new Set());
@@ -876,16 +892,16 @@ export function WeekGrid({
               <p className="mr-1 text-[13px] font-semibold" aria-live="polite">
                 {tickedCount} marked
                 <span className="ml-1.5 text-[12px] font-normal" style={{ color: "var(--text-secondary)" }}>
-                  {[selectedGaps.length && `${selectedGaps.length} open`, selectedDrafts.length && `${selectedDrafts.length} draft${selectedDrafts.length === 1 ? "" : "s"}`, selectedPublished.length && `${selectedPublished.length} with officers`].filter(Boolean).join(" · ")}
+                  {[selectedGaps.length && `${selectedGaps.length} open`, selectedNeeds.length && `${selectedNeeds.length} needing cover`, selectedDrafts.length && `${selectedDrafts.length} draft${selectedDrafts.length === 1 ? "" : "s"}`, selectedPublished.length && `${selectedPublished.length} with officers`].filter(Boolean).join(" · ")}
                 </span>
               </p>
-              {selectedGaps.length > 0 && (
+              {toFill.length > 0 && (
                 <>
                   <select value={assignTo} onChange={(e) => setAssignTo(e.target.value)} aria-label="Give the marked open shifts to" className={`${field} h-8 w-60`} style={inputStyle}>
-                    <option value="">Give the {selectedGaps.length} open to…</option>
+                    <option value="">Give the {toFill.length} unfilled to…</option>
                     {free.map((f) => (
                       <option key={f.officer.id} value={f.officer.pin ? `${f.officer.pin} ${f.officer.name}` : f.officer.name} disabled={f.can === 0}>
-                        {f.officer.name} — {f.can === selectedGaps.length ? `free for all ${f.can}` : `free for ${f.can} of ${selectedGaps.length}`}
+                        {f.officer.name} — {f.can === toFill.length ? `free for all ${f.can}` : `free for ${f.can} of ${toFill.length}`}
                       </option>
                     ))}
                   </select>
@@ -935,6 +951,7 @@ export function WeekGrid({
               <button type="button" onClick={() => setDeleting(false)} className="h-8 rounded-md px-2 text-[12px]" style={{ color: "var(--text-secondary)" }}>
                 Cancel
               </button>
+              {selectedNeeds.length > 0 && <p className="w-full text-[12px]">{selectedNeeds.length} needing cover will be recorded as not needed, with this reason, and taken off the calendar.</p>}
               {selectedPublished.length > 0 && (
                 <p className="w-full text-[12px]">
                   Officers on {selectedPublished.length === 1 ? "one of these" : `${selectedPublished.length} of these`} will be told in their portal that it is cancelled:{" "}
@@ -1267,6 +1284,7 @@ function SiteGroup({
                     {needs.map((n) => (
                       <Chip
                         key={n.id}
+                        mark={marking.keysOn(p.id, d).includes(selNeed(n.id)) ? { on: marking.has(selNeed(n.id)), label: `Mark the cover needed on ${p.name}, ${dayLabel(d)} ${n.start}–${n.end}`, onToggle: (range) => marking.mark(selNeed(n.id), p.id, d, range) } : undefined}
                         state={n.status === "open" ? "cover_needed" : "uncovered"}
                         title={`${p.name}, ${dayLabel(d)}: ${n.status === "open" ? "cover needed" : "left uncovered"} ${n.start}–${n.end}. ${n.fromName} off, ${OFF_REASON_LABELS[n.reason].toLowerCase()}`}
                         line1={n.status === "open" ? "Cover needed" : "Left uncovered"}

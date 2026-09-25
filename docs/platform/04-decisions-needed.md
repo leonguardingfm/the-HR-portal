@@ -871,13 +871,15 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
 > the calendar that shows the shifts. Keep it direct on the front layout."** *(Control Room, 26
 > September 2026.)*
 
-- **Marking is on the calendar itself**, always: every open shift, draft and shift with an officer
-  that has not started has a small box. Tick one; hold **Shift** and tick another on the same post
+- **Marking is on the calendar itself**: hover over a shift and a small box appears in its corner —
+  on every open shift, draft, shift with an officer that has not started, and shift needing cover
+  (still needed, or left uncovered) that has not ended. Once one is picked, every box shows. Tick one; hold **Shift** and tick another on the same post
   to mark every shift between them; tick a **day's heading** for the whole day, or a **post's name**
   for the whole row. Four weeks can be on screen at once.
 - **A box appears at the bottom** as soon as anything is marked: how many, and of what — **give the
   open ones to an officer** (it lists who is free for all of them), **publish** the drafts, or
-  **delete** them all with a reason. Open shifts and drafts go; a shift with an officer on it is
+  **delete** them all with a reason. Cover given this way is on the rota at once, never to the officer
+  who came off; cover deleted is recorded as not needed and leaves the calendar. Open shifts and drafts go; a shift with an officer on it is
   cancelled and the officer is told in their portal and on their phone, and the box names them
   first. Nothing that has started is touched, nothing is deleted, and everything is recorded.
 - The separate *Remove shifts* panel was removed in favour of this; *Type in officers* (was *Assign in

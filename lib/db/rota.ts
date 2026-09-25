@@ -364,7 +364,8 @@ export async function getRotaWeek(monday: string, weeks = 1) {
     officers,
     asks: rotaAsks,
     changes,
-    coverNeeds: coverNeeds.filter((c) => postIds.has(c.postId)),
+    // Cover marked as not needed on the calendar is off the rota, like a removed open shift (26 September 2026).
+    coverNeeds: coverNeeds.filter((c) => postIds.has(c.postId) && !(c.status === "closed" && c.closedReason?.startsWith("Not needed:"))),
     openShifts: openRows
       .filter((o) => postIds.has(o.postId))
       .map(
