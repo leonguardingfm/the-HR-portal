@@ -51,7 +51,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
       <div className="flex min-w-0 flex-1 flex-col">
         <div data-shell-top className="sticky top-0 z-30 print:hidden" style={{ background: "var(--page)" }}>
           <Topbar
-            name={session.name}
+            name={prefs.name ?? session.name}
             activeRole={session.activeRole}
             roles={session.roles}
             bell={hub ? <HubToasts soundOn={prefs.soundOn} /> : null}

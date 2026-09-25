@@ -57,8 +57,8 @@ async function main() {
     ]);
   }
 
-  const alpha = await actor("control.alpha.desk", "control");
-  const bravo = await actor("control.bravo.desk", "control");
+  const alpha = await actor("hannah.brooks", "control");
+  const bravo = await actor("daniel.okoye", "control");
   const supervisor: hub.Actor = { userId: sam.id, role: "shift_supervisor", name: "Sam Carter" };
   const priya = await actor("priya", "recruitment");
   const joel = await actor("joel", "recruitment");

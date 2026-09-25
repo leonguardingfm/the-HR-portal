@@ -15,7 +15,7 @@ import { refused, ok, type ActionResult } from "./types";
  * (Control, 25 September 2026).
  *
  * A task belongs to a role until somebody takes it. Taking it puts a name on
- * it — "Control Alpha desk has had this since 12:04" — and the other desk
+ * it — "Hannah Brooks has had this since 12:04" — and the other desk
  * leaves it alone. Taking over from a colleague is allowed, and says so in the
  * log, because the colleague may have gone home.
  */

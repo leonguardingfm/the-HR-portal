@@ -65,8 +65,8 @@ export const users: User[] = [
   { id: "u3", personId: "hr3", name: "Marcus", roles: ["vetting_admin", "vetting_controller"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(90) },
   { id: "u4", personId: "hr4", name: "Ruth", roles: ["vetting_admin", "vetting_controller"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(200) },
   { id: "u5", personId: "hr5", name: "Eleanor", roles: ["top_management", "recruitment_manager", "vetting_admin"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(60) },
-  { id: "u6", personId: "ct1", name: "Control Alpha desk", roles: ["control"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(300) },
-  { id: "u7", personId: "ct2", name: "Control Bravo desk", roles: ["control"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(300) },
+  { id: "u6", personId: "ct1", name: "Hannah Brooks", roles: ["control"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(300) },
+  { id: "u7", personId: "ct2", name: "Daniel Okoye", roles: ["control"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(300) },
   // The Admin department. Demonstration people, like everyone above — who
   // actually holds which role is set up in the portal, not fixed here.
   { id: "u8", personId: "hr6", name: "Kirsty", roles: ["admin_officer"], ownScreeningComplete: true, confidentialityAgreementOnFile: true, trainingReviewedAt: daysAgo(80) },
@@ -96,7 +96,7 @@ export const activeSessions: ActiveSession[] = [
   { userId: "u1", name: "Priya", activeRole: "recruitment", signedInAt: hoursAgo(3), lastSeenAt: minutesAgo(2) },
   { userId: "u3", name: "Marcus", activeRole: "vetting_admin", signedInAt: hoursAgo(5), lastSeenAt: minutesAgo(1) },
   { userId: "u4", name: "Ruth", activeRole: "vetting_controller", signedInAt: hoursAgo(1), lastSeenAt: minutesAgo(9) },
-  { userId: "u6", name: "Control Alpha desk", activeRole: "control", signedInAt: hoursAgo(7), lastSeenAt: minutesAgo(4) },
+  { userId: "u6", name: "Hannah Brooks", activeRole: "control", signedInAt: hoursAgo(7), lastSeenAt: minutesAgo(4) },
 ];
 
 // ---------------------------------------------------------------------------

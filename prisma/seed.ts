@@ -514,7 +514,7 @@ async function seedOperations() {
         amendments: {
           create: a.amendments.map((m) => ({
             at: new Date(m.at),
-            byUserId: userId(m.by === "Control Alpha" ? "Control Alpha desk" : m.by),
+            byUserId: userId(m.by === "Control Alpha" ? "Hannah Brooks" : m.by),
             change: m.change,
             reason: m.reason,
             previousPersonId: m.previousPersonId,

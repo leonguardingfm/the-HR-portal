@@ -54,8 +54,8 @@ interface Scenario {
 async function main() {
   const now = new Date(Math.floor(Date.now() / (5 * MIN)) * 5 * MIN);
   const T = now.getTime();
-  const control = await db.user.findFirst({ where: { username: "control.alpha.desk" } });
-  if (!control) throw new Error("The demo needs the control.alpha.desk account from the seed.");
+  const control = await db.user.findFirst({ where: { username: "hannah.brooks" } });
+  if (!control) throw new Error("The demo needs the hannah.brooks account from the seed.");
 
   const scenarios: Scenario[] = [
     { what: "On duty, every call on time", portal: true, post: "Vehicle gate", officer: "Adebayo O Fashola", from: -5 * H, to: 7 * H,
