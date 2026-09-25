@@ -224,6 +224,11 @@ model User {
   passwordHash String?
   department   AccountDepartment?
   status       AccountStatus      @default(active)
+  /// Their own look (25 September 2026): white by default, dark, or one of the
+  /// four colour themes tinted (light) or shaded (dark). Theirs on every device.
+  theme        String             @default("white")
+  /// Whether the Performance hub's notifications make a sound on their screens.
+  soundOn      Boolean            @default(true)
   /// Who decided a pending registration, and when.
   reviewedAt   DateTime?          @db.Timestamptz(3)
   reviewedById String?

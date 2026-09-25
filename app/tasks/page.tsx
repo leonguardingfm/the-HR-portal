@@ -22,6 +22,11 @@ export const dynamic = "force-dynamic";
  * Every task opens where its work is done, can be taken so the other desk can
  * see it is handled, and is closed from here — or closes itself, when it is an
  * alert about something that has to be put right (25 September 2026).
+ *
+ * Each department sees its own work and nobody else's: the Control Room never
+ * sees HR's list, nor HR the Control Room's (25 September 2026). Only higher
+ * management and the auditor, who oversee every department, see across them.
+ * Decided here on the server, so a changed address shows nothing more.
  */
 export default async function TasksPage({
   searchParams,
@@ -30,9 +35,11 @@ export default async function TasksPage({
 }) {
   const session = await requireSession();
   const { department } = await searchParams;
-  const dept = QUEUE_DEPARTMENTS.find((d) => d.id === department);
   const mine = departmentOfRole(session.activeRole);
-  const view: "mine" | "everything" | "department" = department === "all" ? "everything" : dept ? "department" : "mine";
+  const oversees = session.activeRole === "top_management" || session.activeRole === "auditor";
+  const visible = oversees ? QUEUE_DEPARTMENTS.filter((d) => d.id !== "management") : QUEUE_DEPARTMENTS.filter((d) => d.id === mine.id && d.id !== "management");
+  const dept = visible.find((d) => d.id === department);
+  const view: "mine" | "everything" | "department" = department === "all" && oversees ? "everything" : dept ? "department" : "mine";
 
   // Officers' own alerts live in their portal, never in a staff list.
   const notOfficers: Prisma.WorkItemWhereInput = { OR: [{ ownerRole: { not: null } }, { owner: { department: { not: "officer" } } }] };
@@ -97,8 +104,8 @@ export default async function TasksPage({
 
   const tabs = [
     { id: "", label: "Mine", title: `Yours, and ${mine.label}'s that nobody has taken` },
-    ...QUEUE_DEPARTMENTS.filter((d) => d.id !== "management").map((d) => ({ id: d.id, label: d.label, title: `Everything for ${d.label}` })),
-    { id: "all", label: "Everything", title: "Every open task in the platform" },
+    ...visible.map((d) => ({ id: d.id, label: d.label, title: `Everything for ${d.label}` })),
+    ...(oversees ? [{ id: "all", label: "Everything", title: "Every open task in the platform" }] : []),
   ];
 
   return (

@@ -112,6 +112,25 @@ export const ROLE_LABELS: Record<Role, string> = {
   officer: "Officer",
 };
 
+/** The department a role works in — what the top bar says, instead of the role (25 September 2026). */
+export const ROLE_DEPARTMENT: Record<Role, string> = {
+  control: "Control Room",
+  shift_supervisor: "Control Room",
+  operations_manager: "Control Room",
+  recruitment: "HR",
+  recruitment_manager: "HR",
+  vetting_admin: "HR · Vetting",
+  vetting_controller: "HR · Vetting",
+  admin_officer: "Admin",
+  admin_manager: "Admin",
+  finance_officer: "Admin · Finance",
+  top_management: "Management",
+  auditor: "Audit",
+  sales: "Sales",
+  client: "Client",
+  officer: "Security officer",
+};
+
 export const INTERVIEW_STAGE_LABELS: Record<InterviewStage, string> = {
   first: "First",
   second: "Second",

@@ -5,6 +5,7 @@ import { LiveProvider } from "@/components/live/Live";
 import { getSession, touchSession } from "@/lib/auth/server";
 import { HubToasts } from "@/components/hub/HubToasts";
 import { WATCHES_LIVE, getPulse, hearsHub } from "@/lib/db/pulse";
+import { preferencesOf } from "@/lib/db/preferences";
 import { vapidPublicKey } from "@/lib/db/push";
 import { MobileNav } from "./MobileNav";
 import { Sidebar } from "./Sidebar";
@@ -24,7 +25,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   if ((await headers()).get("x-leon-by-link") === "1") return <>{children}</>;
   const session = await getSession();
   if (!session) return <>{children}</>;
-  const [, pulse] = await Promise.all([touchSession(session.workSessionId), getPulse(session)]);
+  const [, pulse, prefs] = await Promise.all([touchSession(session.workSessionId), getPulse(session), preferencesOf(session.userId)]);
   const watches = WATCHES_LIVE.includes(session.activeRole);
   const officer = session.activeRole === "officer";
   const hub = hearsHub(session.activeRole);
@@ -53,7 +54,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             name={session.name}
             activeRole={session.activeRole}
             roles={session.roles}
-            bell={hub ? <HubToasts /> : null}
+            bell={hub ? <HubToasts soundOn={prefs.soundOn} /> : null}
           />
           <AlertBar vapidKey={vapidPublicKey()} />
         </div>

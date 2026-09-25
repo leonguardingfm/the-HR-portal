@@ -30,7 +30,8 @@ export type NavGroup =
   | "HR"
   | "Admin"
   | "Management"
-  | "System";
+  | "System"
+  | "Settings";
 
 export interface NavGroupSpec {
   id: NavGroup;
@@ -90,6 +91,11 @@ export const NAV_GROUP_SPECS: NavGroupSpec[] = [
     id: "System",
     defaultOpen: false,
     purpose: "Who holds which role, our own service levels, and the audit trail.",
+  },
+  {
+    id: "Settings",
+    defaultOpen: true,
+    purpose: "Your own theme, notifications and password.",
   },
 ];
 
@@ -517,6 +523,16 @@ export const NAV: NavItem[] = [
     purpose: "The domains, the shared engines and the single-source-of-truth register.",
     group: "System",
     roles: SYSTEM,
+    built: true,
+  },
+
+  // --- Settings: everyone's own ------------------------------------------------
+  {
+    href: "/settings",
+    label: "My settings",
+    purpose: "Your theme, your notifications and your password — yours only.",
+    group: "Settings",
+    roles: [...ALL, "sales", "client", "officer"],
     built: true,
   },
 ];

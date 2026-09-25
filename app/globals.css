@@ -150,6 +150,116 @@
   --brand-gold-wash: rgba(224, 187, 69, 0.16);
 }
 
+/* ---------------------------------------------------------------------------
+   Colour themes (25 September 2026): each of four colours, tinted on a light
+   page or shaded on a dark one. Only the page, cards, ink and lines change —
+   status and chart colours keep their meaning in every theme.
+--------------------------------------------------------------------------- */
+
+:root[data-theme="light"][data-tint="navy"] {
+  --page:            #eef2f8;
+  --surface-1:       #f8fafd;
+  --text-primary:    #0b1f3a;
+  --text-secondary:  #3d4a5f;
+  --text-muted:      #7a8699;
+  --gridline:        #d9e0ec;
+  --baseline:        #b9c4d6;
+  --hairline:        rgba(11, 31, 58, 0.12);
+  --wash:            rgba(11, 31, 58, 0.05);
+  --wash-neutral:    rgba(11, 31, 58, 0.06);
+}
+
+:root[data-theme="dark"][data-tint="navy"] {
+  --page:            #0a1424;
+  --surface-1:       #111e33;
+  --text-primary:    #e8eef8;
+  --text-secondary:  #b8c4d8;
+  --text-muted:      #7f8ca3;
+  --gridline:        #1e2d47;
+  --baseline:        #2a3b59;
+  --hairline:        rgba(160, 190, 235, 0.14);
+  --wash:            rgba(160, 190, 235, 0.06);
+  --wash-neutral:    rgba(160, 190, 235, 0.08);
+}
+
+:root[data-theme="light"][data-tint="royal"] {
+  --page:            #eef3fd;
+  --surface-1:       #f8faff;
+  --text-primary:    #0d1f4d;
+  --text-secondary:  #3c4b73;
+  --text-muted:      #7886a6;
+  --gridline:        #d6e1f7;
+  --baseline:        #b3c6ee;
+  --hairline:        rgba(31, 79, 191, 0.12);
+  --wash:            rgba(31, 79, 191, 0.05);
+  --wash-neutral:    rgba(31, 79, 191, 0.06);
+}
+
+:root[data-theme="dark"][data-tint="royal"] {
+  --page:            #0b1330;
+  --surface-1:       #131e45;
+  --text-primary:    #e9efff;
+  --text-secondary:  #bac6ea;
+  --text-muted:      #8090bd;
+  --gridline:        #1f2d5c;
+  --baseline:        #2c3d73;
+  --hairline:        rgba(150, 180, 255, 0.15);
+  --wash:            rgba(150, 180, 255, 0.06);
+  --wash-neutral:    rgba(150, 180, 255, 0.08);
+}
+
+:root[data-theme="light"][data-tint="gold"] {
+  --page:            #faf6ea;
+  --surface-1:       #fdfbf4;
+  --text-primary:    #2b2208;
+  --text-secondary:  #5c5031;
+  --text-muted:      #958a6c;
+  --gridline:        #ece2c4;
+  --baseline:        #d8c890;
+  --hairline:        rgba(120, 90, 10, 0.14);
+  --wash:            rgba(160, 120, 20, 0.06);
+  --wash-neutral:    rgba(160, 120, 20, 0.07);
+}
+
+:root[data-theme="dark"][data-tint="gold"] {
+  --page:            #17130a;
+  --surface-1:       #221c0f;
+  --text-primary:    #f6efdc;
+  --text-secondary:  #d8ccb0;
+  --text-muted:      #9e927a;
+  --gridline:        #33291a;
+  --baseline:        #453822;
+  --hairline:        rgba(240, 210, 140, 0.14);
+  --wash:            rgba(240, 210, 140, 0.06);
+  --wash-neutral:    rgba(240, 210, 140, 0.08);
+}
+
+:root[data-theme="light"][data-tint="teal"] {
+  --page:            #edf7f6;
+  --surface-1:       #f7fcfb;
+  --text-primary:    #082b28;
+  --text-secondary:  #355a56;
+  --text-muted:      #73918d;
+  --gridline:        #d2e9e6;
+  --baseline:        #a9d3ce;
+  --hairline:        rgba(14, 110, 100, 0.13);
+  --wash:            rgba(14, 110, 100, 0.05);
+  --wash-neutral:    rgba(14, 110, 100, 0.06);
+}
+
+:root[data-theme="dark"][data-tint="teal"] {
+  --page:            #08171a;
+  --surface-1:       #0f2226;
+  --text-primary:    #e3f5f2;
+  --text-secondary:  #b6d4d0;
+  --text-muted:      #7c9d99;
+  --gridline:        #1a3438;
+  --baseline:        #26464b;
+  --hairline:        rgba(140, 220, 210, 0.14);
+  --wash:            rgba(140, 220, 210, 0.06);
+  --wash-neutral:    rgba(140, 220, 210, 0.08);
+}
+
 html,
 body {
   background: var(--page);

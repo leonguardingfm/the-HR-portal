@@ -4,13 +4,15 @@ import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
 import { useLive } from "@/components/live/Live";
 import { soundBeep } from "@/components/live/alarm";
+import { saveSound } from "@/lib/actions/settings";
 import type { HubNoticeView } from "@/lib/db/hub-queries";
 
 /**
  * The Performance hub's notifications (Control, 25 September 2026): a stack
  * in the top-right corner that never takes the focus, never blocks typing and
  * fades by itself — critical ones stay longest. The bell keeps the last few
- * hours, and the sound can be turned off per screen.
+ * hours. Whether they sound is the person's own setting (My settings), and the
+ * bell's switch changes the same setting.
  */
 
 const LEVEL = {
@@ -21,7 +23,6 @@ const LEVEL = {
 
 const SEEN_KEY = "hub-notices-seen";
 const OPENED_KEY = "hub-notices-opened";
-const SOUND_KEY = "hub-sound";
 
 const read = (k: string) => {
   try {
@@ -36,11 +37,11 @@ const write = (k: string, v: string) => {
   } catch {}
 };
 
-export function HubToasts() {
+export function HubToasts({ soundOn = true }: { soundOn?: boolean }) {
   const { notices } = useLive();
   const [toasts, setToasts] = useState<HubNoticeView[]>([]);
   const [open, setOpen] = useState(false);
-  const [sound, setSound] = useState(true);
+  const [sound, setSound] = useState(soundOn);
   const [opened, setOpened] = useState(0);
   const seen = useRef<number | null>(null);
   // Just below the top bar and the Control alarm bar, never over their buttons.
@@ -62,11 +63,9 @@ export function HubToasts() {
   }, []);
 
   useEffect(() => {
-    try {
-      setSound(window.localStorage.getItem(SOUND_KEY) !== "off");
-    } catch {}
     setOpened(Number(read(OPENED_KEY) ?? 0));
   }, []);
+  useEffect(() => setSound(soundOn), [soundOn]);
 
   useEffect(() => {
     const newest = notices[0]?.seq ?? 0;
@@ -89,9 +88,7 @@ export function HubToasts() {
   const toggleSound = () => {
     const next = !sound;
     setSound(next);
-    try {
-      window.localStorage.setItem(SOUND_KEY, next ? "on" : "off");
-    } catch {}
+    void saveSound(next);
   };
 
   return (

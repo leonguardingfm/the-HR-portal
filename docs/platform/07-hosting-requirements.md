@@ -107,3 +107,4 @@ notifications.
 3. The backup schedule and retention, and who carries out the monthly recovery test.
 4. The contact and escalation route for outages, and the support hours.
 5. Named people with admin access, and how access is granted and removed.
+6. A monthly cost for the starting size in section 1.

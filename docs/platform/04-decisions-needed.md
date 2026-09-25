@@ -697,6 +697,28 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   Outlook, the daily HR and Control checklists, the Managing Director's performance portal with
   reports and CSV, then privacy notices.
 
+### E36 — Each department sees its own tasks; the top bar; everyone's own settings — **answered, and built**
+> **"Do not let them see each other's tasks. Control room should stay to control room and vice
+> versa."** · **Top bar: the bell, then the department instead of "working as", then the employee's
+> name, then Sign out.** · **White by default, and up to four colour themes, tinted and shaded, in
+> settings — a settings option for every individual, below System.** *(25 September 2026.)*
+
+- **My tasks:** each person sees *Mine* and their own department only. Control never sees HR's list,
+  nor HR Control's. This is decided on the server, so changing the address shows nothing more. Higher
+  management and the auditor, who oversee everything, still see every department. The Performance hub
+  was already separated by department.
+- **Top bar:** the bell, the department (for example *Control Room*, *HR · Vetting*), the person's
+  name, then Sign out. The name opens a menu with their roles (when they hold more than one) and My
+  settings. The Auto/Light/Dark button has moved into settings.
+- **My settings** (under Settings, below System, for everyone including officers):
+  - theme: **White** (the default), Dark, Match my device, or **Navy, Royal blue, Gold or Teal**,
+    each tinted (light) or shaded (dark);
+  - the hub's notification sound;
+  - their account details, and changing their own password.
+- The theme is saved to the person's account, applied by the server (no flash of white), and follows
+  them to every device. Status colours never change with the theme. The sign-in page and candidates'
+  links are always white.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them
