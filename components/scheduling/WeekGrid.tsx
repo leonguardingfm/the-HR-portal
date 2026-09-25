@@ -3,8 +3,9 @@
 import { useCallback, useEffect, useMemo, useRef, useState, useTransition, type ReactNode } from "react";
 import { useRouter } from "next/navigation";
 import { Tag } from "@/components/ui/StatusPill";
-import { bulkAssign, bulkPublish, bulkTakeOff, removeOpenShifts } from "@/lib/actions/rota";
+import { bulkAssign, bulkPublish, removeShifts } from "@/lib/actions/rota";
 import { CreateShifts } from "./CreateShifts";
+import { RemoveShifts } from "./RemoveShifts";
 import { Drawer } from "./Drawer";
 import type { ActionResult } from "@/lib/actions/types";
 import { evaluateDeployability } from "@/lib/core/deployability";
@@ -389,6 +390,7 @@ export function WeekGrid({
     return m;
   }, [week.openShifts]);
   const [creating, setCreating] = useState<{ postId?: string; date?: string } | null>(null);
+  const [removing, setRemoving] = useState(false);
   const closeCreate = useCallback(() => setCreating(null), []);
   const router = useRouter();
   // New open shifts are read by post: that is where they show. And if they
@@ -510,6 +512,14 @@ export function WeekGrid({
     .filter((k) => k.startsWith("shift:"))
     .map((k) => k.slice(6))
     .filter((id) => week.shifts.some((x) => x.id === id && x.state === "draft"));
+  // Shifts with officers on them can be ticked too — to delete them together (26 September 2026).
+  const selectedPublished = [...selected]
+    .filter((k) => k.startsWith("shift:"))
+    .map((k) => k.slice(6))
+    .filter((id) => week.shifts.some((x) => x.id === id && (x.state === "published" || x.state === "amended")));
+  const tickedCount = selectedGaps.length + selectedDrafts.length + selectedPublished.length;
+  const [deleting, setDeleting] = useState(false);
+  const [deleteWhy, setDeleteWhy] = useState("");
 
   function send(entries: { key: string; openShiftId: string; personId: string }[]) {
     startSaving(async () => {
@@ -597,10 +607,15 @@ export function WeekGrid({
     // selectedGaps is worked out from the selection and the open shifts, so those are what it follows.
   }, [selected, gapOf, week.officers, availability, now]);
 
-  const removeSelected = () =>
+  const deleteSelected = () =>
     startSaving(async () => {
-      setBulkResult(await removeOpenShifts(selectedGaps));
-      setSelected(new Set());
+      const r = await removeShifts({ picked: { openShiftIds: selectedGaps, assignmentIds: [...selectedDrafts, ...selectedPublished] }, reason: deleteWhy });
+      setBulkResult(r);
+      if (r.ok) {
+        setSelected(new Set());
+        setDeleting(false);
+        setDeleteWhy("");
+      }
     });
 
   const publishSelected = () =>
@@ -608,15 +623,11 @@ export function WeekGrid({
       setBulkResult(await bulkPublish(selectedDrafts));
       setSelected(new Set());
     });
-  const takeOffSelected = () =>
-    startSaving(async () => {
-      setBulkResult(await bulkTakeOff(selectedDrafts));
-      setSelected(new Set());
-    });
+
   const selectDay = (d: string) =>
     plan?.toggle([
       ...gaps.filter((g) => g.date === d).map((g) => selGap(g.key)),
-      ...week.shifts.filter((x) => x.date === d && x.state === "draft").map((x) => selShift(x.id)),
+      ...week.shifts.filter((x) => x.date === d && (x.state === "draft" || ((x.state === "published" || x.state === "amended") && !x.cameOff && !!now && new Date(x.startsAt) > now))).map((x) => selShift(x.id)),
     ]);
 
   return (
@@ -640,6 +651,17 @@ export function WeekGrid({
           {!buildDenied && (
             <button
               type="button"
+              onClick={() => setRemoving(true)}
+              className="h-8 rounded-md border px-3 text-[12px] font-semibold"
+              style={{ borderColor: "var(--status-critical)", color: "var(--critical-text)", background: "var(--surface-1)" }}
+              title="Take shifts that are not needed off the rota — a whole client, site or post, between two dates"
+            >
+              Remove shifts
+            </button>
+          )}
+          {!buildDenied && (
+            <button
+              type="button"
               onClick={() => setCreating({})}
               className="h-8 rounded-md px-3 text-[12px] font-semibold text-white"
               style={{ background: "var(--series-1)" }}
@@ -659,7 +681,7 @@ export function WeekGrid({
               className="h-8 rounded-md border px-3 text-[12px] font-semibold"
               style={planning ? { background: "var(--series-1)", color: "#fff", borderColor: "var(--series-1)" } : { borderColor: "var(--series-1)", color: "var(--accent-text)", background: "var(--surface-1)" }}
             >
-              {planning ? "Done assigning" : "Assign in bulk"}
+              {planning ? "Done" : "Select shifts"}
             </button>
           )}
           <button type="button" onClick={() => window.print()} className="h-8 rounded-md border px-3 text-[12px]" style={{ borderColor: "var(--hairline)", background: "var(--surface-1)" }}>
@@ -670,9 +692,10 @@ export function WeekGrid({
 
       {planning && (
         <p className="mb-3 rounded-md px-3 py-2 text-[12px] leading-relaxed print:hidden" style={{ background: "var(--roster-draft-wash)" }}>
-          <strong>Assigning in bulk.</strong> Type a PIN or name into any open shift, let <em>Suggest officers</em> fill them with whoever is
-          free, or tick shifts and pick from who is free for all of them. Each entry is checked as you type — cleared to deploy, not on
-          leave, no clash, inside their weekly hours — and saved together as drafts. Tick drafts to publish or take them off together.
+          <strong>Selecting shifts.</strong> Tick shifts on the roster — open ones, drafts, or ones with officers — and use the box at the
+          bottom: give the open ones to an officer, publish drafts, or delete them all in one go. You can also type a PIN or name straight into
+          an open shift, or let <em>Suggest officers</em> fill them. Every entry is checked — cleared to deploy, not on leave, no clash, inside
+          their weekly hours. For a whole period, use <em>Remove shifts</em>.
         </p>
       )}
       <datalist id="rota-officers">
@@ -774,8 +797,9 @@ export function WeekGrid({
             </div>
             <span className="hidden h-6 border-l sm:block" style={{ borderColor: "var(--hairline)" }} />
             <div className="flex flex-wrap items-center gap-2">
-              <span className="text-[12px] font-medium">
-                {selectedGaps.length} open shift{selectedGaps.length === 1 ? "" : "s"} · {selectedDrafts.length} draft{selectedDrafts.length === 1 ? "" : "s"} ticked
+              <span className="text-[12px] font-medium" aria-live="polite">
+                {tickedCount ? `${tickedCount} ticked: ` : "Nothing ticked yet · "}
+                {selectedGaps.length} open · {selectedDrafts.length} draft{selectedDrafts.length === 1 ? "" : "s"} · {selectedPublished.length} with officers
               </span>
               <button type="button" onClick={() => plan!.toggle(gaps.map((g) => selGap(g.key)))} className="h-8 rounded-md border px-2.5 text-[12px]" style={{ borderColor: "var(--hairline)" }}>
                 All open shifts
@@ -798,14 +822,12 @@ export function WeekGrid({
               <button type="button" disabled={saving || selectedGaps.length === 0 || !assignTo.trim()} onClick={assignSelected} className="h-8 rounded-md border px-3 text-[12px] font-medium disabled:opacity-50" style={{ borderColor: "var(--series-1)", color: "var(--accent-text)" }}>
                 Give them the ticked shifts
               </button>
-              <button type="button" disabled={saving || selectedGaps.length === 0} onClick={removeSelected} className="h-8 rounded-md border px-3 text-[12px] disabled:opacity-50" style={{ borderColor: "var(--hairline)" }} title="Take ticked open shifts off the rota — created by mistake, or not needed">
-                Remove ticked open shifts
-              </button>
+
               <button type="button" disabled={saving || selectedDrafts.length === 0} onClick={publishSelected} className="h-8 rounded-md border px-3 text-[12px] font-medium disabled:opacity-50" style={{ borderColor: "var(--status-good)", color: "var(--good-text)" }}>
                 Publish ticked drafts
               </button>
-              <button type="button" disabled={saving || selectedDrafts.length === 0} onClick={takeOffSelected} className="h-8 rounded-md border px-3 text-[12px] disabled:opacity-50" style={{ borderColor: "var(--hairline)" }}>
-                Take off ticked drafts
+              <button type="button" disabled={saving || tickedCount === 0} onClick={() => setDeleting(true)} className="h-8 rounded-md border px-3 text-[12px] font-semibold disabled:opacity-50" style={{ borderColor: "var(--status-critical)", color: "var(--critical-text)" }} title="Delete every ticked shift — open ones and drafts go; officers on ticked shifts are told">
+                Delete ticked…
               </button>
               <button
                 type="button"
@@ -822,9 +844,30 @@ export function WeekGrid({
               </button>
             </div>
           </div>
+          {deleting && tickedCount > 0 && (
+            <div className="mt-2 flex flex-wrap items-end gap-2 rounded-md border p-2" style={{ borderColor: "var(--status-critical)", background: "var(--wash-critical)" }}>
+              <label className="text-[12px] font-medium">
+                Why are these {tickedCount} not needed?
+                <input value={deleteWhy} onChange={(e) => setDeleteWhy(e.target.value)} autoFocus placeholder="e.g. Client cancelled the weekend" className={`${field} mt-1 h-8 w-72 max-w-full`} style={inputStyle} />
+              </label>
+              <button type="button" disabled={saving || deleteWhy.trim().length < 3} onClick={deleteSelected} className="h-8 rounded-md px-3 text-[12px] font-semibold text-white disabled:opacity-50" style={{ background: "var(--status-critical)" }}>
+                {saving ? "Deleting…" : `Delete ${tickedCount} shift${tickedCount === 1 ? "" : "s"}`}
+              </button>
+              <button type="button" onClick={() => setDeleting(false)} className="h-8 rounded-md px-2 text-[12px]" style={{ color: "var(--text-secondary)" }}>
+                Cancel
+              </button>
+              {selectedPublished.length > 0 && (
+                <p className="w-full text-[12px]">
+                  {selectedPublished.length} ha{selectedPublished.length === 1 ? "s an officer" : "ve officers"} on {selectedPublished.length === 1 ? "it" : "them"} — each is cancelled, and the officer told in their portal.
+                </p>
+              )}
+            </div>
+          )}
           {bulkResult && <Result state={bulkResult} />}
         </div>
       )}
+
+      {removing && <RemoveShifts posts={week.posts} today={today} onClose={() => setRemoving(false)} />}
 
       {creating && (
         <CreateShifts
@@ -1141,7 +1184,8 @@ function SiteGroup({
                     ))}
                     {shifts.map((s) => {
                       const st = shiftState(s, now);
-                      const pickable = !!plan && s.state === "draft";
+                      // Drafts, and shifts with officers that have not started, can be ticked.
+                      const pickable = !!plan && (s.state === "draft" || ((s.state === "published" || s.state === "amended") && !s.cameOff && new Date(s.startsAt) > now!));
                       return (
                         <Chip
                           key={s.id}

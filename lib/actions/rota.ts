@@ -1113,3 +1113,172 @@ export async function declineOffer(volunteerId: string, _prev: ActionResult | nu
   revalidatePath("/me");
   return ok(`Declined. ${v.person.fullName} has been told.`);
 }
+
+// ---------------------------------------------------------------------------
+// Removing shifts that are not needed (26 September 2026)
+// ---------------------------------------------------------------------------
+//
+// The client needed a post for a month, and after ten days says the last
+// fifteen are not wanted: every shift on those posts, in those dates, comes
+// off together. Or shifts ticked on the roster. Open shifts and drafts simply
+// go; a shift with an officer on it is cancelled and the officer is told in
+// their portal and on their phone. Anything already started is left alone.
+// Nothing is deleted: each is cancelled, with the reason, and recorded.
+
+export interface RemoveRange {
+  postIds: string[];
+  from: string;
+  to: string;
+  /** Days of the week, 0 = Monday … 6 = Sunday. All when empty. */
+  weekdays?: number[];
+  include: { open: boolean; drafts: boolean; published: boolean };
+}
+export interface RemovePicked {
+  openShiftIds: string[];
+  assignmentIds: string[];
+}
+export interface RemovePreview {
+  open: number;
+  cover: number;
+  drafts: number;
+  published: number;
+  started: number;
+  officers: { name: string; shifts: number }[];
+  lines: string[];
+}
+
+const MAX_REMOVE = 1000;
+const MAX_REMOVE_DAYS = 400;
+
+/** Monday = 0 … Sunday = 6, on the UK calendar. */
+const ukWeekday = (at: Date) => (new Date(`${ukDate(at)}T12:00:00Z`).getUTCDay() + 6) % 7;
+
+async function removalTargets(sel: { range?: RemoveRange; picked?: RemovePicked }, now: Date): Promise<{ problem: string } | { open: { id: string; label: string }[]; cover: { id: string; label: string }[]; drafts: { id: string; label: string }[]; published: { id: string; label: string; personId: string; personName: string; userId: string | null }[]; started: number }> {
+  const slot = { startsAt: true, endsAt: true, post: { select: { name: true, site: { select: { name: true } } } } } as const;
+  const label = (x: { startsAt: Date; endsAt: Date; post: { name: string; site: { name: string } } }) => `${x.post.name}, ${x.post.site.name} — ${shiftLabel(x)}`;
+  let openWhere: Prisma.OpenShiftWhereInput | null = null;
+  let coverWhere: Prisma.CoverNeedWhereInput | null = null;
+  let draftWhere: Prisma.AssignmentWhereInput | null = null;
+  let publishedWhere: Prisma.AssignmentWhereInput | null = null;
+  let days: number[] = [];
+
+  if (sel.range) {
+    const r = sel.range;
+    const postIds = [...new Set((r.postIds ?? []).map(String))];
+    if (!postIds.length) return { problem: "Choose the posts." };
+    if (!isDate(r.from) || !isDate(r.to)) return { problem: "Choose the first and last day." };
+    if (r.from > r.to) return { problem: "The last day is before the first." };
+    const span = (new Date(`${r.to}T12:00:00Z`).getTime() - new Date(`${r.from}T12:00:00Z`).getTime()) / 86_400_000 + 1;
+    if (span > MAX_REMOVE_DAYS) return { problem: `That is more than ${MAX_REMOVE_DAYS} days — do it in parts.` };
+    if (!r.include?.open && !r.include?.drafts && !r.include?.published) return { problem: "Choose which shifts to remove." };
+    days = (r.weekdays ?? []).map(Number).filter((d) => d >= 0 && d <= 6);
+    const when = { postId: { in: postIds }, startsAt: { gte: ukInstant(r.from, "00:00"), lt: ukInstant(addDays(r.to, 1), "00:00") } };
+    if (r.include.open) {
+      openWhere = { ...when, cancelledAt: null, assignmentId: null };
+      coverWhere = { ...when, coveredAt: null, closedAt: null };
+    }
+    if (r.include.drafts) draftWhere = { ...when, state: "draft", leftCover: null };
+    if (r.include.published) publishedWhere = { ...when, state: { in: ["published", "amended"] }, leftCover: null };
+  } else if (sel.picked) {
+    const open = [...new Set((sel.picked.openShiftIds ?? []).map(String))];
+    const assignments = [...new Set((sel.picked.assignmentIds ?? []).map(String))];
+    if (!open.length && !assignments.length) return { problem: "Tick the shifts first." };
+    if (open.length) openWhere = { id: { in: open }, cancelledAt: null, assignmentId: null };
+    if (assignments.length) {
+      draftWhere = { id: { in: assignments }, state: "draft", leftCover: null };
+      publishedWhere = { id: { in: assignments }, state: { in: ["published", "amended"] }, leftCover: null };
+    }
+  } else return { problem: "Choose the shifts to remove." };
+
+  const [open, cover, drafts, published] = await Promise.all([
+    openWhere ? db.openShift.findMany({ where: openWhere, select: { id: true, ...slot }, orderBy: { startsAt: "asc" }, take: MAX_REMOVE + 1 }) : [],
+    coverWhere ? db.coverNeed.findMany({ where: coverWhere, select: { id: true, ...slot }, orderBy: { startsAt: "asc" }, take: MAX_REMOVE + 1 }) : [],
+    draftWhere ? db.assignment.findMany({ where: draftWhere, select: { id: true, ...slot }, orderBy: { startsAt: "asc" }, take: MAX_REMOVE + 1 }) : [],
+    publishedWhere
+      ? db.assignment.findMany({ where: publishedWhere, select: { id: true, personId: true, person: { select: { fullName: true, user: { select: { id: true } } } }, ...slot }, orderBy: { startsAt: "asc" }, take: MAX_REMOVE + 1 })
+      : [],
+  ]);
+  const onDay = (x: { startsAt: Date }) => !days.length || days.includes(ukWeekday(x.startsAt));
+  const future = (x: { startsAt: Date }) => x.startsAt > now;
+  const all = [...open, ...cover, ...drafts, ...published].filter(onDay);
+  const started = all.filter((x) => !future(x)).length;
+  const keep = <T extends { startsAt: Date }>(xs: T[]) => xs.filter(onDay).filter(future);
+  const result = {
+    open: keep(open).map((x) => ({ id: x.id, label: label(x) })),
+    cover: keep(cover).map((x) => ({ id: x.id, label: label(x) })),
+    drafts: keep(drafts).map((x) => ({ id: x.id, label: label(x) })),
+    published: keep(published).map((x) => ({ id: x.id, label: label(x), personId: x.personId, personName: x.person.fullName, userId: x.person.user?.id ?? null })),
+    started,
+  };
+  if (result.open.length + result.cover.length + result.drafts.length + result.published.length > MAX_REMOVE) return { problem: `That is more than ${MAX_REMOVE} shifts at once — choose fewer posts or a shorter period.` };
+  return result;
+}
+
+/** What "Remove shifts" would take off, before anything is: counts, the officers who would be told, and the first few shifts. */
+export async function previewRemoveShifts(sel: { range?: RemoveRange; picked?: RemovePicked }): Promise<ActionResult & { preview?: RemovePreview }> {
+  const { session, error } = await guard("rota.change");
+  if (error || !session) return error!;
+  const t = await removalTargets(sel ?? {}, new Date());
+  if ("problem" in t) return refused(t.problem);
+  const officers = new Map<string, number>();
+  for (const p of t.published) officers.set(p.personName, (officers.get(p.personName) ?? 0) + 1);
+  const total = t.open.length + t.cover.length + t.drafts.length + t.published.length;
+  return {
+    ...ok(total ? `${total} shift${total === 1 ? "" : "s"} would come off.` : "There is nothing to remove in that choice."),
+    preview: {
+      open: t.open.length,
+      cover: t.cover.length,
+      drafts: t.drafts.length,
+      published: t.published.length,
+      started: t.started,
+      officers: [...officers].map(([name, shifts]) => ({ name, shifts })).sort((a, b) => b.shifts - a.shifts),
+      lines: [...t.published.map((p) => `${p.label} · ${p.personName}`), ...t.drafts.map((d) => `${d.label} · draft`), ...t.open.map((o) => `${o.label} · open`), ...t.cover.map((c) => `${c.label} · cover being found`)].slice(0, 12),
+    },
+  };
+}
+
+/** Take the shifts off: open ones and drafts go, shifts with officers are cancelled and the officers told. */
+export async function removeShifts(sel: { range?: RemoveRange; picked?: RemovePicked; reason: string }): Promise<ActionResult> {
+  const { session, error } = await guard("rota.change");
+  if (error || !session) return error!;
+  const reason = String(sel?.reason ?? "").trim().slice(0, 300);
+  if (reason.length < 3) return refused("Say why — for example “Client does not need cover from 16 October”.");
+  const now = new Date();
+  const t = await removalTargets(sel ?? {}, now);
+  if ("problem" in t) return refused(t.problem);
+  const total = t.open.length + t.cover.length + t.drafts.length + t.published.length;
+  if (!total) return refused(t.started ? "Those shifts have already started — they cannot be removed." : "There is nothing to remove in that choice.");
+
+  const assignmentIds = [...t.drafts, ...t.published].map((a) => a.id);
+  await db.$transaction([
+    db.openShift.updateMany({ where: { id: { in: t.open.map((o) => o.id) } }, data: { cancelledAt: now, cancelledReason: reason } }),
+    // The open shift a draft or a published shift was filling is not needed either.
+    db.openShift.updateMany({ where: { assignmentId: { in: assignmentIds } }, data: { assignmentId: null, cancelledAt: now, cancelledReason: reason } }),
+    db.coverNeed.updateMany({ where: { id: { in: t.cover.map((c) => c.id) } }, data: { closedAt: now, closedReason: `Not needed: ${reason}`, closedById: session.userId } }),
+    db.assignment.updateMany({ where: { id: { in: assignmentIds } }, data: { state: "cancelled" } }),
+    db.assignmentAmendment.createMany({ data: t.published.map((p) => ({ assignmentId: p.id, byUserId: session.userId, change: "Shift cancelled — not needed", reason, previousPersonId: p.personId })) }),
+    // Each officer is told, in their portal and on their phone.
+    db.workItem.createMany({
+      data: t.published.filter((p) => p.userId).map((p) => ({ ownerUserId: p.userId!, assignmentId: p.id, title: `${ALERT_KIND_SPECS.officer_decision.prefix} cancelled your shift: ${p.label}. It is not needed — ${reason}`, dueAt: now, slaDays: 0 })),
+    }),
+    db.event.createMany({
+      data: t.published.map((p) => ({ type: "assignment.cancelled", actorUserId: session.userId, actorRole: session.activeRole, department: "control" as const, assignmentId: p.id, personId: p.personId, detail: `${p.label} (${p.personName}) cancelled: ${reason}` })),
+    }),
+    db.event.create({
+      data: {
+        type: "rota.shifts_removed",
+        actorUserId: session.userId,
+        actorRole: session.activeRole,
+        department: "control",
+        detail: `${session.name} took ${total} shift${total === 1 ? "" : "s"} off the rota — ${t.open.length} open, ${t.cover.length} still needing cover, ${t.drafts.length} draft${t.drafts.length === 1 ? "" : "s"}, ${t.published.length} with officers (who were told): ${reason}`,
+      },
+    }),
+  ]);
+  if (t.published.length) await sweepDutyChecks();
+  refresh();
+  const told = t.published.filter((p) => p.userId).length;
+  const notTold = t.published.length - told;
+  return ok(
+    `Removed ${total} shift${total === 1 ? "" : "s"}.${t.published.length ? ` ${told} officer shift${told === 1 ? " was" : "s were"} cancelled and the officer${told === 1 ? " has" : "s have"} been told in their portal.` : ""}${notTold ? ` ${notTold} ${notTold === 1 ? "officer has" : "officers have"} no portal login — ring them.` : ""}${t.started ? ` ${t.started} had already started and were left.` : ""}`,
+  );
+}

@@ -864,6 +864,22 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   It meets WCAG AA contrast (checked with the rest), keeps still for anyone who asks for reduced
   motion, and is simple on a phone.
 
+### E43 — Removing shifts that are not needed, and doing it in one go — **answered, and built**
+> **"The client required shifts for one month but after ten days does not require services for the
+> last fifteen days. How will I remove those shifts? Add a little box to delete or assign those
+> shifts to someone in one go."** *(Control Room, 26 September 2026.)*
+
+- **Remove shifts** (Scheduling, beside *Create shifts*): tick the posts — a whole client or site at
+  once — the dates, the days of the week, and which shifts: open ones (and cover still being found),
+  drafts, and, if chosen, shifts with officers on them. *Check what will come off* shows the count,
+  the officers who will be told and the first shifts, before anything changes; a reason is required.
+  Open shifts and drafts come off; a shift with an officer on it is cancelled and the officer is told
+  in their portal and on their phone. Nothing that has started is touched, nothing is deleted, and
+  everything is recorded.
+- **Select shifts** (was *Assign in bulk*): tick shifts on the roster — open ones, drafts, or ones with
+  officers — and the box at the bottom gives the open ones to an officer, publishes drafts, or
+  **deletes them all in one go**, with the reason. Clicking a day's heading ticks that whole day.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them
