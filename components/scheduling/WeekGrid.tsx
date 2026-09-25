@@ -684,8 +684,10 @@ export function WeekGrid({
       {/* The roster scrolls in its own frame, like a spreadsheet with frozen panes:
           the colour key and the day row stay at the top as the posts scroll up
           under them, and the post names stay on the left as the days scroll across. */}
+      {/* isolate: the frozen rows' layering stays inside this frame, so the whole frame
+          scrolls under the portal's top bar instead of its key and day row passing over it. */}
       <div
-        className="relative max-h-[calc(100dvh-6rem)] overflow-auto rounded-md print:max-h-none print:overflow-visible"
+        className="relative isolate max-h-[calc(100dvh-6rem)] overflow-auto rounded-md print:max-h-none print:overflow-visible"
         style={{
           ["--key-h" as string]: `${keyHeight}px`,
           // Tabbing through the PIN boxes never lands one under the frozen rows or the post column.
@@ -728,7 +730,7 @@ export function WeekGrid({
       </div>
 
       {planning && (
-        <div className="sticky bottom-0 z-30 mt-3 -mx-5 border-t px-5 py-3 shadow-[0_-4px_12px_rgb(0_0_0/0.06)] print:hidden" style={{ background: "var(--surface-1)", borderColor: "var(--hairline)" }}>
+        <div className="sticky bottom-0 z-20 mt-3 -mx-5 border-t px-5 py-3 shadow-[0_-4px_12px_rgb(0_0_0/0.06)] print:hidden" style={{ background: "var(--surface-1)", borderColor: "var(--hairline)" }}>
           <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
             <label className="flex items-center gap-1.5 text-[12px]">
               Asked by

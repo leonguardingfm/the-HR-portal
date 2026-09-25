@@ -253,7 +253,7 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
       </header>
 
       {/* A long file: every section one tap away, on a phone too. */}
-      <nav aria-label="Sections of this file" className="sticky top-0 z-10 -mx-1 overflow-x-auto py-1" style={{ background: "var(--page)" }}>
+      <nav aria-label="Sections of this file" className="sticky z-10 -mx-1 overflow-x-auto py-1" style={{ top: "var(--shell-top-h, 0px)", background: "var(--page)" }}>
         <ol className="flex min-w-max gap-1.5 px-1 text-[12px]">
           {(
             [

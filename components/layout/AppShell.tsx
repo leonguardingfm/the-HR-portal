@@ -9,6 +9,7 @@ import { preferencesOf } from "@/lib/db/preferences";
 import { vapidPublicKey } from "@/lib/db/push";
 import { MobileNav } from "./MobileNav";
 import { Sidebar } from "./Sidebar";
+import { ShellTopHeight } from "./ShellTopHeight";
 import { Topbar } from "./Topbar";
 
 /**
@@ -65,6 +66,7 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
           />
           <AlertBar vapidKey={vapidPublicKey()} />
         </div>
+        <ShellTopHeight />
         <div
           className="border-b px-4 py-2 lg:hidden print:hidden"
           style={{ borderColor: "var(--hairline)" }}
