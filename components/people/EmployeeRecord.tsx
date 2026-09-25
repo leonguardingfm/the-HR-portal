@@ -83,7 +83,7 @@ function EditDrawer({
   if (denied) return null;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className={linkBtn} style={{ color: danger ? "var(--status-critical)" : "var(--series-1)" }}>
+      <button type="button" onClick={() => setOpen(true)} className={linkBtn} style={{ color: danger ? "var(--critical-text)" : "var(--accent-text)" }}>
         {label}
       </button>
       {open && (
@@ -142,7 +142,7 @@ export function EmployeeRecord({ e, today, editDenied, payrollDenied, leaverDeni
         <div className="flex flex-wrap items-center gap-2">
           <StatusPill severity={STATE[job.state].severity} label={STATE[job.state].label} />
           {officerHref && (
-            <Link href={officerHref} className={linkBtn} style={{ color: "var(--series-1)" }}>
+            <Link href={officerHref} className={linkBtn} style={{ color: "var(--accent-text)" }}>
               Duties &amp; rota profile
             </Link>
           )}
@@ -358,7 +358,7 @@ export function EmployeeRecord({ e, today, editDenied, payrollDenied, leaverDeni
                 ))}
               </ul>
             )}
-            <Link href="/admin/people" className={linkBtn} style={{ color: "var(--series-1)" }}>
+            <Link href="/admin/people" className={linkBtn} style={{ color: "var(--accent-text)" }}>
               Decide requests in Administration
             </Link>
           </div>

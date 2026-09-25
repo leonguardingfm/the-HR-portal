@@ -353,7 +353,7 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
                     {f.controllerUserId === me && <span className="ml-1.5 text-[11px] font-normal" style={{ color: "var(--text-muted)" }}>(you)</span>}
                   </>
                 ) : (
-                  <span style={{ color: "var(--status-serious)" }}>Unassigned</span>
+                  <span style={{ color: "var(--serious-text)" }}>Unassigned</span>
                 )}
               </dd>
             </div>
@@ -579,7 +579,7 @@ export default async function ScreeningFilePage({ params }: { params: Promise<{ 
                           <span key={d.id}>
                             {i > 0 && ", "}
                             {d.storageKey && d.sha256 ? (
-                              <a href={`/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--series-1)" }}>
+                              <a href={`/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent-text)" }}>
                                 {d.fileName ?? d.type.label}
                               </a>
                             ) : (

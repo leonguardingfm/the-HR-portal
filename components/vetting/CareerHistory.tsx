@@ -180,7 +180,7 @@ export function CareerHistory({
                       ` · confirmed ${formatDate(r.confirmedFrom ?? r.statedFrom)} to ${r.confirmedTo ? formatDate(r.confirmedTo) : "now"}`}
                   </p>
                   {r.isCurrent && r.kind === "employment" && (
-                    <p className="mt-0.5 text-[11px]" style={{ color: r.permissionToContact ? "var(--text-muted)" : "var(--status-serious)" }}>
+                    <p className="mt-0.5 text-[11px]" style={{ color: r.permissionToContact ? "var(--text-muted)" : "var(--serious-text)" }}>
                       Permission to contact:{" "}
                       {r.permissionToContact === true ? "given" : r.permissionToContact === false ? "withheld — verify from documents (7.3.3a)" : "not asked yet (7.7b)"}
                     </p>
@@ -213,7 +213,7 @@ export function CareerHistory({
                         <span key={d.id}>
                           {i > 0 && ", "}
                           {d.hasCopy ? (
-                            <a href={`/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--series-1)" }}>
+                            <a href={`/documents/${d.id}`} target="_blank" rel="noopener noreferrer" className="hover:underline" style={{ color: "var(--accent-text)" }}>
                               {d.label}
                             </a>
                           ) : (

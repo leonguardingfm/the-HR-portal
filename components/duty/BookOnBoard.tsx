@@ -7,7 +7,7 @@ import { CHANNEL_EVIDENCE, OPS_RULES } from "@/lib/core/ops";
 import type { LiveRow } from "@/lib/db/queries";
 import { formatTime } from "@/lib/format";
 import { AttemptForm, BookOnForm, NoShowForm, TellClientForm } from "./DutyForms";
-import { ByWhom, DutyFlow, Notice, OfficerCell, OnTheirBehalf, Pill, ProofBadge, Section, relative, useDuty, type DutyRow } from "./DutyShared";
+import { ByWhom, DutyFlow, Notice, OfficerCell, OnTheirBehalf, Pill, ProofBadge, Section, SentLate, relative, useDuty, type DutyRow } from "./DutyShared";
 
 export interface BookOnPerms {
   bookOn: string | null;
@@ -62,7 +62,7 @@ export function BookOnBoard({ rows, perms }: { rows: LiveRow[]; perms: BookOnPer
                 Chase-up: {d.s.chase.state === "confirmed" ? `confirmed at ${formatTime(d.s.chase.confirmedAt!)}` : d.s.chase.noAnswers ? `no answer ×${d.s.chase.noAnswers}` : "not confirmed"}
               </p>
               {d.runningLate && (
-                <p className="font-medium" style={{ color: "var(--status-serious)" }}>
+                <p className="font-medium" style={{ color: "var(--serious-text)" }}>
                   Said they are running late — there about {formatTime(d.runningLate.eta)}
                   {d.runningLate.note ? ` (“${d.runningLate.note}”)` : ""}
                 </p>
@@ -94,7 +94,7 @@ export function BookOnBoard({ rows, perms }: { rows: LiveRow[]; perms: BookOnPer
                 Due on site {relative(start(d), now)}
               </p>
               {d.runningLate && (
-                <p className="font-medium" style={{ color: "var(--status-serious)" }}>
+                <p className="font-medium" style={{ color: "var(--serious-text)" }}>
                   Running late — there about {formatTime(d.runningLate.eta)}
                   {d.runningLate.note ? ` (“${d.runningLate.note}”)` : ""}
                 </p>
@@ -124,6 +124,7 @@ export function BookOnBoard({ rows, perms }: { rows: LiveRow[]; perms: BookOnPer
                 />
                 <p className="mt-1 flex flex-wrap items-center gap-1.5" style={{ color: "var(--text-secondary)" }}>
                   <ByWhom byOfficer={d.bookOn!.byOfficer} />
+                  <SentLate at={d.bookOn!.at} sentLateAt={d.bookOn!.sentLateAt} />
                   {d.bookOn!.proof ? "Selfie in the portal" : `${ev.label} · ${STRENGTH[ev.strength]}`}
                 </p>
                 <div className="mt-1.5">
@@ -133,7 +134,7 @@ export function BookOnBoard({ rows, perms }: { rows: LiveRow[]; perms: BookOnPer
               <div>
                 {!d.post.mobileSignal && !d.noSignal?.notifiedAt ? (
                   <div className="space-y-1">
-                    <p className="text-[12px] font-medium" style={{ color: "var(--status-serious)" }}>
+                    <p className="text-[12px] font-medium" style={{ color: "var(--serious-text)" }}>
                       No signal at this post — tell the client they have arrived
                     </p>
                     <TellClientForm onResult={setNotice} assignmentId={d.assignment.id} denied={perms.noSignalNotify} />

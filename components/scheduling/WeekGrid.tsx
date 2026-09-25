@@ -657,7 +657,7 @@ export function WeekGrid({
                 setBulkResult(null);
               }}
               className="h-8 rounded-md border px-3 text-[12px] font-semibold"
-              style={planning ? { background: "var(--series-1)", color: "#fff", borderColor: "var(--series-1)" } : { borderColor: "var(--series-1)", color: "var(--series-1)", background: "var(--surface-1)" }}
+              style={planning ? { background: "var(--series-1)", color: "#fff", borderColor: "var(--series-1)" } : { borderColor: "var(--series-1)", color: "var(--accent-text)", background: "var(--surface-1)" }}
             >
               {planning ? "Done assigning" : "Assign in bulk"}
             </button>
@@ -745,7 +745,7 @@ export function WeekGrid({
                 {saving ? "Saving…" : `Save ${ready.length} typed`}
               </button>
               {problems.length > 0 && (
-                <span className="text-[12px]" style={{ color: "var(--status-critical)" }}>
+                <span className="text-[12px]" style={{ color: "var(--critical-text)" }}>
                   {problems.length} with a problem
                 </span>
               )}
@@ -754,7 +754,7 @@ export function WeekGrid({
                 onClick={suggest}
                 disabled={gaps.length === 0}
                 className="h-8 rounded-md border px-3 text-[12px] font-medium disabled:opacity-50"
-                style={{ borderColor: "var(--series-1)", color: "var(--series-1)" }}
+                style={{ borderColor: "var(--series-1)", color: "var(--accent-text)" }}
                 title="Types a free officer into each open shift — the ticked ones, or all of them — for you to look over and save"
               >
                 Suggest officers
@@ -793,13 +793,13 @@ export function WeekGrid({
                   </option>
                 ))}
               </select>
-              <button type="button" disabled={saving || selectedGaps.length === 0 || !assignTo.trim()} onClick={assignSelected} className="h-8 rounded-md border px-3 text-[12px] font-medium disabled:opacity-50" style={{ borderColor: "var(--series-1)", color: "var(--series-1)" }}>
+              <button type="button" disabled={saving || selectedGaps.length === 0 || !assignTo.trim()} onClick={assignSelected} className="h-8 rounded-md border px-3 text-[12px] font-medium disabled:opacity-50" style={{ borderColor: "var(--series-1)", color: "var(--accent-text)" }}>
                 Give them the ticked shifts
               </button>
               <button type="button" disabled={saving || selectedGaps.length === 0} onClick={removeSelected} className="h-8 rounded-md border px-3 text-[12px] disabled:opacity-50" style={{ borderColor: "var(--hairline)" }} title="Take ticked open shifts off the rota — created by mistake, or not needed">
                 Remove ticked open shifts
               </button>
-              <button type="button" disabled={saving || selectedDrafts.length === 0} onClick={publishSelected} className="h-8 rounded-md border px-3 text-[12px] font-medium disabled:opacity-50" style={{ borderColor: "var(--status-good)", color: "var(--status-good)" }}>
+              <button type="button" disabled={saving || selectedDrafts.length === 0} onClick={publishSelected} className="h-8 rounded-md border px-3 text-[12px] font-medium disabled:opacity-50" style={{ borderColor: "var(--status-good)", color: "var(--good-text)" }}>
                 Publish ticked drafts
               </button>
               <button type="button" disabled={saving || selectedDrafts.length === 0} onClick={takeOffSelected} className="h-8 rounded-md border px-3 text-[12px] disabled:opacity-50" style={{ borderColor: "var(--hairline)" }}>
@@ -893,7 +893,7 @@ function DayHeads({ days, today, first, onSelectDay }: { days: string[]; today: 
             className="sticky z-20 px-1.5 pt-1 pb-2 text-left text-[12px] font-semibold print:static"
             style={{
               top: "var(--key-h)",
-              color: d === today ? "var(--series-1)" : d < today ? "var(--text-muted)" : "var(--text-secondary)",
+              color: d === today ? "var(--accent-text)" : d < today ? "var(--text-muted)" : "var(--text-secondary)",
               // Solid underneath, so the rows scrolling up under the day row do not show through.
               background: d === today ? "linear-gradient(var(--roster-draft-wash), var(--roster-draft-wash)), var(--surface-1)" : "var(--surface-1)",
               borderLeft: weekEdge(d, days),
@@ -907,7 +907,7 @@ function DayHeads({ days, today, first, onSelectDay }: { days: string[]; today: 
                 {d === today && <span className="ml-1 text-[11px] font-normal">today</span>}
               </span>
               {onSelectDay && d >= today && (
-                <button type="button" onClick={() => onSelectDay(d)} className="text-[10px] font-medium underline-offset-2 hover:underline print:hidden" style={{ color: "var(--series-1)" }} aria-label={`Tick every gap and draft on ${dayLabel(d)}`}>
+                <button type="button" onClick={() => onSelectDay(d)} className="text-[10px] font-medium underline-offset-2 hover:underline print:hidden" style={{ color: "var(--accent-text)" }} aria-label={`Tick every gap and draft on ${dayLabel(d)}`}>
                   tick
                 </button>
               )}
@@ -1014,7 +1014,7 @@ function GapCell({ gap, plan, underway }: { gap: Gap; plan: Planning; underway: 
     >
       <label className="flex items-center gap-1 text-[10px] font-medium">
         <input type="checkbox" checked={ticked} onChange={() => plan.toggle([selGap(gap.key)])} className="h-3 w-3" aria-label={`Tick ${gap.post.name}, ${dayLabel(gap.date)}`} />
-        <span className="tnum tabular-nums" style={{ color: underway ? "var(--status-critical)" : "var(--text-secondary)" }}>
+        <span className="tnum tabular-nums" style={{ color: underway ? "var(--critical-text)" : "var(--text-secondary)" }}>
           {underway ? "Now" : `${gap.start}–${gap.end}`}
         </span>
       </label>
@@ -1028,11 +1028,11 @@ function GapCell({ gap, plan, underway }: { gap: Gap; plan: Planning; underway: 
         style={{ background: "var(--surface-1)", borderColor: refused ? "var(--status-critical)" : "var(--hairline)" }}
       />
       {refused ? (
-        <p className="mt-0.5 line-clamp-2 text-[10px] leading-tight" style={{ color: "var(--status-critical)" }} title={refused}>
+        <p className="mt-0.5 line-clamp-2 text-[10px] leading-tight" style={{ color: "var(--critical-text)" }} title={refused}>
           {refused}
         </p>
       ) : check?.name ? (
-        <p className="mt-0.5 truncate text-[10px] font-semibold" style={{ color: "var(--status-good)" }} title={check.name}>
+        <p className="mt-0.5 truncate text-[10px] font-semibold" style={{ color: "var(--good-text)" }} title={check.name}>
           ✓ {shortName(check.name)}
         </p>
       ) : null}
@@ -1096,7 +1096,7 @@ function SiteGroup({
               </p>
               <p className="mt-0.5 text-[11px]" style={{ color: "var(--text-secondary)" }}>
                 {filled + open > 0 ? (
-                  <span className="font-medium" style={{ color: open === 0 ? "var(--status-good)" : "var(--text-secondary)" }}>
+                  <span className="font-medium" style={{ color: open === 0 ? "var(--good-text)" : "var(--text-secondary)" }}>
                     {filled} of {filled + open} filled
                   </span>
                 ) : (
@@ -1314,7 +1314,7 @@ function ByOfficer({ week, today, now, onOpen }: { week: RotaWeek; today: string
                 {r.limit ? (
                   <HoursBar used={r.used} limit={r.limit} busiest={week.weeks > 1} />
                 ) : (
-                  <p className="text-[11px]" style={{ color: "var(--status-critical)" }}>
+                  <p className="text-[11px]" style={{ color: "var(--critical-text)" }}>
                     Not on the books
                   </p>
                 )}
@@ -1427,7 +1427,7 @@ function FillPanel({
                   {n.fromName} off, {OFF_REASON_LABELS[n.reason].toLowerCase()} · starts {relative(new Date(n.startsAt), now)}
                 </p>
               </div>
-              <button type="button" onClick={() => onOpenCover(n.id)} className="h-8 shrink-0 rounded-md px-3 text-[12px] font-semibold" style={{ background: "#fff", color: "var(--status-critical)" }}>
+              <button type="button" onClick={() => onOpenCover(n.id)} className="h-8 shrink-0 rounded-md px-3 text-[12px] font-semibold" style={{ background: "#fff", color: "var(--critical-text)" }}>
                 Find cover
               </button>
             </div>
@@ -1441,7 +1441,7 @@ function FillPanel({
             Regular officer
           </h3>
           {!buildDenied && (
-            <button type="button" onClick={() => setChangingRegular((v) => !v)} className="text-[11px] underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+            <button type="button" onClick={() => setChangingRegular((v) => !v)} className="text-[11px] underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
               {changingRegular ? "Done" : post.regular ? "Change" : "Name one"}
             </button>
           )}
@@ -1462,7 +1462,7 @@ function FillPanel({
             This post {week.weeks === 1 ? "this week" : `over ${week.weeks} weeks`}
           </h3>
           {!buildDenied && (
-            <button type="button" onClick={onCreate} className="text-[11px] font-medium underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+            <button type="button" onClick={onCreate} className="text-[11px] font-medium underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
               Create shifts on this post
             </button>
           )}
@@ -1485,11 +1485,11 @@ function FillPanel({
                     {needHere.map((n) => (
                       <div key={n.id} className="flex flex-wrap items-center gap-2">
                         <Swatch state={n.status === "open" ? "cover_needed" : "uncovered"} />
-                        <span className="font-semibold" style={{ color: n.status === "open" ? "var(--status-critical)" : "var(--status-serious)" }}>
+                        <span className="font-semibold" style={{ color: n.status === "open" ? "var(--critical-text)" : "var(--serious-text)" }}>
                           {n.status === "open" ? "Cover needed" : "Left uncovered"} {n.start}–{n.end}
                         </span>
                         {n.status === "open" && (
-                          <button type="button" onClick={() => onOpenCover(n.id)} className="text-[11px] font-semibold underline-offset-2 hover:underline" style={{ color: "var(--status-critical)" }}>
+                          <button type="button" onClick={() => onOpenCover(n.id)} className="text-[11px] font-semibold underline-offset-2 hover:underline" style={{ color: "var(--critical-text)" }}>
                             Find cover
                           </button>
                         )}
@@ -1524,7 +1524,7 @@ function FillPanel({
                           />
                           <Swatch state="open" />
                           <span className="tnum tabular-nums">{o.start}–{o.end}</span>
-                          <span className="text-[11px] font-semibold" style={{ color: canTick || buildDenied ? "var(--status-warning)" : "var(--text-muted)" }}>
+                          <span className="text-[11px] font-semibold" style={{ color: canTick || buildDenied ? "var(--warning-text)" : "var(--text-muted)" }}>
                             {canTick || buildDenied ? "Open shift" : "Not covered"}
                           </span>
                         </label>
@@ -1534,7 +1534,7 @@ function FillPanel({
                       <span style={{ color: "var(--text-muted)" }}>
                         No shift on the rota.{" "}
                         {d >= today && !buildDenied && (
-                          <button type="button" onClick={onCreate} className="underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+                          <button type="button" onClick={onCreate} className="underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
                             Create one
                           </button>
                         )}
@@ -1616,7 +1616,7 @@ function ShiftRow({
         </p>
       )}
       {s.state === "draft" && s.check && !s.check.allowed && (
-        <p className="text-[11px]" style={{ color: "var(--status-critical)" }}>
+        <p className="text-[11px]" style={{ color: "var(--critical-text)" }}>
           {s.check.blockers[0]}
         </p>
       )}
@@ -1634,7 +1634,7 @@ function ShiftRow({
                 style={
                   doing === k
                     ? { background: "var(--text-primary)", color: "var(--page)", borderColor: "var(--text-primary)" }
-                    : { borderColor: k === "off" ? "var(--status-critical)" : "var(--hairline)", color: k === "off" ? "var(--status-critical)" : undefined }
+                    : { borderColor: k === "off" ? "var(--status-critical)" : "var(--hairline)", color: k === "off" ? "var(--critical-text)" : undefined }
                 }
               >
                 {label}
@@ -1698,7 +1698,7 @@ function CoverPanel({
           Recorded by {need.raisedBy}, {formatShortDate(need.raisedAt)} {formatTime(need.raisedAt)}
         </p>
         {need.status === "open" && (
-          <p className="mt-1.5 font-semibold" style={{ color: startsAt > now ? "var(--text-primary)" : "var(--status-critical)" }}>
+          <p className="mt-1.5 font-semibold" style={{ color: startsAt > now ? "var(--text-primary)" : "var(--critical-text)" }}>
             {startsAt > now ? `Starts ${relative(startsAt, now)}.` : `Should have started ${relative(startsAt, now)}. Cover found now starts at ${formatTime(from)}.`}
           </p>
         )}
@@ -1708,7 +1708,7 @@ function CoverPanel({
           </p>
         )}
         {need.status === "closed" && (
-          <p className="mt-1.5" style={{ color: "var(--status-serious)" }}>
+          <p className="mt-1.5" style={{ color: "var(--serious-text)" }}>
             Left uncovered: {need.closedReason}
           </p>
         )}
@@ -1766,7 +1766,7 @@ function CoverPanel({
             {asks.map((a) => (
               <li key={a.id} className="text-[12px]">
                 <span className="font-medium">{a.personName}</span>{" "}
-                <span style={{ color: a.answer === "yes" ? "var(--status-good)" : "var(--text-secondary)" }}>— {ANSWER_LABELS[a.answer].toLowerCase()}</span>
+                <span style={{ color: a.answer === "yes" ? "var(--good-text)" : "var(--text-secondary)" }}>— {ANSWER_LABELS[a.answer].toLowerCase()}</span>
                 <span style={{ color: "var(--text-muted)" }}>
                   {" "}
                   · {CHANNEL_LABELS[a.channel].toLowerCase()}, {formatTime(a.askedAt)}
@@ -1949,12 +1949,12 @@ function CandidateList({
                       )}
                     </div>
                     {c.rest !== null && c.rest < MIN_REST_HOURS && (
-                      <p className="text-[11px]" style={{ color: "var(--status-warning)" }}>
+                      <p className="text-[11px]" style={{ color: "var(--warning-text)" }}>
                         Only {Math.round(c.rest * 10) / 10}h rest between shifts
                       </p>
                     )}
                     {c.warnings.length > 0 && (
-                      <p className="text-[11px]" style={{ color: "var(--status-warning)" }}>
+                      <p className="text-[11px]" style={{ color: "var(--warning-text)" }}>
                         {c.warnings.join(" · ")}
                       </p>
                     )}
@@ -1998,7 +1998,7 @@ function CandidateList({
                 {/* Only an officer with an employment record (and so a PIN) has hours of their own to change. */}
                 {c.overHours && !hoursDenied && c.officer.pin && (
                   <details className="mt-1">
-                    <summary className="cursor-pointer text-[11px] select-none" style={{ color: "var(--series-1)" }}>
+                    <summary className="cursor-pointer text-[11px] select-none" style={{ color: "var(--accent-text)" }}>
                       Change their weekly hours
                     </summary>
                     <div className="mt-1.5">

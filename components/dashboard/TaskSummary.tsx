@@ -28,7 +28,7 @@ export function TaskSummary({ rows, total, department }: { rows: TaskSummaryRow[
       }
     >
       {rows.length === 0 ? (
-        <p className="py-3 text-[13px]" style={{ color: "var(--status-good)" }}>
+        <p className="py-3 text-[13px]" style={{ color: "var(--good-text)" }}>
           ✓ Nothing open.
         </p>
       ) : (

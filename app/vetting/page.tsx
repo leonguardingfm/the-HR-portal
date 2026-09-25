@@ -242,7 +242,7 @@ export default async function VettingPage({
                     <td className="border-b px-5 py-2.5">{VETTING_STATUS_LABELS[f.core.status]}</td>
                     <td className="border-b px-5 py-2.5" style={{ color: "var(--text-secondary)" }}>
                       {yourMove && (
-                        <span className="mr-1 font-semibold" style={{ color: "var(--series-1)" }}>
+                        <span className="mr-1 font-semibold" style={{ color: "var(--accent-text)" }}>
                           Yours ·
                         </span>
                       )}
@@ -258,7 +258,7 @@ export default async function VettingPage({
                     </td>
                     <td className="border-b px-5 py-2.5">{f.administratorName ?? "—"}</td>
                     <td className="border-b px-5 py-2.5">
-                      {f.controllerName ?? <span style={{ color: "var(--status-serious)" }}>Unassigned</span>}
+                      {f.controllerName ?? <span style={{ color: "var(--serious-text)" }}>Unassigned</span>}
                     </td>
                     <td className="border-b px-5 py-2.5">
                       <StatusPill severity={blockers.length ? "neutral" : "good"} label={blockers.length ? "Blocked" : "Clear"} />

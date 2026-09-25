@@ -33,6 +33,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
   return (
     // Every screen stays current by itself, and the alarm is on every page.
     <LiveProvider initial={pulse} watches={watches} officer={officer} hub={hub}>
+    <a href="#main" className="skip-link print:hidden">
+      Skip to the page
+    </a>
     <div className="flex min-h-screen">
       <aside
         className="hidden w-52 shrink-0 border-r lg:block print:hidden"
@@ -66,7 +69,9 @@ export async function AppShell({ children }: { children: React.ReactNode }) {
             <MobileNav role={session.activeRole} />
           </Suspense>
         </div>
-        <main className="min-w-0 flex-1 px-4 py-6 sm:px-6">{children}</main>
+        <main id="main" tabIndex={-1} className="min-w-0 flex-1 px-4 py-6 outline-none sm:px-6">
+          {children}
+        </main>
       </div>
     </div>
     </LiveProvider>

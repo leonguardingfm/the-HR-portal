@@ -147,7 +147,7 @@ export default async function OnboardingPage() {
                           {c.outstanding.length > 1 ? ` · +${c.outstanding.length - 1} more` : ""}
                         </p>
                       ) : (
-                        <p className="mt-2 text-[11px]" style={{ color: "var(--status-good)" }}>
+                        <p className="mt-2 text-[11px]" style={{ color: "var(--good-text)" }}>
                           ✓ Phase complete — ready to move on
                         </p>
                       )}

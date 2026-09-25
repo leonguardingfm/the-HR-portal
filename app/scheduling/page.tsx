@@ -206,7 +206,7 @@ export default async function SchedulingPage({
             <h2
               id="cover-now-h"
               className="text-[14px] font-semibold"
-              style={{ color: "var(--status-critical)" }}
+              style={{ color: "var(--critical-text)" }}
             >
               Cover needed now · {openNeeds.length}
             </h2>
@@ -363,7 +363,7 @@ export default async function SchedulingPage({
                 className="mb-2 text-[13px]"
                 style={{ color: "var(--text-secondary)" }}
               >
-                <strong style={{ color: "var(--status-good)" }}>
+                <strong style={{ color: "var(--good-text)" }}>
                   {drafts.length - blocked.length} ready to publish.
                 </strong>{" "}
                 {blocked.length > 0
@@ -397,7 +397,7 @@ export default async function SchedulingPage({
                         {s.check && !s.check.allowed && (
                           <p
                             className="text-[12px]"
-                            style={{ color: "var(--status-critical)" }}
+                            style={{ color: "var(--critical-text)" }}
                           >
                             {s.check.blockers.join(" · ")}
                           </p>

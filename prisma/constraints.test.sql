@@ -898,3 +898,30 @@ SELECT expect_failure('navy, which lilac replaced',
   $$UPDATE "User" SET theme = 'navy-shaded' WHERE id = 'u1'$$);
 SELECT expect_failure('a theme that is not offered',
   $$UPDATE "User" SET theme = 'purple' WHERE id = 'u1'$$);
+
+-- ---------------------------------------------------------------------------
+-- 26. Sign-in security, the officer's outbox, reply templates
+-- ---------------------------------------------------------------------------
+
+SELECT expect_failure('two-factor on with no secret',
+  $$UPDATE "User" SET "totpEnabledAt" = now() WHERE id = 'u1'$$);
+SELECT expect_success('two-factor on, with its secret',
+  $$UPDATE "User" SET "totpSecret" = 'sealed', "totpEnabledAt" = now() WHERE id = 'u1'$$);
+SELECT expect_failure('a negative count of failed sign-ins',
+  $$UPDATE "User" SET "failedSignIns" = -1 WHERE id = 'u1'$$);
+SELECT expect_failure('a reset link good for a week',
+  $$INSERT INTO "PasswordReset"(id,"userId","tokenHash","createdAt","expiresAt") VALUES ('pr1','u1','h1',now(),now() + interval '7 days')$$);
+SELECT expect_success('a reset link good for an hour',
+  $$INSERT INTO "PasswordReset"(id,"userId","tokenHash","createdAt","expiresAt") VALUES ('pr2','u1','h2',now(),now() + interval '1 hour')$$);
+SELECT expect_failure('a check call "sent" before it was made',
+  $$INSERT INTO "CheckCall"(id,"assignmentId",at,channel,"sentLateAt") VALUES ('cc26a','rf1','2026-10-12 10:50+01','app','2026-10-12 10:40+01')$$);
+SELECT expect_success('a check call made with no signal, sent later',
+  $$INSERT INTO "CheckCall"(id,"assignmentId",at,channel,"sentLateAt","clientRef") VALUES ('cc26b','rf1','2026-10-12 10:50+01','app','2026-10-12 11:20+01','ref-1')$$);
+SELECT expect_failure('the same queued check call counted twice',
+  $$INSERT INTO "CheckCall"(id,"assignmentId",at,channel,"sentLateAt","clientRef") VALUES ('cc26c','rf1','2026-10-12 10:50+01','app','2026-10-12 11:21+01','ref-1')$$);
+SELECT expect_failure('a book-on "sent" before it was made',
+  $$UPDATE "BookOn" SET "sentLateAt" = at - interval '5 minutes' WHERE id = 'bo21'$$);
+SELECT expect_failure('a reply template with no words',
+  $$INSERT INTO "ReplyTemplate"(id,category,title,body,"createdById","updatedAt") VALUES ('rt1','lateness','Running late','   ','u1',now())$$);
+SELECT expect_success('a reply template',
+  $$INSERT INTO "ReplyTemplate"(id,category,title,body,"createdById","updatedAt") VALUES ('rt2','lateness','Running late','Thank you {sender} — we are on it.','u1',now())$$);

@@ -70,18 +70,18 @@ export default async function SignInPage({
         <SignInForm next={next ?? ""} username={u ?? ""} />
 
         <p className="text-center text-[12px]">
-          <Link href="/signin/forgot" className="underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+          <Link href="/signin/forgot" className="underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
             Forgotten your password?
           </Link>
         </p>
 
         <p className="text-center text-[12px]" style={{ color: "var(--text-secondary)" }}>
           New here?{" "}
-          <Link href="/signup" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+          <Link href="/signup" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
             Create an account
           </Link>
           {" · "}
-          <Link href="/signup/officer" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+          <Link href="/signup/officer" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
             I’m a security officer
           </Link>
         </p>

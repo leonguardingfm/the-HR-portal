@@ -77,7 +77,7 @@ export function ApplicationPanel({ candidacyId, app, emails, denied, hasEmail }:
                 </button>
               </form>
             )}
-            {!hasEmail && <span style={{ color: "var(--status-serious)" }}>Add their email address to send it.</span>}
+            {!hasEmail && <span style={{ color: "var(--serious-text)" }}>Add their email address to send it.</span>}
           </div>
         )}
         <Result state={send.state ?? withdraw.state} />
@@ -267,7 +267,7 @@ export function EditDetails({ candidacyId, person, denied }: { candidacyId: stri
   if (denied) return null;
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="text-[12px] underline" style={{ color: "var(--series-1)" }}>
+      <button type="button" onClick={() => setOpen(true)} className="text-[12px] underline" style={{ color: "var(--accent-text)" }}>
         Edit details
       </button>
       {open && (
@@ -328,7 +328,7 @@ export function InterviewDiary({ candidacyId, bookings, interviewers, denied }: 
         </ul>
       )}
       {!denied && !open && (
-        <button type="button" onClick={() => setOpen(true)} className="h-9 rounded-md border px-3 text-[13px] font-medium" style={{ borderColor: "var(--series-1)", color: "var(--series-1)" }}>
+        <button type="button" onClick={() => setOpen(true)} className="h-9 rounded-md border px-3 text-[13px] font-medium" style={{ borderColor: "var(--series-1)", color: "var(--accent-text)" }}>
           {upcoming.length ? "Book another interview" : "Book an interview"}
         </button>
       )}
@@ -427,7 +427,7 @@ function BookingItem({ b, denied }: { b: BookingRow; denied: string | null }) {
                 Cancel or move
               </button>
               {past && (
-                <button type="submit" name="noShow" value="1" className="underline" style={{ color: "var(--status-serious)" }}>
+                <button type="submit" name="noShow" value="1" className="underline" style={{ color: "var(--serious-text)" }}>
                   They did not come
                 </button>
               )}

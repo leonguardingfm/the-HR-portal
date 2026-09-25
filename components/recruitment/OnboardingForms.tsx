@@ -21,7 +21,7 @@ const inputStyle = { background: "var(--surface-1)", color: "var(--text-primary)
 function Message({ state }: { state: ActionResult | null }) {
   if (!state || state.ok) return null;
   return (
-    <p role="alert" className="mt-1.5 text-[11px] leading-snug" style={{ color: "var(--status-critical)" }}>
+    <p role="alert" className="mt-1.5 text-[11px] leading-snug" style={{ color: "var(--critical-text)" }}>
       {state.message}
     </p>
   );

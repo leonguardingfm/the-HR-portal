@@ -20,8 +20,8 @@ export function WorkloadChart({
       <div className="mb-3">
         <Legend
           items={[
-            { label: "Within service level", color: "var(--series-1)" },
-            { label: "Overdue", color: "var(--status-critical)" },
+            { label: "Within service level", color: "var(--accent-text)" },
+            { label: "Overdue", color: "var(--critical-text)" },
           ]}
         />
       </div>
@@ -30,9 +30,9 @@ export function WorkloadChart({
           key={d.owner}
           label={d.owner}
           segments={[
-            { value: d.onTrack, color: "var(--series-1)", name: "Within service level" },
+            { value: d.onTrack, color: "var(--accent-text)", name: "Within service level" },
             ...(d.overdue > 0
-              ? [{ value: d.overdue, color: "var(--status-critical)", name: "Overdue" }]
+              ? [{ value: d.overdue, color: "var(--critical-text)", name: "Overdue" }]
               : []),
           ]}
           maxValue={max}

@@ -2,9 +2,11 @@
 
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
+import { useEffect, useState } from "react";
 import { useLive } from "@/components/live/Live";
 import { useFormAction } from "@/components/ui/useFormAction";
 import { useNow } from "@/components/ui/useNow";
+import { Shortcuts, pressShortcut, type ShortcutKey } from "@/components/ui/Shortcuts";
 import { acceptHubTask } from "@/lib/actions/hub";
 import { PRIORITIES, departmentLabel, spanWords, type HubDepartment } from "@/lib/core/hub";
 import type { HubBoard as Board, HubRow } from "@/lib/db/hub-queries";
@@ -31,6 +33,17 @@ const TABS = [
   { id: "closed", label: "Closed today" },
 ] as const;
 
+const KEYS: ShortcutKey[] = [
+  { keys: "j ↓", what: "Next task" },
+  { keys: "k ↑", what: "Previous task" },
+  { keys: "Enter o", what: "Open the task" },
+  { keys: "a", what: "Accept the task" },
+  { keys: "/", what: "Search" },
+  { keys: "n", what: "Log a manual task" },
+  { keys: "1 – 6", what: "All · Mine · Unassigned · Attention · Waiting · Closed" },
+  { keys: "?", what: "This list" },
+];
+
 function greeting(now: Date | null) {
   const h = Number((now ?? new Date()).toLocaleString("en-GB", { timeZone: "Europe/London", hour: "2-digit", hourCycle: "h23" }));
   return h < 12 ? "Good morning" : h < 18 ? "Good afternoon" : "Good evening";
@@ -40,11 +53,11 @@ function AcceptButton({ id }: { id: string }) {
   const f = useFormAction(acceptHubTask.bind(null, id));
   return (
     <form {...f.form} onClick={(e) => e.stopPropagation()}>
-      <button type="submit" disabled={f.pending} className="h-8 rounded-md px-3 text-[12px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--brand-royal)" }}>
+      <button type="submit" data-accept disabled={f.pending} className="h-8 rounded-md px-3 text-[12px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--brand-royal)" }}>
         {f.pending ? "…" : "Accept"}
       </button>
       {f.state && !f.state.ok && (
-        <p role="alert" className="mt-1 max-w-[10rem] text-[11px] leading-tight" style={{ color: "var(--status-critical)" }}>
+        <p role="alert" className="mt-1 max-w-[10rem] text-[11px] leading-tight" style={{ color: "var(--critical-text)" }}>
           {f.state.message}
         </p>
       )}
@@ -61,7 +74,7 @@ function Tile({ label, value, detail, tone, href }: { label: string; value: numb
       <p className="text-[12px] font-medium" style={{ color: "var(--text-secondary)" }}>
         {label}
       </p>
-      <p className="tnum mt-1 text-[28px] leading-none font-semibold" style={{ color: tone === "red" ? "var(--status-critical)" : "var(--text-primary)" }}>
+      <p className="tnum mt-1 text-[28px] leading-none font-semibold" style={{ color: tone === "red" ? "var(--critical-text)" : "var(--text-primary)" }}>
         {value}
       </p>
       <p className="mt-2 text-[11px]" style={{ color: "var(--text-muted)" }}>
@@ -98,11 +111,39 @@ export function HubBoard({ board, me, tab, q, priority, can, staff, clients }: P
   const mine = board.rows.filter((r) => r.ownerIsMe);
   const dueSoonText = t.myDueSoon ? `${t.myDueSoon} due now or soon` : "Nothing due yet";
 
+  // The row the keyboard is on. Kept on the same task when the list refreshes.
+  const [sel, setSel] = useState<string | null>(null);
+  const at = sel ? board.rows.findIndex((r) => r.id === sel) : -1;
+  const move = (d: number) => {
+    if (!board.rows.length) return;
+    const i = at < 0 ? (d > 0 ? 0 : board.rows.length - 1) : Math.min(board.rows.length - 1, Math.max(0, at + d));
+    setSel(board.rows[i].id);
+  };
+  useEffect(() => {
+    if (sel) document.querySelector<HTMLElement>(`[data-row="${sel}"]:not([hidden])`)?.scrollIntoView({ block: "nearest" });
+  }, [sel]);
+  const tabKeys = Object.fromEntries(TABS.map((x, i) => [String(i + 1), () => router.push(href({ tab: x.id === "all" ? null : x.id }))]));
+  const handlers: Record<string, () => void> = {
+    ...tabKeys,
+    j: () => move(1),
+    ArrowDown: () => move(1),
+    k: () => move(-1),
+    ArrowUp: () => move(-1),
+    Enter: () => sel && at >= 0 && router.push(`/hub/${sel}`),
+    o: () => sel && at >= 0 && router.push(`/hub/${sel}`),
+    a: () => {
+      const row = sel ? [...document.querySelectorAll<HTMLElement>(`[data-row="${sel}"]`)].find((x) => x.offsetParent) : undefined;
+      row?.querySelector<HTMLButtonElement>("[data-accept]:not(:disabled)")?.click();
+    },
+    "/": () => pressShortcut("/"),
+    n: () => pressShortcut("n"),
+  };
+
   return (
     <div className="space-y-5">
       <header className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
-          <p className="text-[11px] font-bold tracking-[0.18em] uppercase" style={{ color: "var(--brand-gold)" }}>
+          <p className="text-[11px] font-bold tracking-[0.18em] uppercase" style={{ color: "var(--gold-text)" }}>
             Performance hub
           </p>
           <h1 className="text-[24px] font-semibold tracking-tight">
@@ -123,6 +164,7 @@ export function HubBoard({ board, me, tab, q, priority, can, staff, clients }: P
               Outlook · {liveMailboxes.length} mailbox{liveMailboxes.length === 1 ? "" : "es"}
             </span>
           )}
+          <Shortcuts list={can.work ? KEYS : KEYS.filter((k) => k.keys !== "a" && k.keys !== "n")} handlers={handlers} />
           <span className="inline-flex items-center gap-1.5 rounded-full border px-2.5 py-1 text-[11px]" style={{ borderColor: "var(--hairline)", background: "var(--surface-1)" }}>
             <span aria-hidden className="h-2 w-2 rounded-full" style={{ background: stale ? "var(--status-critical)" : "var(--status-good)" }} />
             {stale ? "Reconnecting…" : "Live"} · {now ? now.toLocaleString("en-GB", { timeZone: "Europe/London", weekday: "short", day: "numeric", month: "short", hour: "2-digit", minute: "2-digit" }) : "—"}
@@ -144,7 +186,7 @@ export function HubBoard({ board, me, tab, q, priority, can, staff, clients }: P
             </strong>
             <span style={{ color: "var(--text-secondary)" }}> · {why.join(" · ")}</span>
           </span>
-          <span className="font-semibold" style={{ color: "var(--status-critical)" }}>
+          <span className="font-semibold" style={{ color: "var(--critical-text)" }}>
             Review now →
           </span>
         </Link>
@@ -187,7 +229,7 @@ export function HubBoard({ board, me, tab, q, priority, can, staff, clients }: P
                       href={href({ tab: x.id === "all" ? null : x.id })}
                       aria-current={on ? "page" : undefined}
                       className="inline-flex items-center gap-1.5 rounded-md px-3 py-1.5 text-[12px] font-semibold"
-                      style={{ background: on ? "var(--surface-1)" : "transparent", color: on ? "var(--brand-royal)" : "var(--text-secondary)", boxShadow: on ? "0 0 0 1px var(--hairline)" : undefined }}
+                      style={{ background: on ? "var(--surface-1)" : "transparent", color: on ? "var(--accent-text)" : "var(--text-secondary)", boxShadow: on ? "0 0 0 1px var(--hairline)" : undefined }}
                     >
                       {x.label}
                       <span className="tnum rounded-full px-1.5 text-[10px]" style={{ background: x.id === "attention" && n ? "var(--status-critical)" : "var(--wash-neutral)", color: x.id === "attention" && n ? "#fff" : "var(--text-secondary)" }}>
@@ -222,7 +264,7 @@ export function HubBoard({ board, me, tab, q, priority, can, staff, clients }: P
               {tab !== "all" && <input type="hidden" name="tab" value={tab} />}
               {board.department && <input type="hidden" name="department" value={board.department} />}
               {priority && <input type="hidden" name="priority" value={priority} />}
-              <input type="search" name="q" defaultValue={q} placeholder="Search subject, sender, ref, site" aria-label="Search" className="h-8 w-56 max-w-full rounded-md border px-2.5 text-[12px]" style={{ background: "var(--surface-1)", borderColor: "var(--hairline)" }} />
+              <input type="search" name="q" data-shortcut="/" defaultValue={q} placeholder="Search subject, sender, ref, site" aria-label="Search" className="h-8 w-56 max-w-full rounded-md border px-2.5 text-[12px]" style={{ background: "var(--surface-1)", borderColor: "var(--hairline)" }} />
             </form>
           </div>
         </div>
@@ -247,7 +289,7 @@ export function HubBoard({ board, me, tab, q, priority, can, staff, clients }: P
                 </thead>
                 <tbody>
                   {board.rows.map((r) => (
-                    <Row key={r.id} r={r} now={now} board={board} canWork={can.work} onOpen={() => router.push(`/hub/${r.id}`)} />
+                    <Row key={r.id} r={r} now={now} board={board} canWork={can.work} selected={r.id === sel} onOpen={() => router.push(`/hub/${r.id}`)} />
                   ))}
                 </tbody>
               </table>
@@ -255,7 +297,7 @@ export function HubBoard({ board, me, tab, q, priority, can, staff, clients }: P
             {/* Phone: one card each. */}
             <ul className="divide-y md:hidden" style={{ borderColor: "var(--hairline)" }}>
               {board.rows.map((r) => (
-                <MobileRow key={r.id} r={r} now={now} board={board} canWork={can.work} />
+                <MobileRow key={r.id} r={r} now={now} board={board} canWork={can.work} selected={r.id === sel} />
               ))}
             </ul>
           </>
@@ -270,7 +312,7 @@ export function HubBoard({ board, me, tab, q, priority, can, staff, clients }: P
         {board.portalTasks > 0 && (
           <p className="border-t px-5 py-2.5 text-[12px]" style={{ borderColor: "var(--hairline)", color: "var(--text-secondary)" }}>
             Also waiting in the portal: {board.portalTasks} {board.departments.length === 1 ? departmentLabel(board.departments[0] as HubDepartment) : ""} task{board.portalTasks === 1 ? "" : "s"} —{" "}
-            <Link href="/tasks" className="underline underline-offset-2" style={{ color: "var(--brand-royal)" }}>
+            <Link href="/tasks" className="underline underline-offset-2" style={{ color: "var(--accent-text)" }}>
               My tasks
             </Link>
           </p>
@@ -286,12 +328,18 @@ const breachedNow = (r: HubRow, now: Date | null, board: Board) => {
   return !!due && ["completed", "unsuccessful", "cancelled"].indexOf(r.status) === -1 && new Date(due) <= now && !(board && ["awaiting_information", "awaiting_client", "awaiting_officer"].includes(r.status) && r.followUpAt && new Date(r.followUpAt) > now);
 };
 
-function Row({ r, now, board, canWork, onOpen }: { r: HubRow; now: Date | null; board: Board; canWork: boolean; onOpen: () => void }) {
+function Row({ r, now, board, canWork, selected, onOpen }: { r: HubRow; now: Date | null; board: Board; canWork: boolean; selected: boolean; onOpen: () => void }) {
   const late = breachedNow(r, now, board);
   const critical = r.priority === "critical" && r.status === "unassigned";
   const edge = late || critical ? "var(--status-critical)" : r.status === "unassigned" ? "var(--brand-gold)" : "transparent";
   return (
-    <tr onClick={onOpen} className="cursor-pointer border-t align-top hover:bg-[var(--wash)]" style={{ borderColor: "var(--hairline)", background: late || critical ? "var(--wash-critical)" : undefined, boxShadow: `inset 3px 0 0 ${edge}` }}>
+    <tr
+      data-row={r.id}
+      aria-selected={selected || undefined}
+      onClick={onOpen}
+      className="cursor-pointer border-t align-top hover:bg-[var(--wash)]"
+      style={{ borderColor: "var(--hairline)", background: late || critical ? "var(--wash-critical)" : undefined, boxShadow: `inset 3px 0 0 ${edge}${selected ? ", inset 0 0 0 2px var(--brand-royal)" : ""}` }}
+    >
       <td className="px-4 py-3">
         <p className="tnum text-[13px] font-semibold">{ukTimeOf(r.receivedAt)}</p>
         <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
@@ -340,7 +388,7 @@ function Row({ r, now, board, canWork, onOpen }: { r: HubRow; now: Date | null; 
         {r.status === "unassigned" && canWork ? (
           <AcceptButton id={r.id} />
         ) : (
-          <Link href={`/hub/${r.id}`} onClick={(e) => e.stopPropagation()} className="text-[12px] font-semibold" style={{ color: "var(--brand-royal)" }}>
+          <Link href={`/hub/${r.id}`} onClick={(e) => e.stopPropagation()} className="text-[12px] font-semibold" style={{ color: "var(--accent-text)" }}>
             Open →
           </Link>
         )}
@@ -349,11 +397,11 @@ function Row({ r, now, board, canWork, onOpen }: { r: HubRow; now: Date | null; 
   );
 }
 
-function MobileRow({ r, now, board, canWork }: { r: HubRow; now: Date | null; board: Board; canWork: boolean }) {
+function MobileRow({ r, now, board, canWork, selected }: { r: HubRow; now: Date | null; board: Board; canWork: boolean; selected: boolean }) {
   const late = breachedNow(r, now, board);
   const critical = r.priority === "critical" && r.status === "unassigned";
   return (
-    <li className="px-4 py-3" style={{ borderColor: "var(--hairline)", background: late || critical ? "var(--wash-critical)" : undefined, boxShadow: late || critical ? "inset 3px 0 0 var(--status-critical)" : undefined }}>
+    <li data-row={r.id} className="px-4 py-3" style={{ borderColor: "var(--hairline)", background: late || critical ? "var(--wash-critical)" : undefined, boxShadow: [late || critical ? "inset 3px 0 0 var(--status-critical)" : "", selected ? "inset 0 0 0 2px var(--brand-royal)" : ""].filter(Boolean).join(", ") || undefined }}>
       <div className="flex items-start justify-between gap-3">
         <Link href={`/hub/${r.id}`} className="min-w-0">
           <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>

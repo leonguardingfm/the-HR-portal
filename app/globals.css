@@ -20,14 +20,14 @@
   --surface-1:       #fcfcfb;
   --text-primary:    #0b0b0b;
   --text-secondary:  #52514e;
-  --text-muted:      #898781;
+  --text-muted:      #686762;
   --gridline:        #e1e0d9;
   --baseline:        #c3c2b7;
   --hairline:        rgba(11, 11, 11, 0.10);
   --wash:            rgba(11, 11, 11, 0.04);
 
   /* Categorical series, fixed order */
-  --series-1:        #2a78d6;  /* blue   */
+  --series-1:        #2974d0;  /* blue   */
   --series-2:        #eb6834;  /* orange */
   --series-3:        #1baf7a;  /* aqua   */
 
@@ -64,6 +64,17 @@
   --brand-royal:     #1f4fbf;
   --brand-gold:      #c9a227;
   --brand-gold-wash: rgba(201, 162, 39, 0.14);
+
+  /* Text in a colour, and white-text buttons: separate from the fills so each
+     meets WCAG AA in every theme (26 September 2026, scripts/check-contrast.ts). */
+  --accent-text:     #1d5bb5;
+  --critical-text:   #b42323;
+  --good-text:       #08703a;
+  --warning-text:    #8a5a00;
+  --serious-text:    #a3421a;
+  --gold-text:       #7f6414;
+  --button-good:     #0a7a36;
+  --focus-ring:      #1f4fbf;
 }
 
 @media (prefers-color-scheme: dark) {
@@ -74,13 +85,13 @@
     --surface-1:       #1a1a19;
     --text-primary:    #ffffff;
     --text-secondary:  #c3c2b7;
-    --text-muted:      #898781;
+    --text-muted:      #a3a19d;
     --gridline:        #2c2c2a;
     --baseline:        #383835;
     --hairline:        rgba(255, 255, 255, 0.10);
     --wash:            rgba(255, 255, 255, 0.05);
 
-    --series-1:        #3987e5;
+    --series-1:        #3275c7;
     --series-2:        #d95926;
     --series-3:        #199e70;
 
@@ -103,9 +114,18 @@
   --roster-changed:      #2bb6c4;
   --roster-changed-wash: rgba(43, 182, 196, 0.18);
     --brand-navy:      #1d3d6b;
-    --brand-royal:     #4f7fe8;
+    --brand-royal:     #4671ce;
     --brand-gold:      #e0bb45;
     --brand-gold-wash: rgba(224, 187, 69, 0.16);
+
+    --accent-text:     #7aabf2;
+    --critical-text:   #f38080;
+    --good-text:       #4fce62;
+    --warning-text:    #fab219;
+    --serious-text:    #f39a72;
+    --gold-text:       #e0bb45;
+    --button-good:     #0f7a38;
+    --focus-ring:      #8fb6ff;
   }
 }
 
@@ -116,13 +136,13 @@
   --surface-1:       #1a1a19;
   --text-primary:    #ffffff;
   --text-secondary:  #c3c2b7;
-  --text-muted:      #898781;
+  --text-muted:      #a3a19d;
   --gridline:        #2c2c2a;
   --baseline:        #383835;
   --hairline:        rgba(255, 255, 255, 0.10);
   --wash:            rgba(255, 255, 255, 0.05);
 
-  --series-1:        #3987e5;
+  --series-1:        #3275c7;
   --series-2:        #d95926;
   --series-3:        #199e70;
 
@@ -145,9 +165,18 @@
   --roster-changed:      #2bb6c4;
   --roster-changed-wash: rgba(43, 182, 196, 0.18);
   --brand-navy:      #1d3d6b;
-  --brand-royal:     #4f7fe8;
+  --brand-royal:     #4671ce;
   --brand-gold:      #e0bb45;
   --brand-gold-wash: rgba(224, 187, 69, 0.16);
+
+  --accent-text:     #7aabf2;
+  --critical-text:   #f38080;
+  --good-text:       #4fce62;
+  --warning-text:    #fab219;
+  --serious-text:    #f39a72;
+  --gold-text:       #e0bb45;
+  --button-good:     #0f7a38;
+  --focus-ring:      #8fb6ff;
 }
 
 /* ---------------------------------------------------------------------------
@@ -161,7 +190,7 @@
   --surface-1:       #fcfaff;
   --text-primary:    #2a1f3d;
   --text-secondary:  #5a4d70;
-  --text-muted:      #948aa6;
+  --text-muted:      #6d627f;
   --gridline:        #e6ddf3;
   --baseline:        #cbbbe3;
   --hairline:        rgba(110, 70, 170, 0.13);
@@ -174,7 +203,7 @@
   --surface-1:       #21192d;
   --text-primary:    #f1ebfb;
   --text-secondary:  #cdc0e2;
-  --text-muted:      #9587ab;
+  --text-muted:      #aa9ebd;
   --gridline:        #2f2540;
   --baseline:        #3f3354;
   --hairline:        rgba(205, 180, 245, 0.14);
@@ -187,7 +216,7 @@
   --surface-1:       #f8faff;
   --text-primary:    #0d1f4d;
   --text-secondary:  #3c4b73;
-  --text-muted:      #7886a6;
+  --text-muted:      #57668a;
   --gridline:        #d6e1f7;
   --baseline:        #b3c6ee;
   --hairline:        rgba(31, 79, 191, 0.12);
@@ -200,7 +229,7 @@
   --surface-1:       #131e45;
   --text-primary:    #e9efff;
   --text-secondary:  #bac6ea;
-  --text-muted:      #8090bd;
+  --text-muted:      #97a5cc;
   --gridline:        #1f2d5c;
   --baseline:        #2c3d73;
   --hairline:        rgba(150, 180, 255, 0.15);
@@ -213,7 +242,7 @@
   --surface-1:       #fdfbf4;
   --text-primary:    #2b2208;
   --text-secondary:  #5c5031;
-  --text-muted:      #958a6c;
+  --text-muted:      #706649;
   --gridline:        #ece2c4;
   --baseline:        #d8c890;
   --hairline:        rgba(120, 90, 10, 0.14);
@@ -226,7 +255,7 @@
   --surface-1:       #221c0f;
   --text-primary:    #f6efdc;
   --text-secondary:  #d8ccb0;
-  --text-muted:      #9e927a;
+  --text-muted:      #afa48d;
   --gridline:        #33291a;
   --baseline:        #453822;
   --hairline:        rgba(240, 210, 140, 0.14);
@@ -239,7 +268,7 @@
   --surface-1:       #f7fcfb;
   --text-primary:    #082b28;
   --text-secondary:  #355a56;
-  --text-muted:      #73918d;
+  --text-muted:      #4c6c69;
   --gridline:        #d2e9e6;
   --baseline:        #a9d3ce;
   --hairline:        rgba(14, 110, 100, 0.13);
@@ -252,7 +281,7 @@
   --surface-1:       #0f2226;
   --text-primary:    #e3f5f2;
   --text-secondary:  #b6d4d0;
-  --text-muted:      #7c9d99;
+  --text-muted:      #8caba7;
   --gridline:        #1a3438;
   --baseline:        #26464b;
   --hairline:        rgba(140, 220, 210, 0.14);
@@ -270,6 +299,30 @@ body {
 
 * {
   border-color: var(--hairline);
+}
+
+/* Keyboard focus is always visible, in every theme (26 September 2026). Only
+   for the keyboard: a mouse click does not leave a ring behind. */
+:where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"]), [role="button"], [role="menuitem"], [role="menuitemradio"]):focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
+
+/* The first thing a keyboard reaches: straight past the menu to the page. */
+.skip-link {
+  position: absolute;
+  left: 12px;
+  top: -100px;
+  z-index: 100;
+  padding: 8px 14px;
+  border-radius: 6px;
+  background: var(--brand-navy);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+}
+.skip-link:focus {
+  top: 12px;
 }
 
 /* Numbers that must line up vertically get equal-width digits.

@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, type ReactNode } from "react";
+import { useEffect, useRef, type ReactNode } from "react";
 
 /** A panel from the right: over the roster, closed with Escape or a click outside. */
 export function Drawer({
@@ -19,6 +19,13 @@ export function Drawer({
   onClose: () => void;
   children: ReactNode;
 }) {
+  const body = useRef<HTMLDivElement>(null);
+  // Straight into the first box, and back where you were on closing.
+  useEffect(() => {
+    const before = document.activeElement as HTMLElement | null;
+    body.current?.querySelector<HTMLElement>("input:not([type=hidden]):not([disabled]), select:not([disabled]), textarea:not([disabled]), button:not([disabled])")?.focus();
+    return () => before?.focus?.();
+  }, []);
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
     window.addEventListener("keydown", onKey);
@@ -55,7 +62,9 @@ export function Drawer({
             Close
           </button>
         </header>
-        <div className="flex-1 space-y-5 overflow-y-auto px-5 py-4">{children}</div>
+        <div ref={body} className="flex-1 space-y-5 overflow-y-auto px-5 py-4">
+          {children}
+        </div>
       </div>
     </div>
   );

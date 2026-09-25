@@ -87,7 +87,7 @@ export function ScreeningDocuments({
                       target="_blank"
                       rel="noopener noreferrer"
                       className="underline-offset-2 hover:underline"
-                      style={{ color: "var(--series-1)" }}
+                      style={{ color: "var(--accent-text)" }}
                     >
                       {r.fileName ?? "View copy"}
                     </a>
@@ -111,7 +111,7 @@ export function ScreeningDocuments({
                     .join(" · ")}
                 </p>
                 {r.rejectionReason && (
-                  <p className="mt-0.5 text-[12px]" style={{ color: "var(--status-critical)" }}>
+                  <p className="mt-0.5 text-[12px]" style={{ color: "var(--critical-text)" }}>
                     Rejected: {r.rejectionReason}
                   </p>
                 )}

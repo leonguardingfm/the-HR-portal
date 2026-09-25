@@ -12,10 +12,10 @@ import { categoryLabel, currentClock, priorityOf, spanWords, statusOf, type Cloc
  *   grey — cancelled, duplicate, nothing needed
  */
 export const TONE: Record<Tone, { fg: string; bg: string }> = {
-  red: { fg: "var(--status-critical)", bg: "var(--wash-critical)" },
-  amber: { fg: "var(--status-warning)", bg: "var(--wash-warning)" },
-  blue: { fg: "var(--series-1)", bg: "color-mix(in srgb, var(--series-1) 12%, transparent)" },
-  green: { fg: "var(--status-good)", bg: "var(--wash-good)" },
+  red: { fg: "var(--critical-text)", bg: "var(--wash-critical)" },
+  amber: { fg: "var(--warning-text)", bg: "var(--wash-warning)" },
+  blue: { fg: "var(--accent-text)", bg: "color-mix(in srgb, var(--series-1) 12%, transparent)" },
+  green: { fg: "var(--good-text)", bg: "var(--wash-good)" },
   grey: { fg: "var(--text-secondary)", bg: "var(--wash-neutral)" },
 };
 
@@ -80,7 +80,7 @@ const initials = (name: string) =>
     .toUpperCase();
 
 export function Owner({ name, me }: { name: string | null; me?: boolean }) {
-  if (!name) return <span className="text-[12px] font-semibold" style={{ color: "var(--status-warning)" }}>○ Unassigned</span>;
+  if (!name) return <span className="text-[12px] font-semibold" style={{ color: "var(--warning-text)" }}>○ Unassigned</span>;
   return (
     <span className="inline-flex items-center gap-1.5 text-[12px] whitespace-nowrap">
       <span aria-hidden className="flex h-6 w-6 items-center justify-center rounded-full text-[10px] font-semibold" style={{ background: me ? "var(--series-1)" : "var(--wash-neutral)", color: me ? "#fff" : "var(--text-secondary)" }}>

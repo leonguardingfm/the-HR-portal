@@ -142,9 +142,9 @@ export function AdminItemList({
                           style={{
                             color:
                               a.decision === "approved"
-                                ? "var(--status-good)"
+                                ? "var(--good-text)"
                                 : a.decision === "rejected"
-                                  ? "var(--status-critical)"
+                                  ? "var(--critical-text)"
                                   : "var(--text-muted)",
                           }}
                         >

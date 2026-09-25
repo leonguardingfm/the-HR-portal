@@ -42,7 +42,7 @@ export function WelcomePackForm({
   if (signed) {
     return (
       <main className="mx-auto max-w-lg px-5 py-16 text-center">
-        <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--series-1)" }}>
+        <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--accent-text)" }}>
           {company}
         </p>
         <h1 className="mt-2 text-[24px] font-semibold">Signed — welcome to the team</h1>
@@ -55,7 +55,7 @@ export function WelcomePackForm({
 
   return (
     <main className="mx-auto max-w-xl px-4 pt-6 pb-24">
-      <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--series-1)" }}>
+      <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--accent-text)" }}>
         {company}
       </p>
       <h1 className="text-[22px] font-semibold tracking-tight">Your welcome pack</h1>
@@ -71,7 +71,7 @@ export function WelcomePackForm({
             <ul className="mt-2 space-y-1.5 text-[15px]">
               {documents.map((d) => (
                 <li key={d.id}>
-                  <a href={`/apply/${token}/pack/${d.id}`} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: "var(--series-1)" }}>
+                  <a href={`/apply/${token}/pack/${d.id}`} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: "var(--accent-text)" }}>
                     {d.name}
                   </a>
                 </li>
@@ -133,7 +133,7 @@ export function WelcomePackForm({
             {f.pending ? "Signing…" : "Sign my welcome pack"}
           </button>
           {f.state && !f.state.ok && (
-            <p role="alert" className="mt-2 text-[14px]" style={{ color: "var(--status-critical)" }}>
+            <p role="alert" className="mt-2 text-[14px]" style={{ color: "var(--critical-text)" }}>
               {f.state.message}
             </p>
           )}

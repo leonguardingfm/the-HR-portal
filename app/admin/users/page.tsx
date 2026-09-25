@@ -251,7 +251,7 @@ export default async function UsersPage({
               Filter
             </button>
             {(deptFilter || statusFilter || q) && (
-              <Link href="/admin/users" className="text-[12px]" style={{ color: "var(--series-1)" }}>
+              <Link href="/admin/users" className="text-[12px]" style={{ color: "var(--accent-text)" }}>
                 Clear
               </Link>
             )}

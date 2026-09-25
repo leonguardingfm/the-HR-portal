@@ -77,7 +77,7 @@ export function ActionButton({
       {state && (
         <span
           className="max-w-[22rem] text-[11px] leading-snug"
-          style={{ color: state.ok ? "var(--status-good)" : "var(--status-critical)" }}
+          style={{ color: state.ok ? "var(--good-text)" : "var(--critical-text)" }}
         >
           {state.message}
         </span>

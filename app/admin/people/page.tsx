@@ -118,7 +118,7 @@ export default async function AdminPeoplePage() {
                   <td className="px-1 py-2.5">
                     <p className="font-medium">{h.personName}</p>
                     {h.decision === "pending" && (
-                      <p style={{ color: h.daysWaiting > 5 ? "var(--status-serious)" : "var(--text-muted)" }}>
+                      <p style={{ color: h.daysWaiting > 5 ? "var(--serious-text)" : "var(--text-muted)" }}>
                         waiting {h.daysWaiting}d
                       </p>
                     )}

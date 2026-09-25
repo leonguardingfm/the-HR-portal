@@ -155,7 +155,7 @@ export function ActionForm({
         <p
           role="status"
           className="max-w-md text-[11px] leading-snug"
-          style={{ color: state.ok ? "var(--status-good)" : "var(--status-serious)" }}
+          style={{ color: state.ok ? "var(--good-text)" : "var(--serious-text)" }}
         >
           {state.ok ? "✓ " : "✕ "}
           {state.message}

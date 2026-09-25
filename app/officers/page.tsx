@@ -170,7 +170,7 @@ export default async function OfficersPage({
                     <td className="border-b px-5 py-2.5">
                       <div className="flex flex-wrap items-center gap-1.5">
                         {/* The officer's own page: contact, shifts, record, availability, sites. */}
-                        <Link href={`/officers/${o.personId}`} className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+                        <Link href={`/officers/${o.personId}`} className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
                           {o.name}
                         </Link>
                         {o.candidacy && seesCandidates && (
@@ -194,12 +194,12 @@ export default async function OfficersPage({
                     <td className="border-b px-5 py-2.5">
                       {o.weeklyHours ? (
                         <>
-                          <p className="tnum font-medium tabular-nums" style={{ color: o.hoursThisWeek > o.weeklyHours ? "var(--status-critical)" : undefined }}>
+                          <p className="tnum font-medium tabular-nums" style={{ color: o.hoursThisWeek > o.weeklyHours ? "var(--critical-text)" : undefined }}>
                             {o.hoursThisWeek}h <span className="font-normal" style={{ color: "var(--text-muted)" }}>of {o.weeklyHours}h</span>
                           </p>
                           {hoursDenied ? null : (
                             <details className="mt-1">
-                              <summary className="cursor-pointer text-[11px] select-none" style={{ color: "var(--series-1)" }}>
+                              <summary className="cursor-pointer text-[11px] select-none" style={{ color: "var(--accent-text)" }}>
                                 Change their hours
                               </summary>
                               <div className="mt-1.5">
@@ -221,7 +221,7 @@ export default async function OfficersPage({
                           </p>
                         </>
                       ) : (
-                        <span style={{ color: "var(--status-critical)" }}>None recorded</span>
+                        <span style={{ color: "var(--critical-text)" }}>None recorded</span>
                       )}
                     </td>
                     <td className="border-b px-5 py-2.5">

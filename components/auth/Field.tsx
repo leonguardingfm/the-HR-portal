@@ -65,7 +65,7 @@ export function Field({
         )}
       </div>
       {error ? (
-        <p id={`${id}-err`} className="mt-1 text-[11px]" style={{ color: "var(--status-critical)" }}>
+        <p id={`${id}-err`} className="mt-1 text-[11px]" style={{ color: "var(--critical-text)" }}>
           {error}
         </p>
       ) : hint ? (

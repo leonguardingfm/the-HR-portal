@@ -32,6 +32,7 @@ import {
   parseSpan,
   priorityOf,
   requiredActionFor,
+  setClosedDays,
   statusOf,
   taskRef,
   waitingProblem,
@@ -60,7 +61,8 @@ const done = (message: string, taskId?: string): HubResult => ({ ok: true, messa
 
 /** The agreed clocks, with any a manager has changed in Settings ("hub.sla.low.accept" = "8h"). */
 export async function slaPolicy(): Promise<SlaPolicy> {
-  const rows = await db.setting.findMany({ where: { key: { startsWith: "hub.sla." } } });
+  const [rows, closed] = await Promise.all([db.setting.findMany({ where: { key: { startsWith: "hub.sla." } } }), db.setting.findUnique({ where: { key: "hub.closed_days" } })]);
+  setClosedDays(closed ? (JSON.parse(closed.value) as string[]) : []);
   if (!rows.length) return SLA_DEFAULTS;
   const policy = structuredClone(SLA_DEFAULTS) as SlaPolicy;
   for (const r of rows) {

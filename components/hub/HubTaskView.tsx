@@ -7,6 +7,8 @@ import { Result, input, inputStyle } from "@/components/scheduling/RotaForms";
 import { Card } from "@/components/ui/Card";
 import { useFormAction } from "@/components/ui/useFormAction";
 import { useNow } from "@/components/ui/useNow";
+import { Shortcuts, type ShortcutKey } from "@/components/ui/Shortcuts";
+import { useRouter } from "next/navigation";
 import {
   acceptHubTask,
   addHubFile,
@@ -44,8 +46,48 @@ const F = ({ label, children }: { label: string; children: ReactNode }) => (
   </label>
 );
 
+/** The wording a template gives, with this task's details put in. */
+export function fillTemplate(body: string, t: { ref: string; senderName: string | null; client: string | null; site: string | null; subject: string }, me: string) {
+  const values: Record<string, string> = { ref: t.ref, sender: t.senderName ?? "", client: t.client ?? "", site: t.site ?? "", subject: t.subject, me };
+  return body.replace(/\{(ref|sender|client|site|subject|me)\}/g, (_, k: string) => values[k]);
+}
+
+/** What was done — typed, or started from one of the department's reply templates. */
+function NoteText({ t, withTemplates }: { t: HubTaskFull; withTemplates: boolean }) {
+  const [text, setText] = useState("");
+  const list = withTemplates ? t.templates : [];
+  return (
+    <>
+      {list.length > 0 && (
+        <F label="Start from a reply template (optional)">
+          <select
+            defaultValue=""
+            onChange={(e) => {
+              const x = list.find((y) => y.id === e.target.value);
+              if (x) setText(fillTemplate(x.body, t, t.meName));
+            }}
+            className={input}
+            style={inputStyle}
+          >
+            <option value="">Write my own</option>
+            {list.map((x) => (
+              <option key={x.id} value={x.id}>
+                {x.category === t.category ? "★ " : ""}
+                {x.title} · {categoryLabel(x.category)}
+              </option>
+            ))}
+          </select>
+        </F>
+      )}
+      <F label="What was done">
+        <textarea name="text" required rows={list.length ? 7 : 4} value={text} onChange={(e) => setText(e.target.value)} className={`${input} h-auto py-2`} style={inputStyle} />
+      </F>
+    </>
+  );
+}
+
 /** A button that opens a form in a drawer, and closes it when the form succeeds. */
-function FormDrawer({ label, title, subtitle, action, children, submit, tone = "primary", small = false }: { label: ReactNode; title: string; subtitle: string; action: Act; children: ReactNode; submit: string; tone?: "primary" | "plain" | "danger"; small?: boolean }) {
+function FormDrawer({ label, title, subtitle, action, children, submit, tone = "primary", small = false, shortcut }: { label: ReactNode; title: string; subtitle: string; action: Act; children: ReactNode; submit: string; tone?: "primary" | "plain" | "danger"; small?: boolean; shortcut?: string }) {
   const [open, setOpen] = useState(false);
   const f = useFormAction(
     async (prev: ActionResult | null, fd: FormData) => {
@@ -59,16 +101,16 @@ function FormDrawer({ label, title, subtitle, action, children, submit, tone = "
     tone === "primary"
       ? { background: "var(--brand-royal)", color: "#fff", borderColor: "var(--brand-royal)" }
       : tone === "danger"
-        ? { color: "var(--status-critical)", borderColor: "var(--status-critical)" }
+        ? { color: "var(--critical-text)", borderColor: "var(--status-critical)" }
         : { borderColor: "var(--hairline)" };
   return (
     <>
       {small ? (
-        <button type="button" onClick={() => setOpen(true)} className="text-[11px] underline underline-offset-2" style={{ color: "var(--brand-royal)" }}>
+        <button type="button" onClick={() => setOpen(true)} className="text-[11px] underline underline-offset-2" style={{ color: "var(--accent-text)" }}>
           {label}
         </button>
       ) : (
-        <button type="button" onClick={() => setOpen(true)} className={btn} style={style}>
+        <button type="button" data-shortcut={shortcut} aria-keyshortcuts={shortcut} onClick={() => setOpen(true)} className={btn} style={style}>
           {label}
         </button>
       )}
@@ -87,15 +129,15 @@ function FormDrawer({ label, title, subtitle, action, children, submit, tone = "
   );
 }
 
-function OneClick({ action, label, tone = "plain" }: { action: Act; label: string; tone?: "primary" | "plain" }) {
+function OneClick({ action, label, tone = "plain", shortcut }: { action: Act; label: string; tone?: "primary" | "plain"; shortcut?: string }) {
   const f = useFormAction(action);
   return (
     <form {...f.form} className="inline-flex flex-col">
-      <button type="submit" disabled={f.pending} className={btn} style={tone === "primary" ? { background: "var(--brand-royal)", color: "#fff", borderColor: "var(--brand-royal)" } : { borderColor: "var(--hairline)" }}>
+      <button type="submit" data-shortcut={shortcut} aria-keyshortcuts={shortcut} disabled={f.pending} className={btn} style={tone === "primary" ? { background: "var(--brand-royal)", color: "#fff", borderColor: "var(--brand-royal)" } : { borderColor: "var(--hairline)" }}>
         {f.pending ? "…" : label}
       </button>
       {f.state && !f.state.ok && (
-        <span role="alert" className="mt-1 text-[11px]" style={{ color: "var(--status-critical)" }}>
+        <span role="alert" className="mt-1 text-[11px]" style={{ color: "var(--critical-text)" }}>
           {f.state.message}
         </span>
       )}
@@ -132,8 +174,23 @@ function Row({ k, children }: { k: string; children: ReactNode }) {
 
 const NOTE_KIND = { action: { label: "Action taken", tone: "blue" }, response: { label: "Responded", tone: "green" }, note: { label: "Note", tone: "grey" }, follow_up: { label: "Follow-up", tone: "amber" } } as const;
 
+const TASK_KEYS: ShortcutKey[] = [
+  { keys: "a", what: "Accept" },
+  { keys: "r", what: "Record action / add a note" },
+  { keys: "x", what: "Next action" },
+  { keys: "w", what: "Put on hold" },
+  { keys: "f", what: "Record follow-up" },
+  { keys: "e", what: "Escalate" },
+  { keys: "h", what: "Hand over / reassign" },
+  { keys: "c", what: "Close the task" },
+  { keys: "b", what: "Back to the hub" },
+  { keys: "Esc", what: "Close a drawer" },
+  { keys: "?", what: "This list" },
+];
+
 export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; can: Can }) {
   const now = useNow(1000);
+  const router = useRouter();
   const owner = t.owner?.id === meId;
   const closed = ["completed", "unsuccessful", "cancelled"].includes(t.status);
   const waiting = WAITING.includes(t.status as never);
@@ -158,12 +215,15 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
 
   return (
     <div className="space-y-5">
-      <nav aria-label="Breadcrumb" className="text-[12px]" style={muted}>
-        <Link href="/hub" className="underline underline-offset-2">
-          Performance hub
-        </Link>{" "}
-        / {t.ref}
-      </nav>
+      <div className="flex items-center justify-between gap-3">
+        <nav aria-label="Breadcrumb" className="text-[12px]" style={muted}>
+          <Link href="/hub" className="underline underline-offset-2">
+            Performance hub
+          </Link>{" "}
+          / {t.ref}
+        </nav>
+        <Shortcuts list={TASK_KEYS} handlers={{ b: () => router.push("/hub") }} />
+      </div>
 
       <header className="space-y-3">
         <div className="flex flex-wrap items-start justify-between gap-3">
@@ -216,9 +276,9 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
 
         {/* What can be done, by whom. */}
         <div className="flex flex-wrap items-center gap-2">
-          {t.status === "unassigned" && can.work && <OneClick action={acceptHubTask.bind(null, t.id)} label="Accept / take ownership" tone="primary" />}
+          {t.status === "unassigned" && can.work && <OneClick action={acceptHubTask.bind(null, t.id)} label="Accept / take ownership" tone="primary" shortcut="a" />}
           {!closed && (owner || (can.work && t.status !== "unassigned")) && (
-            <FormDrawer label={owner ? "Record action" : "Add a note"} title={owner ? "Record what has been done" : "Add a note"} subtitle={owner ? "Recording an action or a response starts the update clock again." : `${t.owner?.name ?? "The owner"} owns this; your note is added to its record.`} action={recordHubNote.bind(null, t.id)} submit="Save">
+            <FormDrawer label={owner ? "Record action" : "Add a note"} title={owner ? "Record what has been done" : "Add a note"} subtitle={owner ? "Recording an action or a response starts the update clock again." : `${t.owner?.name ?? "The owner"} owns this; your note is added to its record.`} action={recordHubNote.bind(null, t.id)} submit="Save" shortcut="r">
               {owner ? (
                 <F label="What is it?">
                   <select name="kind" defaultValue="action" className={input} style={inputStyle}>
@@ -230,9 +290,7 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
               ) : (
                 <input type="hidden" name="kind" value="note" />
               )}
-              <F label="What was done">
-                <textarea name="text" required rows={4} className={`${input} h-auto py-2`} style={inputStyle} />
-              </F>
+              <NoteText t={t} withTemplates={owner} />
               {owner && (
                 <div className="grid grid-cols-2 gap-3">
                   <F label="Next action (optional)">
@@ -249,7 +307,7 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
             </FormDrawer>
           )}
           {owner && !closed && !waiting && (
-            <FormDrawer label="Put on hold" title="Waiting on someone" subtitle="The update clock stops until the follow-up time. All four are needed." action={setHubWaiting.bind(null, t.id)} submit="Put on hold" tone="plain">
+            <FormDrawer shortcut="w" label="Put on hold" title="Waiting on someone" subtitle="The update clock stops until the follow-up time. All four are needed." action={setHubWaiting.bind(null, t.id)} submit="Put on hold" tone="plain">
               <F label="Waiting for">
                 <select name="status" defaultValue="awaiting_information" className={input} style={inputStyle}>
                   {(["awaiting_information", "awaiting_client", "awaiting_officer"] as const).map((s) => (
@@ -274,7 +332,7 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
             </FormDrawer>
           )}
           {owner && waiting && (
-            <FormDrawer label="Record follow-up" title="Followed up" subtitle="What was done to chase it, and when to chase next." action={recordHubFollowUp.bind(null, t.id)} submit="Record" tone="plain">
+            <FormDrawer shortcut="f" label="Record follow-up" title="Followed up" subtitle="What was done to chase it, and when to chase next." action={recordHubFollowUp.bind(null, t.id)} submit="Record" tone="plain">
               <F label="What was done">
                 <textarea name="evidence" required rows={3} className={`${input} h-auto py-2`} style={inputStyle} />
               </F>
@@ -285,14 +343,14 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
           )}
           {(owner || can.supervise) && (waiting || t.status === "escalated") && <OneClick action={resumeHubTask.bind(null, t.id)} label="Back in progress" />}
           {(owner || can.supervise) && !closed && t.status !== "unassigned" && t.status !== "escalated" && (
-            <FormDrawer label="Escalate" title="Escalate" subtitle="The Shift Supervisor and the department's manager are told at once." action={escalateHubTask.bind(null, t.id)} submit="Escalate" tone="danger">
+            <FormDrawer shortcut="e" label="Escalate" title="Escalate" subtitle="The Shift Supervisor and the department's manager are told at once." action={escalateHubTask.bind(null, t.id)} submit="Escalate" tone="danger">
               <F label="Why">
                 <textarea name="note" required rows={3} className={`${input} h-auto py-2`} style={inputStyle} />
               </F>
             </FormDrawer>
           )}
           {owner && !closed && (
-            <FormDrawer label="Next action" title="Next action" subtitle="What happens next, and by when — shown on the list." action={setHubNextAction.bind(null, t.id)} submit="Set" tone="plain">
+            <FormDrawer shortcut="x" label="Next action" title="Next action" subtitle="What happens next, and by when — shown on the list." action={setHubNextAction.bind(null, t.id)} submit="Set" tone="plain">
               <F label="Next action">
                 <input name="nextAction" required defaultValue={t.nextAction ?? ""} className={input} style={inputStyle} />
               </F>
@@ -302,7 +360,7 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
             </FormDrawer>
           )}
           {!closed && (owner || can.supervise) && (
-            <FormDrawer label={owner ? "Hand over" : t.owner ? "Reassign" : "Assign"} title={owner ? "Hand over" : "Reassign"} subtitle={owner ? "At the end of your shift: the next person owns it from now, and your note goes with it." : "The new owner is told; the move is kept in the history."} action={reassignHubTask.bind(null, t.id)} submit={owner ? "Hand over" : "Reassign"} tone="plain">
+            <FormDrawer shortcut="h" label={owner ? "Hand over" : t.owner ? "Reassign" : "Assign"} title={owner ? "Hand over" : "Reassign"} subtitle={owner ? "At the end of your shift: the next person owns it from now, and your note goes with it." : "The new owner is told; the move is kept in the history."} action={reassignHubTask.bind(null, t.id)} submit={owner ? "Hand over" : "Reassign"} tone="plain">
               <F label="To">
                 <select name="toUserId" required defaultValue="" className={input} style={inputStyle}>
                   <option value="" disabled>
@@ -411,7 +469,7 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
                       <div className="text-right">
                         <p className="tnum">{ukDateTimeOf(e.at)}</p>
                         {e.webLink && (
-                          <a href={e.webLink} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: "var(--brand-royal)" }}>
+                          <a href={e.webLink} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: "var(--accent-text)" }}>
                             Open in Outlook
                           </a>
                         )}
@@ -454,7 +512,7 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
                         {n.files.length > 0 && (
                           <p className="text-[12px]">
                             {n.files.map((f) => (
-                              <a key={f.id} href={`/hub/files/${f.id}`} target="_blank" rel="noreferrer" className="mr-2 underline underline-offset-2" style={{ color: "var(--brand-royal)" }}>
+                              <a key={f.id} href={`/hub/files/${f.id}`} target="_blank" rel="noreferrer" className="mr-2 underline underline-offset-2" style={{ color: "var(--accent-text)" }}>
                                 📎 {f.fileName}
                               </a>
                             ))}
@@ -539,7 +597,7 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
                         <s>{f.name}</s> — removed by {f.removed.by}: {f.removed.reason}
                       </span>
                     ) : (
-                      <a href={`/hub/files/${f.id}`} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: "var(--brand-royal)" }}>
+                      <a href={`/hub/files/${f.id}`} target="_blank" rel="noreferrer" className="underline underline-offset-2" style={{ color: "var(--accent-text)" }}>
                         📎 {f.name}
                       </a>
                     )}
@@ -603,7 +661,7 @@ export function HubTaskView({ t, meId, can }: { t: HubTaskFull; meId: string; ca
 
           <Card title="Audit history" subtitle="Every action, with who and exactly when. Cannot be edited.">
             <details>
-              <summary className="cursor-pointer text-[12px]" style={{ color: "var(--brand-royal)" }}>
+              <summary className="cursor-pointer text-[12px]" style={{ color: "var(--accent-text)" }}>
                 Show all {t.history.length} entries
               </summary>
               <ol className="mt-2 space-y-2 text-[12px]">
@@ -654,7 +712,7 @@ function CloseDrawer({ t }: { t: HubTaskFull }) {
   const o = outcomeOf(outcome);
   const late = t.breaches > 0;
   return (
-    <FormDrawer label="Close task" title={`Close ${t.ref}`} subtitle="Choose the outcome. Unsuccessful, cancelled or dropped — or anything that went over its time — needs the reason and the corrective action." action={closeHubTask.bind(null, t.id)} submit="Close task" tone="plain">
+    <FormDrawer shortcut="c" label="Close task" title={`Close ${t.ref}`} subtitle="Choose the outcome. Unsuccessful, cancelled or dropped — or anything that went over its time — needs the reason and the corrective action." action={closeHubTask.bind(null, t.id)} submit="Close task" tone="plain">
       <F label="Outcome">
         <select name="outcome" value={outcome} onChange={(e) => setOutcome(e.target.value)} className={input} style={inputStyle}>
           {OUTCOMES.map((x) => (

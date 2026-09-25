@@ -32,7 +32,7 @@ export function DispatchForm({ assignmentId, managers, denied, onResult }: { ass
   if (denied) return null;
   return (
     <form {...form} className="space-y-2 rounded-md border-2 p-2.5" style={{ borderColor: "var(--status-critical)", background: "var(--surface-1)" }}>
-      <p className="text-[12px] font-semibold" style={{ color: "var(--status-critical)" }}>
+      <p className="text-[12px] font-semibold" style={{ color: "var(--critical-text)" }}>
         Send someone to site
       </p>
       <div className="flex flex-wrap gap-3 text-[12px]">
@@ -87,7 +87,7 @@ export function VisitCard({ v, now, denied, onResult }: { v: OpenWelfareVisit; n
       <div className="min-w-0 text-[12px]">
         <p className="text-[13px] font-semibold">{v.officer}</p>
         {v.officerPhone && (
-          <a href={tel(v.officerPhone)} className="underline" style={{ color: "var(--series-1)" }}>
+          <a href={tel(v.officerPhone)} className="underline" style={{ color: "var(--accent-text)" }}>
             {v.officerPhone}
           </a>
         )}
@@ -100,7 +100,7 @@ export function VisitCard({ v, now, denied, onResult }: { v: OpenWelfareVisit; n
           {v.attendeePhone && (
             <>
               {" · "}
-              <a href={tel(v.attendeePhone)} className="font-medium underline" style={{ color: "var(--series-1)" }}>
+              <a href={tel(v.attendeePhone)} className="font-medium underline" style={{ color: "var(--accent-text)" }}>
                 {v.attendeePhone}
               </a>
             </>

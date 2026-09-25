@@ -4,7 +4,7 @@ import { createHash, randomBytes } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { getSession } from "@/lib/auth/server";
 import { canDo, ACTIONS, type ActionId } from "@/lib/auth/permissions";
-import { departmentsOf, isOpen } from "@/lib/core/hub";
+import { CATEGORIES, PRIORITIES, departmentsOf, isOpen, parseSpan } from "@/lib/core/hub";
 import { SAMPLE_EMAILS } from "@/lib/core/hub-samples";
 import { ukInstant } from "@/lib/core/rota";
 import { ALLOWED_KINDS, sniffMime } from "@/lib/core/screening-documents";
@@ -238,4 +238,89 @@ export async function sendHubTestEmail(_prev: ActionResult | null, formData: For
   await db.event.create({ data: { type: "hub.test_email_sent", actorUserId: actor.userId, actorRole: actor.role, department: mailbox.department, hubTaskId: r.taskId, detail: `${actor.name} sent a test email into ${mailbox.address}: “${subject}”.` } });
   revalidatePath("/hub");
   return ok("In the test inbox. Watch it arrive.");
+}
+
+// ---------------------------------------------------------------------------
+// Settings and reply templates (26 September 2026)
+// ---------------------------------------------------------------------------
+
+/** The clocks, priority by priority: "3m", "4h", "1wd". The Managing Director's. */
+export async function saveSlaPolicy(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const { actor, error } = await guard("hub.settings");
+  if (error || !actor) return error!;
+  const changes: { key: string; value: string }[] = [];
+  for (const p of PRIORITIES) {
+    for (const clock of ["accept", "action", "update"] as const) {
+      const v = text(formData, `${p.id}.${clock}`);
+      if (!v) continue;
+      if (!parseSpan(v)) return refused(`${p.label} ${clock}: write it as minutes (15m), hours (4h) or working days (1wd).`);
+      changes.push({ key: `hub.sla.${p.id}.${clock}`, value: v });
+    }
+  }
+  await db.$transaction([
+    ...changes.map((c) => db.setting.upsert({ where: { key: c.key }, create: { key: c.key, value: c.value, valueType: "text", label: `Hub clock ${c.key.slice(8)}`, usedBy: "performance-hub", updatedById: actor.userId }, update: { value: c.value, updatedById: actor.userId } })),
+    db.event.create({ data: { type: "hub.settings_changed", actorUserId: actor.userId, actorRole: actor.role, department: "control", detail: `${actor.name} set the hub's clocks: ${changes.map((c) => `${c.key.slice(8)} ${c.value}`).join(", ")}.` } }),
+  ]);
+  revalidatePath("/performance/settings");
+  return ok("Saved. New emails use these clocks from now on; tasks already open keep the deadlines they were given.");
+}
+
+export async function saveClosedDays(_prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const { actor, error } = await guard("hub.settings");
+  if (error || !actor) return error!;
+  const days = [...new Set(text(formData, "days").split(/[\s,]+/).filter(Boolean))];
+  const bad = days.find((d) => !/^\d{4}-\d{2}-\d{2}$/.test(d));
+  if (bad) return refused(`“${bad}” is not a date — write each as 2026-12-24.`);
+  await db.$transaction([
+    db.setting.upsert({ where: { key: "hub.closed_days" }, create: { key: "hub.closed_days", value: JSON.stringify(days.sort()), valueType: "json", label: "Days the office is closed, beyond bank holidays", usedBy: "performance-hub", updatedById: actor.userId }, update: { value: JSON.stringify(days.sort()), updatedById: actor.userId } }),
+    db.event.create({ data: { type: "hub.settings_changed", actorUserId: actor.userId, actorRole: actor.role, department: "control", detail: `${actor.name} set the office closure days: ${days.join(", ") || "none"}.` } }),
+  ]);
+  revalidatePath("/performance/settings");
+  return ok("Saved.");
+}
+
+/** A mailbox's mode — test, shadow (read and sorted, nobody alerted) or live — and its hours. */
+export async function updateMailbox(mailboxId: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const { actor, error } = await guard("hub.settings");
+  if (error || !actor) return error!;
+  const m = await db.mailbox.findUnique({ where: { id: String(mailboxId) } });
+  if (!m) return refused("That mailbox no longer exists.");
+  const mode = text(formData, "mode") as "test" | "shadow" | "live";
+  if (!["test", "shadow", "live"].includes(mode)) return refused("Choose test, shadow or live.");
+  if (mode === "live" && m.address.includes("test.leonguarding")) return refused("A test mailbox cannot go live — connect the real one.");
+  const data = { mode, officeHoursOnly: formData.get("officeHoursOnly") === "on", readAttachments: formData.get("readAttachments") === "on", active: formData.get("active") === "on" };
+  await db.$transaction([
+    db.mailbox.update({ where: { id: m.id }, data }),
+    db.event.create({ data: { type: "hub.mailbox_changed", actorUserId: actor.userId, actorRole: actor.role, department: m.department, detail: `${actor.name} set ${m.address}: ${mode}, ${data.officeHoursOnly ? "office hours" : "round the clock"}, attachments ${data.readAttachments ? "read" : "not read"}, ${data.active ? "on" : "off"}.` } }),
+  ]);
+  revalidatePath("/performance/settings");
+  revalidatePath("/hub");
+  return ok("Saved.");
+}
+
+/** A reply template, new or changed. Department managers write their own categories' wording. */
+export async function saveReplyTemplate(templateId: string | null, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const { actor, error } = await guard("hub.templates");
+  if (error || !actor) return error!;
+  const category = text(formData, "category");
+  const title = text(formData, "title").slice(0, 120);
+  const body = text(formData, "body").slice(0, 4000);
+  if (!CATEGORIES.some((c) => c.id === category)) return refused("Choose the category it is for.");
+  if (title.length < 3 || body.length < 10) return refused("Give it a title and the wording.");
+  const data = { category: category as (typeof CATEGORIES)[number]["id"], title, body, active: templateId ? formData.get("active") === "on" : true };
+  if (templateId) {
+    const t = await db.replyTemplate.findUnique({ where: { id: String(templateId) } });
+    if (!t) return refused("That template no longer exists.");
+    await db.$transaction([
+      db.replyTemplate.update({ where: { id: t.id }, data: { ...data, updatedById: actor.userId } }),
+      db.event.create({ data: { type: "hub.template_changed", actorUserId: actor.userId, actorRole: actor.role, department: "control", detail: `${actor.name} changed the reply template “${title}”.` } }),
+    ]);
+  } else {
+    await db.$transaction([
+      db.replyTemplate.create({ data: { ...data, createdById: actor.userId } }),
+      db.event.create({ data: { type: "hub.template_added", actorUserId: actor.userId, actorRole: actor.role, department: "control", detail: `${actor.name} added the reply template “${title}”.` } }),
+    ]);
+  }
+  revalidatePath("/hub/templates");
+  return ok("Saved.");
 }

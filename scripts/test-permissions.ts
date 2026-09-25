@@ -78,7 +78,7 @@ const EXPECTED: Record<string, ActionId[]> = {
   finance_officer: ["admin_item.approve", "admin_item.reject", "payment.record", "employee.payroll", "hub.work", ...STAFF_BASELINE],
   vetting_admin: ["document.verify", "document.renew", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "hub.work", ...STAFF_BASELINE],
   vetting_controller: ["document.verify", "document.renew", "disposal.run", "accreditation.evidence", "screening.assign", "screening.review", "screening.sweep", "hub.work", ...STAFF_BASELINE],
-  top_management: ["disposal.run", "admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "holiday.decide", "accreditation.evidence", "authority_matter.respond", "threshold.change", "role.delegate", "role.revoke_delegation", "account.review", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "screening.exception.decide", "screening.sweep", "employee.leaver", "hub.test", "hub.templates", "hub.settings", "role.grant", "account.reset", "security.policy", ...STAFF_BASELINE],
+  top_management: ["disposal.run", "admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "holiday.decide", "accreditation.evidence", "authority_matter.respond", "threshold.change", "role.delegate", "role.revoke_delegation", "account.review", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "screening.exception.decide", "screening.sweep", "employee.leaver", "hub.test", "hub.templates", "hub.settings", "role.grant", "account.reset", "security.policy", "system.golive", ...STAFF_BASELINE],
   auditor: [],
   // Sales and Client hold nothing: they read, and the route guard keeps the
   // client out of every internal screen.
@@ -1045,7 +1045,7 @@ check("a missing figure reads neutral, never good",
 
 // --- 2. every action guards ------------------------------------------------
 let actionCount = 0;
-for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me", "alerts", "work", "places", "officers", "welfare", "candidates", "applicant", "employees", "references", "hub", "settings"]) {
+for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me", "alerts", "work", "places", "officers", "welfare", "candidates", "applicant", "employees", "references", "hub", "settings", "golive"]) {
   const src = readFileSync(new URL(`../lib/actions/${file}.ts`, import.meta.url), "utf8");
   const exported = [...src.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
   check(`${file}.ts has server actions to check`, exported.length > 0, `${exported.length} found`);

@@ -122,7 +122,7 @@ function UserMenu({ name, activeRole, roles, pathname }: { name: string; activeR
                   <span>
                     {ROLE_LABELS[r]} <span style={{ color: "var(--text-muted)" }}>· {ROLE_DEPARTMENT[r]}</span>
                   </span>
-                  {r === activeRole && <span aria-hidden style={{ color: "var(--series-1)" }}>✓</span>}
+                  {r === activeRole && <span aria-hidden style={{ color: "var(--accent-text)" }}>✓</span>}
                 </button>
               ))}
             </form>

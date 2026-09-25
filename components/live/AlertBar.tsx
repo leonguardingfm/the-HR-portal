@@ -125,7 +125,7 @@ export function AlertBar({ vapidKey }: { vapidKey: string | null }) {
             {first.title.split(". ")[0]}
           </p>
           {unacked.some((a) => a.id === first.id) ? (
-            <button type="button" onClick={acknowledge} className="h-9 rounded-md bg-white px-3 text-[13px] font-semibold" style={{ color: urgent ? "var(--status-critical)" : "var(--series-1)" }}>
+            <button type="button" onClick={acknowledge} className="h-9 rounded-md bg-white px-3 text-[13px] font-semibold" style={{ color: urgent ? "var(--critical-text)" : "var(--accent-text)" }}>
               {urgent ? "I've seen it" : "OK"}
             </button>
           ) : (
@@ -144,7 +144,7 @@ export function AlertBar({ vapidKey }: { vapidKey: string | null }) {
     return (
       <div className="flex flex-wrap items-center justify-between gap-2 border-b px-4 py-1.5 text-[12px] sm:px-6 print:hidden" style={{ borderColor: "var(--hairline)", color: "var(--text-secondary)" }}>
         <span>
-          <span style={{ color: stale ? "var(--status-serious)" : "var(--status-good)" }}>●</span> {stale ? "Reconnecting — this screen may be out of date" : "Live"}
+          <span style={{ color: stale ? "var(--serious-text)" : "var(--good-text)" }}>●</span> {stale ? "Reconnecting — this screen may be out of date" : "Live"}
           {updatedAt && !stale && ` · updated ${formatTime(updatedAt)}`} · No alerts
         </span>
         <DeviceAlertsInline vapidKey={vapidKey} />
@@ -183,7 +183,7 @@ export function AlertBar({ vapidKey }: { vapidKey: string | null }) {
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {next && (
-            <Link href={next.href} className="inline-flex h-8 items-center rounded-md bg-white px-3 text-[12px] font-semibold" style={{ color: "var(--status-critical)" }}>
+            <Link href={next.href} className="inline-flex h-8 items-center rounded-md bg-white px-3 text-[12px] font-semibold" style={{ color: "var(--critical-text)" }}>
               Find cover
             </Link>
           )}

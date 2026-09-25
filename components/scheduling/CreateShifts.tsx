@@ -146,7 +146,7 @@ export function CreateShifts({
         title="Posts"
         detail={chosen.size ? `${chosen.size} chosen` : "tick the posts these shifts are for"}
         action={
-          <button type="button" onClick={() => toggle(posts.map((p) => p.id))} className="text-[11px] underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+          <button type="button" onClick={() => toggle(posts.map((p) => p.id))} className="text-[11px] underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
             {chosen.size === posts.length ? "Clear all" : "Every post"}
           </button>
         }
@@ -224,7 +224,7 @@ export function CreateShifts({
               ["Weekdays", [0, 1, 2, 3, 4]],
               ["Weekends", [5, 6]],
             ].map(([label, set]) => (
-              <button key={label as string} type="button" onClick={() => setWeekdays(new Set(set as number[]))} className="underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+              <button key={label as string} type="button" onClick={() => setWeekdays(new Set(set as number[]))} className="underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
                 {label as string}
               </button>
             ))}
@@ -283,7 +283,7 @@ export function CreateShifts({
             </li>
           ))}
         </ul>
-        <button type="button" onClick={() => setTimes((all) => [...all, { start: "19:00", end: "07:00" }])} className="mt-2 text-[11px] underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+        <button type="button" onClick={() => setTimes((all) => [...all, { start: "19:00", end: "07:00" }])} className="mt-2 text-[11px] underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
           + Another shift time on the same days
         </button>
       </StepSection>
@@ -307,7 +307,7 @@ export function CreateShifts({
         ) : (
           <div className="flex flex-wrap items-center justify-between gap-3">
             {problem && problemStep ? (
-              <p role="status" className="flex min-w-0 flex-1 items-center gap-2 text-[13px] font-medium" style={{ color: "var(--status-serious)" }}>
+              <p role="status" className="flex min-w-0 flex-1 items-center gap-2 text-[13px] font-medium" style={{ color: "var(--serious-text)" }}>
                 <span aria-hidden="true" className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full text-[11px] font-bold text-white" style={{ background: "var(--status-serious)" }}>
                   {problemStep}
                 </span>
@@ -442,7 +442,7 @@ function StepSection({
           <span
             aria-hidden="true"
             className="inline-flex h-5 w-5 items-center justify-center rounded-full text-[11px] font-bold"
-            style={done ? { background: "var(--status-good)", color: "#fff" } : { background: "var(--wash-neutral)", color: "var(--text-secondary)" }}
+            style={done ? { background: "var(--button-good)", color: "#fff" } : { background: "var(--wash-neutral)", color: "var(--text-secondary)" }}
           >
             {done ? "✓" : step}
           </span>
@@ -451,7 +451,7 @@ function StepSection({
             · {detail}
           </span>
           {!done && (
-            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "var(--wash-serious)", color: "var(--status-serious)" }}>
+            <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "var(--wash-serious)", color: "var(--serious-text)" }}>
               Needed
             </span>
           )}

@@ -160,6 +160,28 @@ export async function runningLate(assignmentId: string, _prev: ActionResult | nu
  * accepted, because a real officer on a real site with a broken phone camera
  * must still be able to book on — and Control is told at once to ring them.
  */
+/**
+ * A book-on or check call made with no signal is kept on the phone and sent
+ * when signal returns (26 September 2026). It counts from when it was made —
+ * the phone's own clock, corrected by how far that clock is from ours when it
+ * is finally sent — and is marked as sent late, so Control sees both times.
+ * Only up to twelve hours back, and never in the future.
+ */
+const QUEUE_HOURS = 12;
+type Made = { at: Date; queued: boolean; late: boolean; device?: number };
+function madeWhen(formData: FormData, now: Date): Made | { problem: string } {
+  if (text(formData, "queued") !== "1") return { at: now, queued: false, late: false };
+  const madeAt = Number(text(formData, "madeAt"));
+  const deviceNow = Number(text(formData, "deviceNow"));
+  if (!Number.isFinite(madeAt) || madeAt <= 0) return { problem: "The time it was made is missing. Do it again now." };
+  // The phone's clock may be wrong; how wrong it is now is how wrong it was then.
+  const skew = Number.isFinite(deviceNow) && deviceNow > 0 ? deviceNow - now.getTime() : 0;
+  const at = new Date(Math.min(madeAt - skew, now.getTime()));
+  if (now.getTime() - at.getTime() > QUEUE_HOURS * 3_600_000) return { problem: `That was made more than ${QUEUE_HOURS} hours ago and can no longer be sent. Ring Control.` };
+  return { at, queued: true, late: now.getTime() - at.getTime() > 60_000, device: madeAt };
+}
+const lateWords = (m: Made, now: Date) => (m.late ? ` Made with no signal at ${ukTime(m.at)}; reached Control at ${ukTime(now)}.` : "");
+
 function noPhotoReason(formData: FormData): string | null {
   if (formData.get("noPhoto") !== "1") return null;
   return text(formData, "noPhotoReason").slice(0, 200) || "Camera would not work";
@@ -171,15 +193,19 @@ export async function bookMeOn(assignmentId: string, _prev: ActionResult | null,
   if (error || !session) return error!;
   const { a, problem } = await myShift(assignmentId, session.personId);
   if (!a) return refused(problem!);
-  if (a.bookOn) return refused(`You booked on at ${ukTime(a.bookOn.at)}.`);
   const now = new Date();
-  if (a.endsAt <= now) return refused("That shift has finished.");
-  if (a.startsAt.getTime() - now.getTime() > DUTY_RULES.bookOnEarliestMinutes * 60_000) {
+  const made = madeWhen(formData, now);
+  if ("problem" in made) return refused(made.problem);
+  // Sent twice from the phone's queue: the first one counted.
+  if (a.bookOn) return made.queued ? ok(`You were booked on at ${ukTime(a.bookOn.at)}.`) : refused(`You booked on at ${ukTime(a.bookOn.at)}.`);
+  const at = made.at;
+  if (a.endsAt <= at) return refused("That shift has finished.");
+  if (a.startsAt.getTime() - at.getTime() > DUTY_RULES.bookOnEarliestMinutes * 60_000) {
     return refused(`Too early — you can book on from ${ukTime(new Date(a.startsAt.getTime() - DUTY_RULES.bookOnEarliestMinutes * 60_000))}, when you are at the site.`);
   }
 
   const without = noPhotoReason(formData);
-  const read = without ? null : await readProof(formData, sitePlace(a.post.site), now);
+  const read = without ? null : await readProof(formData, sitePlace(a.post.site), now, made.queued ? made.device : undefined);
   if (read && "problem" in read) return refused(read.problem);
   const proof = read?.proof ?? null;
   const flag = proof ? proofNeedsAttention({ atSite: proof.atSite, distanceMetres: proof.distance, accuracyMetres: proof.fix?.accuracy ?? null, liveCamera: proof.liveCamera, hasLocation: !!proof.fix, siteHasLocation: !!sitePlace(a.post.site) }) : null;
@@ -189,7 +215,7 @@ export async function bookMeOn(assignmentId: string, _prev: ActionResult | null,
     db.$transaction(async (tx) => {
       // No recordedByUserId: nobody booked them on — they did.
       const b = await tx.bookOn.create({
-        data: { assignmentId: a.id, at: now, channel: "app", latitude: proof?.fix?.lat ?? null, longitude: proof?.fix?.lng ?? null, locationVerified: proof?.atSite === true },
+        data: { assignmentId: a.id, at, sentLateAt: made.late ? now : null, channel: "app", latitude: proof?.fix?.lat ?? null, longitude: proof?.fix?.lng ?? null, locationVerified: proof?.atSite === true },
       });
       if (proof && storageKey) await tx.dutyProof.create({ data: proofData(proof, storageKey, a.id, { bookOnId: b.id }) });
       await tx.event.create({
@@ -200,7 +226,7 @@ export async function bookMeOn(assignmentId: string, _prev: ActionResult | null,
           department: "control",
           assignmentId: a.id,
           personId: a.personId,
-          detail: `${a.person.fullName} booked on in their portal: ${where(a)}. ${evidence}.${proof?.clockSkewMinutes ? ` Phone clock ${proof.clockSkewMinutes} min out.` : ""}`,
+          detail: `${a.person.fullName} booked on in their portal: ${where(a)}. ${evidence}.${proof?.clockSkewMinutes ? ` Phone clock ${proof.clockSkewMinutes} min out.` : ""}${lateWords(made, now)}`,
         },
       });
       if (flag === "away" || !proof) {
@@ -226,9 +252,9 @@ export async function bookMeOn(assignmentId: string, _prev: ActionResult | null,
   const next = !a.post.mobileSignal
     ? "There is no signal at this post — Control will tell the client you have arrived, and the client holds contact on the site phone."
     : calls.required
-      ? `Your first check call is due by ${ukTime(new Date(now.getTime() + 60 * 60_000))}.`
+      ? `Your first check call is due by ${ukTime(new Date(at.getTime() + 60 * 60_000))}.`
       : "No check calls this shift.";
-  return ok(`Booked on at ${ukTime(now)}. ${flag === "away" ? `Your photo was taken ${metres(proof!.distance!)} from the site — Control will ring you. ` : !proof ? "Control will ring you to confirm you are on site. " : ""}${next}`);
+  return ok(`Booked on at ${ukTime(at)}${made.late ? " (made with no signal, sent now)" : ""}. ${flag === "away" ? `Your photo was taken ${metres(proof!.distance!)} from the site — Control will ring you. ` : !proof ? "Control will ring you to confirm you are on site. " : ""}${next}`);
 }
 
 /** "All well" — or not, with what is wrong. The hourly check call, by the officer, with a selfie. */
@@ -237,16 +263,23 @@ export async function myCheckCall(assignmentId: string, _prev: ActionResult | nu
   if (error || !session) return error!;
   const { a, problem } = await myShift(assignmentId, session.personId);
   if (!a) return refused(problem!);
-  if (!a.bookOn) return refused("Book on first — check calls start from your book-on.");
   const now = new Date();
-  if (a.endsAt <= now) return refused("That shift has finished.");
+  const made = madeWhen(formData, now);
+  if ("problem" in made) return refused(made.problem);
+  const clientRef = text(formData, "clientRef").slice(0, 64) || null;
+  // Sent twice from the phone's queue: the first one counted.
+  if (clientRef && (await db.checkCall.findUnique({ where: { clientRef }, select: { id: true } }))) return ok("Already with Control.");
+  if (!a.bookOn) return refused("Book on first — check calls start from your book-on.");
+  const at = made.at;
+  if (a.endsAt <= at) return refused("That shift has finished.");
+  if (at < a.bookOn.at) return refused("That check call was made before you booked on.");
   const allWell = text(formData, "allWell") !== "no";
   const note = text(formData, "note").slice(0, 300) || null;
   if (!allWell && !note) return refused("Say what is wrong, so Control can help.");
 
   // Something wrong is sent whether or not the camera works: help does not wait for a photo.
   const without = noPhotoReason(formData) ?? (!allWell && !(formData.get("photo") instanceof File) ? "Reporting a problem" : null);
-  const read = without ? null : await readProof(formData, sitePlace(a.post.site), now);
+  const read = without ? null : await readProof(formData, sitePlace(a.post.site), now, made.queued ? made.device : undefined);
   if (read && "problem" in read) return refused(read.problem);
   const proof = read?.proof ?? null;
   const flag = proof ? proofNeedsAttention({ atSite: proof.atSite, distanceMetres: proof.distance, accuracyMetres: proof.fix?.accuracy ?? null, liveCamera: proof.liveCamera, hasLocation: !!proof.fix, siteHasLocation: !!sitePlace(a.post.site) }) : null;
@@ -254,7 +287,7 @@ export async function myCheckCall(assignmentId: string, _prev: ActionResult | nu
 
   const write = async (storageKey: string | null) =>
     db.$transaction(async (tx) => {
-      const c = await tx.checkCall.create({ data: { assignmentId: a.id, at: now, channel: "app", allWell, note } });
+      const c = await tx.checkCall.create({ data: { assignmentId: a.id, at, sentLateAt: made.late ? now : null, clientRef, channel: "app", allWell, note } });
       if (proof && storageKey) await tx.dutyProof.create({ data: proofData(proof, storageKey, a.id, { checkCallId: c.id }) });
       await tx.event.create({
         data: {
@@ -264,7 +297,7 @@ export async function myCheckCall(assignmentId: string, _prev: ActionResult | nu
           department: "control",
           assignmentId: a.id,
           personId: a.personId,
-          detail: `${allWell ? "All well" : `Not all well: ${note}`} — made by ${a.person.fullName} in their portal. ${a.post.site.name} — ${a.post.name}. ${evidence}.`,
+          detail: `${allWell ? "All well" : `Not all well: ${note}`} — made by ${a.person.fullName} in their portal. ${a.post.site.name} — ${a.post.name}. ${evidence}.${lateWords(made, now)}`,
         },
       });
       // Not all well is something Control acts on, not just reads.
@@ -282,7 +315,7 @@ export async function myCheckCall(assignmentId: string, _prev: ActionResult | nu
   await sweepDutyChecks();
   refresh();
   if (!allWell) return ok("Control has your message and will call you.");
-  return ok(`Check call made at ${ukTime(now)}. Next one due by ${ukTime(new Date(now.getTime() + 60 * 60_000))}.${flag === "away" ? " Your photo was taken away from the site — Control will ring you." : ""}`);
+  return ok(`Check call made at ${ukTime(at)}${made.late ? " (with no signal, sent now)" : ""}. Next one due by ${ukTime(new Date(at.getTime() + 60 * 60_000))}.${flag === "away" ? " Your photo was taken away from the site — Control will ring you." : ""}`);
 }
 
 /** Something happened on site. Control is alerted at once and decides whether the client is told. */

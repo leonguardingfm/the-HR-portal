@@ -103,7 +103,7 @@ export default async function PermissionsPage() {
                               : `${ACTIONS[a].what} belongs to ${ACTIONS[a].owner}`
                           }
                           style={{
-                            color: allowed ? "var(--status-good)" : "var(--text-muted)",
+                            color: allowed ? "var(--good-text)" : "var(--text-muted)",
                             fontSize: allowed ? "11px" : "10px",
                           }}
                         >
@@ -164,7 +164,7 @@ export default async function PermissionsPage() {
                           <span
                             aria-label={item.roles.includes(r) ? "visible" : "hidden"}
                             style={{
-                              color: item.roles.includes(r) ? "var(--status-good)" : "var(--text-muted)",
+                              color: item.roles.includes(r) ? "var(--good-text)" : "var(--text-muted)",
                               fontSize: item.roles.includes(r) ? "11px" : "10px",
                             }}
                           >

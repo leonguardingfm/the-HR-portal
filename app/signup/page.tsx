@@ -25,14 +25,14 @@ export default function SignUpPage() {
       />
       <p className="mt-4 text-center text-[12px]" style={{ color: "var(--text-secondary)" }}>
         Security officer?{" "}
-        <Link href="/signup/officer" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+        <Link href="/signup/officer" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
           Set up your officer account
         </Link>
         {" · "}Already have an account?{" "}
         <Link
           href="/signin"
           className="font-medium underline-offset-2 hover:underline"
-          style={{ color: "var(--series-1)" }}
+          style={{ color: "var(--accent-text)" }}
         >
           Sign in
         </Link>

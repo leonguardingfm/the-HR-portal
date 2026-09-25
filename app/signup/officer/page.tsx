@@ -18,7 +18,7 @@ export default function OfficerSignUpPage() {
       <OfficerSignUpForm passwordMin={PASSWORD_MIN} />
       <p className="mt-4 text-center text-[12px]" style={{ color: "var(--text-secondary)" }}>
         Already set up?{" "}
-        <Link href="/signin" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+        <Link href="/signin" className="font-medium underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
           Sign in
         </Link>
       </p>

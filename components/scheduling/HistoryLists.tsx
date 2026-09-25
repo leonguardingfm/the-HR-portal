@@ -64,7 +64,7 @@ export function AsksList({ calls, period }: { calls: RotaAsk[][]; period: string
               <div className="flex flex-wrap items-baseline justify-between gap-2">
                 <p className="text-[13px]">
                   {a.coverNeedId && (
-                    <span className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "var(--wash-critical)", color: "var(--status-critical)" }}>
+                    <span className="mr-1.5 rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "var(--wash-critical)", color: "var(--critical-text)" }}>
                       Cover
                     </span>
                   )}

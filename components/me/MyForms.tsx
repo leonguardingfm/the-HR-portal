@@ -7,6 +7,7 @@ import { bookMeOn, cancelMyLeave, cannotMakeIt, confirmMyShift, myCheckCall, off
 import { dayLabel } from "@/lib/core/rota";
 import type { MyLeave } from "@/lib/db/me";
 import type { ActionResult } from "@/lib/actions/types";
+import { enqueue, isOffline, type QueueKind } from "@/lib/offline/queue";
 import { ProofCamera, type ProofShot } from "./ProofCamera";
 
 type OnResult = { onResult: (r: ActionResult) => void };
@@ -27,7 +28,7 @@ export function ConfirmButton({ assignmentId, onResult }: { assignmentId: string
   const { pending, form } = useLifted(confirmMyShift.bind(null, assignmentId), onResult);
   return (
     <form {...form}>
-      <button type="submit" disabled={pending} className={big} style={{ background: "var(--status-good)" }}>
+      <button type="submit" disabled={pending} className={big} style={{ background: "var(--button-good)" }}>
         {pending ? "Confirming…" : "Confirm — I’ll be there"}
       </button>
     </form>
@@ -39,7 +40,7 @@ export function CannotMakeItForm({ assignmentId, onResult }: { assignmentId: str
   const [open, setOpen] = useState(false);
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={link} style={{ color: "var(--status-critical)" }}>
+      <button type="button" onClick={() => setOpen(true)} className={link} style={{ color: "var(--critical-text)" }}>
         I can’t make this shift
       </button>
     );
@@ -80,6 +81,38 @@ function plainForm(fields: Record<string, string>) {
   return fd;
 }
 
+const newRef = () => (typeof crypto !== "undefined" && "randomUUID" in crypto ? crypto.randomUUID() : `${Date.now()}-${Math.random().toString(36).slice(2)}`);
+const clock = (ms: number) => new Date(ms).toLocaleTimeString("en-GB", { hour: "2-digit", minute: "2-digit", timeZone: "Europe/London" });
+
+/**
+ * Sent now when there is signal; kept on the phone and sent later when there
+ * is not (26 September 2026). One reference from the start, so an attempt
+ * that reached Control before the signal dropped is never counted twice.
+ */
+async function sendOrKeep(kind: QueueKind, assignmentId: string, fd: FormData, label: string, action: (id: string, prev: ActionResult | null, fd: FormData) => Promise<ActionResult>): Promise<ActionResult> {
+  const id = newRef();
+  fd.set("clientRef", id);
+  const madeAt = Number(fd.get("deviceAt")) || Date.now();
+  const keep = async (): Promise<ActionResult> => {
+    const fields: Record<string, string> = {};
+    let photo: Blob | undefined;
+    fd.forEach((v, k) => {
+      if (v instanceof File) photo = v;
+      else fields[k] = String(v);
+    });
+    await enqueue({ id, kind, assignmentId, madeAt, fields, photo, label });
+    const urgent = fields.allWell === "no" ? " If you need help now, ring Control — or 999 in an emergency." : "";
+    return { ok: true, message: `No signal — your ${label.toLowerCase()} is saved on this phone (made at ${clock(madeAt)}) and goes to Control the moment you have signal.${urgent}` };
+  };
+  if (typeof navigator !== "undefined" && !navigator.onLine) return keep();
+  try {
+    return await action(assignmentId, null, fd);
+  } catch (e) {
+    if (isOffline(e)) return keep();
+    throw e;
+  }
+}
+
 interface ProofProps {
   assignmentId: string;
   officer: { name: string; pin: string | null };
@@ -115,7 +148,7 @@ export function BookOnButton({ assignmentId, late, officer, place, onResult }: P
   const send = (fd: FormData) =>
     new Promise<void>((resolve) =>
       start(async () => {
-        const r = await bookMeOn(assignmentId, null, fd);
+        const r = await sendOrKeep("book_on", assignmentId, fd, fd.get("noPhoto") ? "Book-on without a selfie" : "Book-on", bookMeOn);
         onResult(r);
         if (r.ok) setCamera(false);
         resolve();
@@ -143,7 +176,7 @@ export function CheckCallButtons({ assignmentId, overdue, officer, place, onResu
   const send = (fd: FormData) =>
     new Promise<void>((resolve) =>
       start(async () => {
-        const r = await myCheckCall(assignmentId, null, fd);
+        const r = await sendOrKeep("check_call", assignmentId, fd, fd.get("allWell") === "no" ? `Problem report: “${fd.get("note")}”` : fd.get("noPhoto") ? "Check call without a selfie" : "Check call — all well", myCheckCall);
         onResult(r);
         if (r.ok) {
           setCamera(false);
@@ -171,11 +204,11 @@ export function CheckCallButtons({ assignmentId, overdue, officer, place, onResu
         </div>
       ) : (
         <>
-          <button type="button" onClick={() => setCamera(true)} disabled={pending} className={big} style={{ background: overdue ? "var(--status-critical)" : "var(--status-good)" }}>
+          <button type="button" onClick={() => setCamera(true)} disabled={pending} className={big} style={{ background: overdue ? "var(--status-critical)" : "var(--button-good)" }}>
             📷 Check call — all well
           </button>
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <button type="button" onClick={() => setProblem(true)} className={link} style={{ color: "var(--status-critical)" }}>
+            <button type="button" onClick={() => setProblem(true)} className={link} style={{ color: "var(--critical-text)" }}>
               Something is wrong
             </button>
             <WithoutPhoto label="Check call without a selfie" send={(reason) => send(plainForm({ allWell: "yes", noPhoto: "1", noPhotoReason: reason }))} />
@@ -192,7 +225,7 @@ export function RunningLateForm({ assignmentId, onResult }: { assignmentId: stri
   const [open, setOpen] = useState(false);
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className={link} style={{ color: "var(--status-serious)" }}>
+      <button type="button" onClick={() => setOpen(true)} className={link} style={{ color: "var(--serious-text)" }}>
         I’m running late
       </button>
     );
@@ -225,14 +258,14 @@ export function IncidentForm({ assignmentId, onResult }: { assignmentId: string 
   const [open, setOpen] = useState(false);
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="h-11 w-full rounded-lg border text-[14px] font-semibold" style={{ borderColor: "var(--status-critical)", color: "var(--status-critical)" }}>
+      <button type="button" onClick={() => setOpen(true)} className="h-11 w-full rounded-lg border text-[14px] font-semibold" style={{ borderColor: "var(--status-critical)", color: "var(--critical-text)" }}>
         Report an incident
       </button>
     );
   }
   return (
     <form {...form} className="space-y-2 rounded-lg border p-3" style={{ borderColor: "var(--status-critical)" }}>
-      <p className="text-[13px] font-semibold" style={{ color: "var(--status-critical)" }}>
+      <p className="text-[13px] font-semibold" style={{ color: "var(--critical-text)" }}>
         If anyone is in danger, ring 999 first.
       </p>
       <fieldset className="space-y-1.5">
@@ -352,7 +385,7 @@ export function AvailabilityCalendar({ days, said, onResult }: { days: CalendarD
         })}
       </div>
       <p className="mt-2 text-[12px]" style={{ color: "var(--text-muted)" }}>
-        Tap once for <span style={{ color: "var(--status-good)" }}>free</span>, twice for <span style={{ color: "var(--status-critical)" }}>not free</span>, three times to clear.
+        Tap once for <span style={{ color: "var(--good-text)" }}>free</span>, twice for <span style={{ color: "var(--critical-text)" }}>not free</span>, three times to clear.
         {pending && " Saving…"}
       </p>
     </div>
@@ -360,7 +393,7 @@ export function AvailabilityCalendar({ days, said, onResult }: { days: CalendarD
 }
 
 const DECISION_LABEL = { pending: "Waiting for Administration", approved: "Approved", rejected: "Not approved", cancelled: "Withdrawn" } as const;
-const DECISION_COLOUR = { pending: "var(--status-warning)", approved: "var(--status-good)", rejected: "var(--status-critical)", cancelled: "var(--text-muted)" } as const;
+const DECISION_COLOUR = { pending: "var(--warning-text)", approved: "var(--good-text)", rejected: "var(--critical-text)", cancelled: "var(--text-muted)" } as const;
 
 /**
  * Leave: what they have left, what they have asked for, and a form to ask.
@@ -421,7 +454,7 @@ export function MyLeaveSection({ leave, onResult }: { leave: MyLeave; onResult: 
           </div>
           <input name="note" maxLength={300} autoComplete="off" placeholder="Anything Administration should know (optional)" className={`${field} h-11 w-full text-[15px]`} style={inputStyle} />
           {problem && (
-            <p role="alert" className="text-[13px]" style={{ color: "var(--status-critical)" }}>
+            <p role="alert" className="text-[13px]" style={{ color: "var(--critical-text)" }}>
               {problem}
             </p>
           )}

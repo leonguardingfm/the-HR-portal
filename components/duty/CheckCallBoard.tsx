@@ -10,7 +10,7 @@ import { formatTime } from "@/lib/format";
 import { AttemptForm, CheckCallForm, LostContactForm, TellClientForm } from "./DutyForms";
 import { DispatchForm, VisitCard } from "./WelfareForms";
 import type { OpenWelfareVisit } from "@/lib/db/welfare";
-import { CallTimeline, DutyFlow, Notice, OfficerCell, OnTheirBehalf, Pill, ProofBadge, Section, WhoElseToRing, relative, useDuty } from "./DutyShared";
+import { CallTimeline, DutyFlow, Notice, OfficerCell, OnTheirBehalf, Pill, ProofBadge, Section, SentLate, WhoElseToRing, relative, useDuty } from "./DutyShared";
 
 export interface CheckCallPerms {
   checkCall: string | null;
@@ -65,7 +65,7 @@ export function CheckCallBoard({ rows, visits, managers, perms }: { rows: LiveRo
             <OfficerCell r={d} now={now} />
             <div className="space-y-1.5 text-[12px]">
               <Pill severity={d.s.call.severity} label={d.s.call.label} />
-              <p className="font-semibold" style={{ color: "var(--status-critical)" }}>
+              <p className="font-semibold" style={{ color: "var(--critical-text)" }}>
                 Step {d.s.call.escalation} of 3: {escalationAction(d.s.call.escalation)}
               </p>
               <p style={{ color: "var(--text-secondary)" }}>
@@ -107,6 +107,7 @@ export function CheckCallBoard({ rows, visits, managers, perms }: { rows: LiveRo
               </p>
               {d.s.schedule && <CallTimeline slots={d.s.schedule.slots} now={now} />}
               {d.calls[0] && <ProofBadge proof={d.calls[0].proof} byOfficer={d.calls[0].byOfficer} siteHasLocation={d.site.hasLocation} />}
+              {d.calls[0]?.sentLateAt && <SentLate at={d.calls[0].at} sentLateAt={d.calls[0].sentLateAt} />}
               <p className="text-[11px]" style={{ color: "var(--text-muted)" }}>
                 {d.calls.length ? `${d.calls.filter((c) => c.byOfficer).length} of ${d.calls.length} made by the officer in their portal · ` : ""}Check calls: {ruleLine(d)}
               </p>

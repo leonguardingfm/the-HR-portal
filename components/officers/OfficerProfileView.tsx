@@ -46,7 +46,7 @@ export function OfficerProfileView({ p, sites, excludeDenied, hoursDenied }: { p
       <div className="grid gap-5 lg:grid-cols-2">
         <Card title="Reach them" subtitle="Their own numbers, and who to call if something happens to them.">
           <dl className="space-y-2 text-[13px]">
-            <Row label="Phone">{person.phone ? <a href={tel(person.phone)} className="font-medium underline" style={{ color: "var(--series-1)" }}>{person.phone}</a> : "Not recorded"}</Row>
+            <Row label="Phone">{person.phone ? <a href={tel(person.phone)} className="font-medium underline" style={{ color: "var(--accent-text)" }}>{person.phone}</a> : "Not recorded"}</Row>
             <Row label="Email">{person.email ?? "Not recorded"}</Row>
             <Row label="Next of kin">
               {person.nextOfKinName ?? "Not recorded"}
@@ -76,7 +76,7 @@ export function OfficerProfileView({ p, sites, excludeDenied, hoursDenied }: { p
             <div className="space-y-2 text-[13px]">
               <StatusPill severity={d.deployable ? (d.warnings.length ? "warning" : "good") : "critical"} label={d.deployable ? (d.warnings.length ? "Deployable — watch" : "Deployable") : "Blocked"} wrap />
               {[...d.blockers, ...d.warnings].map((b) => (
-                <p key={b.label} style={{ color: d.blockers.includes(b) ? "var(--status-critical)" : "var(--text-secondary)" }}>
+                <p key={b.label} style={{ color: d.blockers.includes(b) ? "var(--critical-text)" : "var(--text-secondary)" }}>
                   {b.label}
                 </p>
               ))}
@@ -236,7 +236,7 @@ function Row({ label, children }: { label: string; children: React.ReactNode }) 
 function Stat({ label, value, warn }: { label: string; value: number | string; warn?: boolean }) {
   return (
     <div>
-      <p className="text-[18px] font-semibold tabular-nums" style={{ color: warn ? "var(--status-serious)" : undefined }}>
+      <p className="text-[18px] font-semibold tabular-nums" style={{ color: warn ? "var(--serious-text)" : undefined }}>
         {value}
       </p>
       <p className="text-[11px]" style={{ color: "var(--text-secondary)" }}>

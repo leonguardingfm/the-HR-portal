@@ -23,7 +23,7 @@ export default async function ApplyPage({ params }: { params: Promise<{ token: s
     const pack = "purpose" in r && r.purpose === "welcome_pack";
     return (
       <main className="mx-auto max-w-lg px-5 py-16 text-center">
-        <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--series-1)" }}>
+        <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--accent-text)" }}>
           {COMPANY}
         </p>
         <h1 className="mt-2 text-[22px] font-semibold">{done ? (pack ? "Your welcome pack is signed" : "Your application has been sent") : "This link does not work"}</h1>

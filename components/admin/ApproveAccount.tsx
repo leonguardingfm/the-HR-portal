@@ -51,7 +51,7 @@ export function ApproveAccount({
       {state && (
         <p
           className="text-[11px] leading-snug"
-          style={{ color: state.ok ? "var(--status-good)" : "var(--status-critical)" }}
+          style={{ color: state.ok ? "var(--good-text)" : "var(--critical-text)" }}
         >
           {state.message}
         </p>

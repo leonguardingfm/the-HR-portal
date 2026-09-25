@@ -1,0 +1,102 @@
+# Every push to dev (and every pull request): the types, who may do what, the
+# colours in every theme, the database's own rules, a production build, and
+# then the portal driven in a real browser (26 September 2026).
+#
+# Nothing here touches a real database or a real secret: Postgres is a fresh
+# container per run, and the secrets below exist only inside it.
+
+name: CI
+
+on:
+  push:
+    branches: [dev, main]
+  pull_request:
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PGHOST: 127.0.0.1
+  PGPORT: 5432
+  PGUSER: postgres
+  PGPASSWORD: postgres
+  DATABASE_URL: postgresql://postgres:postgres@127.0.0.1:5432/leon_ci
+  AUTH_SECRET: ci-only-secret-used-nowhere-else-0123456789abcdef
+  APP_URL: http://localhost:3000
+
+jobs:
+  checks:
+    name: Types, permissions, contrast, database rules, build
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: Types
+        run: npm run typecheck
+      - name: Who may do what
+        run: npm run test:permissions
+      - name: Colour contrast in every theme
+        run: npm run test:contrast
+      - name: The database's own rules
+        run: npm run db:test
+      - name: Production build
+        run: npm run build
+
+  browser:
+    name: In a real browser
+    needs: checks
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd pg_isready --health-interval 5s --health-timeout 5s --health-retries 12
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npx prisma generate
+      - name: A demonstration database
+        run: |
+          createdb leon_ci
+          npx prisma migrate deploy
+          npm run db:seed
+          npm run demo:hub
+          npm run demo:duty
+      - name: A browser
+        run: npx playwright-core install --with-deps chromium
+      - name: Build and start the portal
+        run: |
+          npm run build
+          npm start > portal.log 2>&1 &
+          for i in $(seq 1 60); do
+            curl -sf http://localhost:3000/api/health > /dev/null && exit 0
+            sleep 2
+          done
+          cat portal.log
+          exit 1
+      - name: Browser tests
+        run: npm run test:e2e
+      - name: The portal's log, if anything failed
+        if: failure()
+        run: cat portal.log

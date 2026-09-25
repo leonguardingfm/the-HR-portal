@@ -33,7 +33,7 @@ export function RefereeForm({ token, company, person, kind, organisation, stated
   }
   return (
     <main className="mx-auto max-w-xl px-4 py-8">
-      <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--series-1)" }}>
+      <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--accent-text)" }}>
         {company} · reference request
       </p>
       <h1 className="text-[22px] font-semibold">{person}</h1>
@@ -109,7 +109,7 @@ export function RefereeForm({ token, company, person, kind, organisation, stated
           {send.pending ? "Sending…" : "Send the reference"}
         </button>
         {send.state && !send.state.ok && (
-          <p role="alert" className="text-[14px]" style={{ color: "var(--status-critical)" }}>
+          <p role="alert" className="text-[14px]" style={{ color: "var(--critical-text)" }}>
             {send.state.message}
           </p>
         )}

@@ -58,7 +58,7 @@ function Swatch({ t, chosen, onPick }: { t: ThemeSpec; chosen: boolean; onPick: 
       <span className="flex items-center justify-between gap-2 text-[12px] font-medium">
         {t.label}
         {chosen && (
-          <span aria-hidden style={{ color: "var(--series-1)" }}>
+          <span aria-hidden style={{ color: "var(--accent-text)" }}>
             ✓
           </span>
         )}

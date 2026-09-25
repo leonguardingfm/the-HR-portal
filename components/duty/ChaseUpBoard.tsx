@@ -19,7 +19,7 @@ function Tries({ r }: { r: LiveRow }) {
   return (
     <ul className="mt-1 space-y-0.5">
       {r.chaseUps.map((c, i) => (
-        <li key={i} className="text-[11px]" style={{ color: c.outcome === "confirmed" ? "var(--status-good)" : "var(--text-muted)" }}>
+        <li key={i} className="text-[11px]" style={{ color: c.outcome === "confirmed" ? "var(--good-text)" : "var(--text-muted)" }}>
           {OUTCOME[c.outcome]} · {formatTime(c.at)}
           {c.channel ? ` · ${CHANNEL_LABELS[c.channel as AskChannel].toLowerCase()} · ${c.by}` : " · by the officer, in their portal"}
           {c.note && ` — “${c.note}”`}

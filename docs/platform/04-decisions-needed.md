@@ -719,6 +719,40 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   them to every device. Status colours never change with the theme. The sign-in page and candidates'
   links are always white.
 
+### E37 — The critique fixed; the Managing Director's performance portal; officers with no signal — **answered, and built**
+> **"Complete the fixes."** · **"Add audit log search."** · **"It should be queued on the phone and
+> sent when signal returns."** · **"I agreed to all the points of Worth adding."** *(25–26 September
+> 2026.)*
+
+- **Sign-in:** five wrong passwords lock an account for 15 minutes (and 20 from one network);
+  forgotten password by emailed link, with the same answer whether or not the account exists;
+  a temporary password must be changed before anything else; two-factor sign-in with an
+  authenticator app, required for managers by the Managing Director's choice.
+- **Roles:** the Managing Director gives and takes away roles (Shift Supervisor included), resets
+  passwords and two-factor, and unlocks accounts, on System → People and roles. The last Managing
+  Director cannot be removed. A role taken away stops working at once.
+- **The Department board:** managers see their own department only, as team totals. Only the
+  Managing Director (and the auditor) see people by name — as decided in E35.
+- **Performance** (Managing Director only): each person, each department and the whole company, for
+  any period — time to accept, act and close, within SLA, breaches and why, handovers — with a page
+  per person and a spreadsheet download (itself recorded). A summary is emailed every Monday at
+  07:00. Anyone who misses three or more clocks in twelve hours is raised with the Managing Director
+  once a day; their manager is told that it has been.
+- **Hub settings:** the clocks per priority, office closure days (UK bank holidays are built in), and
+  each mailbox's mode. **Reply templates** per category, written by the department's manager, offered
+  to the owner with the sender, client, site and reference filled in.
+- **Keyboard shortcuts** on the hub and each task (`?` lists them). **Accessibility:** every theme
+  meets WCAG AA contrast, checked automatically; a visible focus ring; a skip link.
+- **Officers with no signal:** a book-on or check call is kept on the phone and sent when signal
+  returns, counted from when it was made (the phone's clock corrected) and marked for Control as
+  sent late. Never counted twice. Up to twelve hours back.
+- **Go-live:** a checklist the portal checks itself where it can (secrets, https, email, background
+  checks, no demonstration accounts, two-factor) and the Managing Director ticks where it cannot (the
+  UK GDPR paperwork, backups restored, the welcome pack and certificates uploaded). Production starts
+  from an empty database — see the hosting requirements, section 8.
+- **Audit log** search and download for the Managing Director and the auditor; lists that are cut
+  short now say so and page; tests live in the repository and run on every push.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

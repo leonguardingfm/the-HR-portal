@@ -32,7 +32,7 @@ export function TwoFactorCard({ enabledAt, required }: { enabledAt: string | nul
       {enabledAt ? (
         <div className="space-y-3 text-[13px]">
           <p>
-            <span style={{ color: "var(--status-good)" }}>✓ On</span> since {new Date(enabledAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.
+            <span style={{ color: "var(--good-text)" }}>✓ On</span> since {new Date(enabledAt).toLocaleDateString("en-GB", { day: "numeric", month: "long", year: "numeric" })}.
             {required && <span style={{ color: "var(--text-secondary)" }}> Your role must use it.</span>}
           </p>
           {!required && (
@@ -41,7 +41,7 @@ export function TwoFactorCard({ enabledAt, required }: { enabledAt: string | nul
                 Code from your app, to turn it off
                 <input name="code" inputMode="numeric" autoComplete="one-time-code" maxLength={7} required className={`${input} mt-1 w-40`} style={inputStyle} />
               </label>
-              <button type="submit" disabled={off.pending} className="h-9 rounded-md border px-3 text-[12px] font-semibold" style={{ borderColor: "var(--status-critical)", color: "var(--status-critical)" }}>
+              <button type="submit" disabled={off.pending} className="h-9 rounded-md border px-3 text-[12px] font-semibold" style={{ borderColor: "var(--status-critical)", color: "var(--critical-text)" }}>
                 Turn off
               </button>
               <Result state={off.state} />

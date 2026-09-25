@@ -296,6 +296,14 @@ export const NAV: NavItem[] = [
     built: true,
   },
   {
+    href: "/hub/templates",
+    label: "Reply templates",
+    purpose: "The agreed wording for replies, by category — written by each department's manager.",
+    group: "Control Room",
+    roles: ["operations_manager", "recruitment_manager", "admin_manager", "top_management"],
+    built: true,
+  },
+  {
     href: "/hub",
     label: "Performance hub",
     purpose: "Every email to the shared mailboxes, and every call logged, as a task with one owner and a clock: accepted in minutes, acted on, kept up to date.",
@@ -492,6 +500,14 @@ export const NAV: NavItem[] = [
     built: true,
   },
   {
+    href: "/performance",
+    label: "Performance",
+    purpose: "Every person, every department and the whole company: how fast work is taken on and finished, within SLA, and why not when it is not. The Managing Director's.",
+    group: "Management",
+    roles: ["top_management"],
+    built: true,
+  },
+  {
     href: "/quality",
     label: "Quality & inspections",
     purpose: "Site inspections, operational reports and the corrective actions they raise.",
@@ -507,6 +523,22 @@ export const NAV: NavItem[] = [
     purpose: "Who holds which role, our own service levels, retention, and the audit log.",
     group: "System",
     roles: SYSTEM,
+    built: true,
+  },
+  {
+    href: "/system/go-live",
+    label: "Go-live checklist",
+    purpose: "Everything that must be true before real people and real data go in — each checked by the portal where it can be, ticked by you where it cannot.",
+    group: "System",
+    roles: ["top_management"],
+    built: true,
+  },
+  {
+    href: "/system/audit",
+    label: "Audit log",
+    purpose: "Everything done in the portal — who, what, when — searchable, and downloadable. For the Managing Director and the auditor.",
+    group: "System",
+    roles: ["top_management", "auditor"],
     built: true,
   },
   {

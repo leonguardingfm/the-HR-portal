@@ -38,7 +38,7 @@ export function LogTaskButton({ departments, clients }: { departments: string[];
   const f = useClosing(logHubTask, () => setOpen(false));
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="h-9 rounded-md px-3.5 text-[12px] font-semibold text-white" style={{ background: "var(--brand-navy)" }}>
+      <button type="button" data-shortcut="n" onClick={() => setOpen(true)} className="h-9 rounded-md px-3.5 text-[12px] font-semibold text-white" style={{ background: "var(--brand-navy)" }}>
         + Log manual task
       </button>
       {open && (

@@ -47,13 +47,13 @@ export function ChaseUpForm({ assignmentId, denied, onResult }: { assignmentId: 
             </option>
           ))}
         </select>
-        <button type="submit" name="outcome" value="confirmed" disabled={pending} className={solid} style={{ background: "var(--status-good)" }}>
+        <button type="submit" name="outcome" value="confirmed" disabled={pending} className={solid} style={{ background: "var(--button-good)" }}>
           Confirmed
         </button>
         <button type="submit" name="outcome" value="no_answer" disabled={pending} className={btn} style={{ borderColor: "var(--hairline)" }}>
           No answer
         </button>
-        <button type="button" onClick={() => setCannot((v) => !v)} aria-expanded={cannot} className={btn} style={{ borderColor: "var(--status-critical)", color: "var(--status-critical)" }}>
+        <button type="button" onClick={() => setCannot((v) => !v)} aria-expanded={cannot} className={btn} style={{ borderColor: "var(--status-critical)", color: "var(--critical-text)" }}>
           Can&rsquo;t make it
         </button>
       </div>
@@ -94,7 +94,7 @@ export function BookOnForm({ assignmentId, denied, onResult }: { assignmentId: s
             </option>
           ))}
         </select>
-        <button type="submit" disabled={pending} className={solid} style={{ background: "var(--status-good)" }}>
+        <button type="submit" disabled={pending} className={solid} style={{ background: "var(--button-good)" }}>
           {pending ? "Booking on…" : "Booked on"}
         </button>
       </div>
@@ -147,7 +147,7 @@ export function CheckCallForm({ assignmentId, denied, onResult }: { assignmentId
         </label>
         <input type="hidden" name="allWell" value={notWell ? "no" : "yes"} />
         {notWell && <input name="note" required autoComplete="off" aria-label="What is wrong" placeholder="What is wrong" className={`${field} h-8 w-48`} style={inputStyle} />}
-        <button type="submit" disabled={pending} className={solid} style={{ background: "var(--status-good)" }}>
+        <button type="submit" disabled={pending} className={solid} style={{ background: "var(--button-good)" }}>
           {pending ? "Saving…" : "Call received"}
         </button>
       </div>
@@ -198,7 +198,7 @@ export function LostContactForm({ assignmentId, denied, onResult }: { assignment
   if (denied) return <Denied reason={denied} />;
   if (!open) {
     return (
-      <button type="button" onClick={() => setOpen(true)} className="text-[11px] underline-offset-2 hover:underline" style={{ color: "var(--status-critical)" }}>
+      <button type="button" onClick={() => setOpen(true)} className="text-[11px] underline-offset-2 hover:underline" style={{ color: "var(--critical-text)" }}>
         Client says they cannot reach the officer
       </button>
     );

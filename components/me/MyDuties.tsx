@@ -25,6 +25,7 @@ import {
   RunningLateForm,
   WithdrawOfferButton,
 } from "./MyForms";
+import { OutboxPanel, useOutbox } from "./Outbox";
 
 type Duty = LiveRow & { s: DutyStatus; start: Date; end: Date };
 
@@ -52,6 +53,7 @@ const tel = (n: string) => `tel:${n.replace(/[^\d+]/g, "")}`;
 export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, openShifts, availability, leave }: Props) {
   const now = useNow(30_000);
   const [notice, setNotice] = useState<ActionResult | null>(null);
+  const outbox = useOutbox();
   const duties = useMemo<Duty[]>(
     () => (now ? rows.map((r) => ({ ...r, s: dutyStatus(r, now), start: new Date(r.assignment.startsAt), end: new Date(r.assignment.endsAt) })) : []),
     [rows, now],
@@ -84,7 +86,7 @@ export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, open
           </p>
         </div>
         {controlPhone && (
-          <a href={tel(controlPhone)} className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg px-4 text-[14px] font-semibold text-white" style={{ background: "var(--status-good)" }}>
+          <a href={tel(controlPhone)} className="inline-flex h-11 shrink-0 items-center gap-1.5 rounded-lg px-4 text-[14px] font-semibold text-white" style={{ background: "var(--button-good)" }}>
             📞 Call Control
           </a>
         )}
@@ -99,11 +101,13 @@ export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, open
         </div>
       )}
 
+      <OutboxPanel {...outbox} />
+
       <DeviceAlertsCard vapidKey={vapidKey} />
 
       {action.length > 0 && (
         <section aria-labelledby="alerts-h" className="rounded-lg border-2 px-4 py-3" style={{ borderColor: "var(--status-critical)", background: "var(--wash-critical)" }}>
-          <h2 id="alerts-h" className="text-[14px] font-semibold" style={{ color: "var(--status-critical)" }}>
+          <h2 id="alerts-h" className="text-[14px] font-semibold" style={{ color: "var(--critical-text)" }}>
             Needs your action · {action.length}
           </h2>
           <ul className="mt-1 space-y-1.5">
@@ -121,7 +125,7 @@ export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, open
 
       {news.length > 0 && (
         <section aria-labelledby="news-h" className="rounded-lg border px-4 py-3" style={{ borderColor: "var(--series-1)" }}>
-          <h2 id="news-h" className="text-[14px] font-semibold" style={{ color: "var(--series-1)" }}>
+          <h2 id="news-h" className="text-[14px] font-semibold" style={{ color: "var(--accent-text)" }}>
             From Control
           </h2>
           <ul className="mt-1 space-y-1.5">
@@ -138,7 +142,7 @@ export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, open
       )}
 
       {next ? (
-        <NowCard d={next} now={now} name={name} pin={pin} onResult={setNotice} />
+        <NowCard d={next} now={now} name={name} pin={pin} onResult={setNotice} queuedBookOn={outbox.items.find((i) => i.kind === "book_on" && i.assignmentId === next.assignment.id && i.status === "waiting")?.madeAt ?? null} />
       ) : (
         <section className="rounded-lg border px-4 py-6 text-center text-[14px]" style={{ borderColor: "var(--hairline)", color: "var(--text-secondary)" }}>
           No duties in the next two weeks.
@@ -181,11 +185,11 @@ export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, open
               <li key={d.assignment.id} className="space-y-2 px-4 py-3" style={{ borderColor: "var(--hairline)" }}>
                 <Where d={d} now={now} />
                 {d.s.chase.state === "confirmed" ? (
-                  <p className="text-[13px] font-medium" style={{ color: "var(--status-good)" }}>
+                  <p className="text-[13px] font-medium" style={{ color: "var(--good-text)" }}>
                     ✓ Confirmed
                   </p>
                 ) : d.s.chase.state === "cannot_attend" ? (
-                  <p className="text-[13px]" style={{ color: "var(--status-critical)" }}>
+                  <p className="text-[13px]" style={{ color: "var(--critical-text)" }}>
                     You told Control you can’t make it.
                   </p>
                 ) : (
@@ -222,7 +226,7 @@ export function MyDuties({ rows, alerts, name, pin, controlPhone, vapidKey, open
                 </div>
                 {o.offered === "waiting" ? (
                   <div className="text-right">
-                    <p className="text-[13px] font-medium" style={{ color: "var(--series-1)" }}>
+                    <p className="text-[13px] font-medium" style={{ color: "var(--accent-text)" }}>
                       Offered — waiting for Control
                     </p>
                     <WithdrawOfferButton openShiftId={o.id} onResult={setNotice} />
@@ -318,7 +322,7 @@ function Where({ d, now }: { d: Duty; now: Date }) {
 const STEPS = ["Confirmed", "Booked on", "Check calls", "Duty ends"];
 
 /** The shift on now, or next: where it is in the flow, and the one thing to do. */
-function NowCard({ d, now, name, pin, onResult }: { d: Duty; now: Date; name: string; pin: string | null; onResult: (r: ActionResult) => void }) {
+function NowCard({ d, now, name, pin, onResult, queuedBookOn }: { d: Duty; now: Date; name: string; pin: string | null; onResult: (r: ActionResult) => void; queuedBookOn: number | null }) {
   const s = d.s;
   const started = d.start <= now;
   const bookOnFrom = new Date(d.start.getTime() - DUTY_RULES.bookOnEarliestMinutes * 60_000);
@@ -330,12 +334,12 @@ function NowCard({ d, now, name, pin, onResult }: { d: Duty; now: Date; name: st
   const late = !d.bookOn && (s.stage === "late" || s.stage === "no_show");
   const officer = { name, pin };
   const place = { post: d.post.name, site: d.siteName };
-  const canSayLate = !d.bookOn && s.chase.state !== "cannot_attend" && d.start.getTime() - now.getTime() <= 3 * 3_600_000;
+  const canSayLate = !d.bookOn && !queuedBookOn && s.chase.state !== "cannot_attend" && d.start.getTime() - now.getTime() <= 3 * 3_600_000;
 
   return (
     <section aria-labelledby="now-h" className="space-y-4 rounded-xl border-2 p-4" style={{ borderColor: late || overdue ? "var(--status-critical)" : "var(--series-1)", background: "var(--surface-1)" }}>
       <div>
-        <p id="now-h" className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: late || overdue ? "var(--status-critical)" : "var(--series-1)" }}>
+        <p id="now-h" className="text-[12px] font-semibold tracking-wide uppercase" style={{ color: late || overdue ? "var(--critical-text)" : "var(--accent-text)" }}>
           {started ? "On duty now" : "Your next duty"}
         </p>
         <Where d={d} now={now} />
@@ -363,7 +367,7 @@ function NowCard({ d, now, name, pin, onResult }: { d: Duty; now: Date; name: st
               className="mx-auto flex h-7 w-7 items-center justify-center rounded-full text-[12px] font-bold"
               style={
                 i <= doneUpTo
-                  ? { background: "var(--status-good)", color: "#fff" }
+                  ? { background: "var(--button-good)", color: "#fff" }
                   : i === current
                     ? { background: late || overdue ? "var(--status-critical)" : "var(--series-1)", color: "#fff" }
                     : { background: "var(--wash-neutral)", color: "var(--text-secondary)" }
@@ -379,13 +383,13 @@ function NowCard({ d, now, name, pin, onResult }: { d: Duty; now: Date; name: st
       </ol>
 
       {late && (
-        <p className="rounded-lg px-3 py-2 text-[14px] font-medium" style={{ background: "var(--wash-critical)", color: "var(--status-critical)" }}>
+        <p className="rounded-lg px-3 py-2 text-[14px] font-medium" style={{ background: "var(--wash-critical)", color: "var(--critical-text)" }}>
           You were due on site at {formatTime(d.start)} — {s.attendance.minutesLate} min ago. Book on now, or ring Control.
           {d.runningLate && ` You said you would be there about ${formatTime(d.runningLate.eta)}.`}
         </p>
       )}
       {overdue && (
-        <p className="rounded-lg px-3 py-2 text-[14px] font-medium" style={{ background: "var(--wash-critical)", color: "var(--status-critical)" }}>
+        <p className="rounded-lg px-3 py-2 text-[14px] font-medium" style={{ background: "var(--wash-critical)", color: "var(--critical-text)" }}>
           Your check call is overdue — {s.call.minutesOver} min. Make it now. Control has been alerted.
         </p>
       )}
@@ -399,11 +403,27 @@ function NowCard({ d, now, name, pin, onResult }: { d: Duty; now: Date; name: st
         </div>
       )}
       {!d.bookOn && s.chase.state === "cannot_attend" && (
-        <p className="text-[14px]" style={{ color: "var(--status-critical)" }}>
+        <p className="text-[14px]" style={{ color: "var(--critical-text)" }}>
           You told Control you can’t make it. They will take you off the shift and find cover.
         </p>
       )}
-      {!d.bookOn && s.chase.state !== "cannot_attend" && (started || s.chase.state === "confirmed") && (
+      {/* Booked on with no signal: saved on the phone, and the check calls carry on the same way. */}
+      {!d.bookOn && queuedBookOn && (
+        <div className="space-y-3">
+          <p className="text-[13px]" style={{ color: "var(--good-text)" }}>
+            ✓ Booked on at {formatTime(new Date(queuedBookOn))} — saved on this phone, sending when you have signal
+          </p>
+          {calls && (
+            <>
+              <p className="text-[14px]">
+                Next check call due by <strong>{formatTime(new Date(queuedBookOn + 60 * 60_000))}</strong>
+              </p>
+              <CheckCallButtons assignmentId={d.assignment.id} overdue={false} officer={officer} place={place} onResult={onResult} />
+            </>
+          )}
+        </div>
+      )}
+      {!d.bookOn && !queuedBookOn && s.chase.state !== "cannot_attend" && (started || s.chase.state === "confirmed") && (
         <div className="space-y-2">
           {now >= bookOnFrom ? (
             <>
@@ -424,7 +444,7 @@ function NowCard({ d, now, name, pin, onResult }: { d: Duty; now: Date; name: st
       {canSayLate && (
         <div>
           {d.runningLate && !late && (
-            <p className="mb-1 text-[13px]" style={{ color: "var(--status-serious)" }}>
+            <p className="mb-1 text-[13px]" style={{ color: "var(--serious-text)" }}>
               Control knows you will be there about {formatTime(d.runningLate.eta)}.
             </p>
           )}
@@ -433,7 +453,7 @@ function NowCard({ d, now, name, pin, onResult }: { d: Duty; now: Date; name: st
       )}
       {d.bookOn && (
         <div className="space-y-3">
-          <p className="text-[13px]" style={{ color: "var(--status-good)" }}>
+          <p className="text-[13px]" style={{ color: "var(--good-text)" }}>
             ✓ Booked on at {formatTime(d.bookOn.at)}
             {d.bookOn.proof ? " with your selfie" : ""}
           </p>

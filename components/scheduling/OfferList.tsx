@@ -66,7 +66,7 @@ function Offer({ r, denied, onResult }: { r: OfferRow; denied: string | null; on
           {r.note && ` — “${r.note}”`}
         </p>
         {r.problem && (
-          <p className="text-[12px]" style={{ color: "var(--status-critical)" }}>
+          <p className="text-[12px]" style={{ color: "var(--critical-text)" }}>
             The rota would refuse this now: {r.problem}
           </p>
         )}
@@ -85,7 +85,7 @@ function Offer({ r, denied, onResult }: { r: OfferRow; denied: string | null; on
       {!declining && (
         <div className="flex items-center gap-2">
           <form {...accept.form}>
-            <button type="submit" disabled={busy || !!denied || !!r.problem} title={denied ?? r.problem ?? undefined} className="h-8 rounded-md px-3 text-[12px] font-semibold text-white disabled:opacity-50" style={{ background: "var(--status-good)" }}>
+            <button type="submit" disabled={busy || !!denied || !!r.problem} title={denied ?? r.problem ?? undefined} className="h-8 rounded-md px-3 text-[12px] font-semibold text-white disabled:opacity-50" style={{ background: "var(--button-good)" }}>
               {accept.pending ? "Accepting…" : "Accept"}
             </button>
           </form>

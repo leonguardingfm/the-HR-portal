@@ -482,7 +482,7 @@ export function LiveBoard({
                             style={{
                               color:
                                 evidence.strength === "weak"
-                                  ? "var(--status-warning)"
+                                  ? "var(--warning-text)"
                                   : "var(--text-muted)",
                             }}
                           >
@@ -580,7 +580,7 @@ export function LiveBoard({
                   </p>
                   <p
                     className="mt-1 text-[11px]"
-                    style={{ color: i.clientNotified ? "var(--text-muted)" : "var(--status-warning)" }}
+                    style={{ color: i.clientNotified ? "var(--text-muted)" : "var(--warning-text)" }}
                   >
                     {formatTime(i.at)}
                     {i.siteName ? ` · ${i.siteName}` : ""} ·{" "}

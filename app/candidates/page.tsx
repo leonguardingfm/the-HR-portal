@@ -320,7 +320,7 @@ export default async function CandidatesPage({
                   <td colSpan={7} className="px-5 py-8 text-center" style={{ color: "var(--text-muted)" }}>
                     No candidates match.{" "}
                     {canCreate && (
-                      <Link href="/candidates/new" style={{ color: "var(--series-1)" }}>
+                      <Link href="/candidates/new" style={{ color: "var(--accent-text)" }}>
                         Add a candidate
                       </Link>
                     )}

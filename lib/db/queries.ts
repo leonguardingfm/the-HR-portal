@@ -198,6 +198,7 @@ async function liveRows(where: Prisma.AssignmentWhereInput): Promise<LiveRow[]> 
           locationVerified: a.bookOn.locationVerified,
           // Nobody recorded it for them: the officer did it themselves, in their portal.
           byOfficer: !a.bookOn.recordedByUserId,
+          sentLateAt: a.bookOn.sentLateAt?.toISOString() ?? null,
           proof: proofView(a.bookOn.proof),
         }
       : undefined,
@@ -209,6 +210,7 @@ async function liveRows(where: Prisma.AssignmentWhereInput): Promise<LiveRow[]> 
       allWell: c.allWell,
       note: c.note,
       byOfficer: !c.takenByUserId,
+      sentLateAt: c.sentLateAt?.toISOString() ?? null,
       proof: proofView(c.proof),
     })),
     attempts: a.attempts.map((t) => ({

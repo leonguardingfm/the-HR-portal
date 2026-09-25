@@ -179,7 +179,7 @@ export function PlacesBoard({ clients, denied }: { clients: PlaceClient[]; denie
                 <button type="button" disabled={!!denied} title={denied ?? undefined} className={small} style={{ borderColor: "var(--hairline)" }} onClick={() => setEditing({ kind: "client", client: c })}>
                   Edit client
                 </button>
-                <button type="button" disabled={!!denied || !c.active} title={denied ?? undefined} className={small} style={{ borderColor: "var(--series-1)", color: "var(--series-1)" }} onClick={() => setEditing({ kind: "site", clientId: c.id, clientName: c.name })}>
+                <button type="button" disabled={!!denied || !c.active} title={denied ?? undefined} className={small} style={{ borderColor: "var(--series-1)", color: "var(--accent-text)" }} onClick={() => setEditing({ kind: "site", clientId: c.id, clientName: c.name })}>
                   Add a site
                 </button>
               </div>
@@ -226,7 +226,7 @@ export function PlacesBoard({ clients, denied }: { clients: PlaceClient[]; denie
                                 )}
                               </>
                             ) : (
-                              <span style={{ color: "var(--status-serious)" }}>No on-site contact — Control has nobody to ring at step 2</span>
+                              <span style={{ color: "var(--serious-text)" }}>No on-site contact — Control has nobody to ring at step 2</span>
                             )}
                           </p>
                         </div>
@@ -239,7 +239,7 @@ export function PlacesBoard({ clients, denied }: { clients: PlaceClient[]; denie
                           <button type="button" disabled={!!denied} title={denied ?? undefined} className={small} style={{ borderColor: "var(--hairline)" }} onClick={() => setEditing({ kind: "site", clientId: c.id, clientName: c.name, site: s })}>
                             Edit site
                           </button>
-                          <button type="button" disabled={!!denied || !s.active || !c.active} title={denied ?? undefined} className={small} style={{ borderColor: "var(--series-1)", color: "var(--series-1)" }} onClick={() => setEditing({ kind: "post", siteId: s.id, siteName: s.name })}>
+                          <button type="button" disabled={!!denied || !s.active || !c.active} title={denied ?? undefined} className={small} style={{ borderColor: "var(--series-1)", color: "var(--accent-text)" }} onClick={() => setEditing({ kind: "post", siteId: s.id, siteName: s.name })}>
                             Add a post
                           </button>
                         </div>
@@ -285,7 +285,7 @@ export function PlacesBoard({ clients, denied }: { clients: PlaceClient[]; denie
                                     )}
                                   </td>
                                   <td className="px-3 py-2">{p.regular ?? "Pool"}</td>
-                                  <td className="px-3 py-2" style={{ color: p.instructions ? undefined : "var(--status-serious)" }}>
+                                  <td className="px-3 py-2" style={{ color: p.instructions ? undefined : "var(--serious-text)" }}>
                                     {p.instructions ? `${p.instructions.slice(0, 60)}${p.instructions.length > 60 ? "…" : ""}` : "None yet"}
                                   </td>
                                   <td className="px-3 py-2 text-right">

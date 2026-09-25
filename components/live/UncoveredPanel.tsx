@@ -27,7 +27,7 @@ export function UncoveredPanel({ rows, hours = 48, limit = 8 }: { rows: Uncovere
       }
     >
       {rows.length === 0 ? (
-        <p className="py-3 text-[13px]" style={{ color: "var(--status-good)" }}>
+        <p className="py-3 text-[13px]" style={{ color: "var(--good-text)" }}>
           ✓ Every shift in the next {hours} hours has an officer on it.
         </p>
       ) : (
@@ -59,7 +59,7 @@ export function UncoveredPanel({ rows, hours = 48, limit = 8 }: { rows: Uncovere
                       "open shift, nobody put on it"
                     )}
                     {r.offers > 0 && (
-                      <strong style={{ color: "var(--series-1)" }}>
+                      <strong style={{ color: "var(--accent-text)" }}>
                         {" "}
                         · {r.offers} officer{r.offers === 1 ? "" : "s"} offered
                       </strong>

@@ -34,7 +34,7 @@ export function sitePlace(site: { latitude: Prisma.Decimal | null; longitude: Pr
 }
 
 /** What the officer's form sent, checked — or why it cannot be accepted. */
-export async function readProof(formData: FormData, site: ReturnType<typeof sitePlace>, now: Date): Promise<{ proof: ProofInput } | { problem: string }> {
+export async function readProof(formData: FormData, site: ReturnType<typeof sitePlace>, now: Date, madeOnDevice?: number): Promise<{ proof: ProofInput } | { problem: string }> {
   const photo = formData.get("photo");
   if (!(photo instanceof File) || photo.size === 0) return { problem: "Take your selfie first." };
   if (photo.size > MAX_PROOF_BYTES) return { problem: "That photo is too large. Take it again in the portal." };
@@ -55,9 +55,13 @@ export async function readProof(formData: FormData, site: ReturnType<typeof site
   }
   const device = Number(formData.get("deviceAt"));
   const deviceAt = Number.isFinite(device) && device > 0 ? new Date(device) : null;
-  const clockSkewMinutes = deviceAt ? Math.round((deviceAt.getTime() - now.getTime()) / 60_000) : null;
-  // A photo "taken" long before it was sent is an old photo.
-  if (deviceAt && now.getTime() - deviceAt.getTime() > 15 * 60_000) return { problem: "That photo was taken too long ago. Take a new one now." };
+  // Sent at once, the phone's clock is compared with ours. Kept on the phone
+  // with no signal and sent later (26 September 2026), the photo is compared
+  // with when it was made, both by the phone's own clock.
+  const clockSkewMinutes = deviceAt && madeOnDevice === undefined ? Math.round((deviceAt.getTime() - now.getTime()) / 60_000) : null;
+  // A photo "taken" long before it was sent — or before it was made — is an old photo.
+  const age = deviceAt ? (madeOnDevice ?? now.getTime()) - deviceAt.getTime() : 0;
+  if (madeOnDevice === undefined ? age > 15 * 60_000 : Math.abs(age) > 15 * 60_000) return { problem: "That photo was taken too long ago. Take a new one now." };
 
   const liveCamera = formData.get("live") === "1";
   const { distance, atSite } = judgeLocation(fix, site);

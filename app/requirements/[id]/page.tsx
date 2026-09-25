@@ -99,7 +99,7 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
             {risk && <StatusPill severity="critical" label="Starting soon, not covered" />}
           </p>
           {r.status === "cancelled" && r.cancelledReason && (
-            <p className="mt-1 text-[13px]" style={{ color: "var(--status-critical)" }}>
+            <p className="mt-1 text-[13px]" style={{ color: "var(--critical-text)" }}>
               Cancelled: {r.cancelledReason}
             </p>
           )}
@@ -201,7 +201,7 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
                           {o.onShiftNow ? ` · on shift at ${o.onShiftNow.site}` : o.nextShift ? ` · next shift ${formatDate(o.nextShift.startsAt)}` : " · nothing rostered"}
                         </p>
                         {alsoOn(o.personId).map((a) => (
-                          <p key={a.id} className="text-[11px]" style={{ color: "var(--status-serious)" }}>
+                          <p key={a.id} className="text-[11px]" style={{ color: "var(--serious-text)" }}>
                             Also allocated to {a.requirement.reference}, from {formatDate(a.requirement.startDate)}
                           </p>
                         ))}
@@ -247,7 +247,7 @@ export default async function RequirementPage({ params }: { params: Promise<{ id
               subtitle={`Released ${formatDate(r.releasedToSourcingAt!)} — ${r.releaseNote ?? "no note"}`}
               action={
                 canDo(role, "candidacy.create") && !closed ? (
-                  <Link href={`/candidates/new?requirement=${r.id}`} className="text-[12px]" style={{ color: "var(--series-1)" }}>
+                  <Link href={`/candidates/new?requirement=${r.id}`} className="text-[12px]" style={{ color: "var(--accent-text)" }}>
                     + Add a candidate for it
                   </Link>
                 ) : null

@@ -206,13 +206,20 @@ export async function getHubTask(id: string, session: { userId: string; activeRo
     t.completedById ?? "",
     t.reviewedById ?? "",
     t.createdById ?? "",
+    session.userId,
   ]);
   const names = new Map((await db.user.findMany({ where: { id: { in: [...userIds].filter(Boolean) } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
   const name = (id: string | null | undefined) => (id ? (names.get(id) ?? "someone") : null);
   const superseded = new Set(t.notes.map((n) => n.replacesId).filter(Boolean));
-  const [staff, policy, clients] = await Promise.all([hubStaff([t.department as HubDepartment]), slaPolicy(), db.client.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, sites: { where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } } } })]);
+  const [staff, policy, clients, templates] = await Promise.all([
+    hubStaff([t.department as HubDepartment]),
+    slaPolicy(),
+    db.client.findMany({ where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true, sites: { where: { active: true }, select: { id: true, name: true }, orderBy: { name: "asc" } } } }),
+    db.replyTemplate.findMany({ where: { active: true }, orderBy: { title: "asc" }, select: { id: true, category: true, title: true, body: true } }),
+  ]);
   return {
     ...toRow(t, session.userId, names),
+    meName: name(session.userId) ?? "",
     requiredAction: t.requiredAction,
     senderName: t.senderName,
     senderAddress: t.senderAddress,
@@ -251,6 +258,8 @@ export async function getHubTask(id: string, session: { userId: string; activeRo
     staff: staff.filter((s) => s.id !== t.ownerUserId),
     policy,
     clients: clients.map((c) => ({ id: c.id, name: c.name, sites: c.sites })),
+    // This task's category first, then the rest, so the likeliest wording is at the top.
+    templates: [...templates.filter((x) => x.category === t.category), ...templates.filter((x) => x.category !== t.category)],
   };
 }
 export type HubTaskFull = NonNullable<Awaited<ReturnType<typeof getHubTask>>>;

@@ -29,7 +29,7 @@ export function Result({ state }: { state: ActionResult | null }) {
     <p
       role={state.ok ? "status" : "alert"}
       className="mt-1.5 text-[12px] leading-snug"
-      style={{ color: state.ok ? "var(--status-good)" : "var(--status-critical)" }}
+      style={{ color: state.ok ? "var(--good-text)" : "var(--critical-text)" }}
     >
       {state.message}
     </p>
@@ -253,7 +253,7 @@ export function CancelShiftForm({ assignmentId, onResult }: { assignmentId: stri
     <form {...form} className="space-y-2">
       <input type="hidden" name="assignmentId" value={assignmentId} />
       <input name="reason" required autoComplete="off" aria-label="Why the shift is not needed" placeholder="Why — e.g. client closed the site for the day" className={`${input} h-8`} style={inputStyle} />
-      <button type="submit" disabled={pending} className={quiet} style={{ borderColor: "var(--status-critical)", color: "var(--status-critical)", background: "var(--surface-1)" }}>
+      <button type="submit" disabled={pending} className={quiet} style={{ borderColor: "var(--status-critical)", color: "var(--critical-text)", background: "var(--surface-1)" }}>
         {pending ? "Cancelling…" : "Cancel the shift — nobody needed"}
       </button>
       <Result state={state} />

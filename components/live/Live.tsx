@@ -75,7 +75,8 @@ export function LiveProvider({ initial, watches, officer, hub = false, children 
     if (inFlight.current) return;
     inFlight.current = true;
     try {
-      const res = await fetch("/api/pulse", { cache: "no-store", credentials: "same-origin" });
+      // "Here" only while the screen is in front of them: a tab left open overnight is not someone on shift.
+      const res = await fetch(document.visibilityState === "visible" ? "/api/pulse?here=1" : "/api/pulse", { cache: "no-store", credentials: "same-origin" });
       if (res.status === 401) {
         // Signed out elsewhere, or the session ran out: go and sign in.
         window.location.assign("/signin");

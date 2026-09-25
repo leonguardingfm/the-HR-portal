@@ -174,7 +174,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
                         className="flex h-6 w-6 items-center justify-center rounded-full text-[11px] font-semibold"
                         style={{
                           background: done ? "var(--series-1)" : current ? "var(--surface-1)" : "var(--wash-neutral)",
-                          color: done ? "#fff" : current ? "var(--series-1)" : "var(--text-muted)",
+                          color: done ? "#fff" : current ? "var(--accent-text)" : "var(--text-muted)",
                           boxShadow: current ? "0 0 0 2px var(--series-1) inset" : undefined,
                         }}
                       >
@@ -394,7 +394,7 @@ export default async function CandidatePage({ params }: { params: Promise<{ id: 
                       <Link
                         href={`/vetting/${c.screeningFileId}`}
                         className="underline-offset-2 hover:underline"
-                        style={{ color: "var(--series-1)" }}
+                        style={{ color: "var(--accent-text)" }}
                       >
                         {VETTING_STATUS_LABELS[c.vettingStatus as VettingStatus]}
                       </Link>

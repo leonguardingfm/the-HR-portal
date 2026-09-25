@@ -7,6 +7,7 @@
 import { sweepDutyChecks } from "@/lib/db/duty-sweep";
 import { sweepHr } from "@/lib/db/hr-sweep";
 import { sweepHub } from "@/lib/db/hub-sweep";
+import { sendWeeklySummaryIfDue } from "@/lib/db/weekly-summary";
 
 export const WORKER_EVERY_MS = 30_000;
 /** The hub's clocks are counted in minutes, so they are looked at more often. */
@@ -30,7 +31,7 @@ export function workerHealth() {
 export function startDutyWorker() {
   if (state.__dutyWorker) return;
   const tick = () => {
-    Promise.all([sweepDutyChecks(), sweepHr()])
+    Promise.all([sweepDutyChecks(), sweepHr(), sendWeeklySummaryIfDue()])
       .then(() => {
         state.__dutyWorkerLastError = undefined;
         state.__workerLastOk = { ...state.__workerLastOk, duty: Date.now() };

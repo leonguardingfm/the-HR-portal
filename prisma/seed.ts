@@ -143,6 +143,8 @@ async function seedConfiguration() {
       retentionNote: t.retentionNote,
       clause: t.clause ?? null,
     })),
+    // The migrations already add two of these.
+    skipDuplicates: true,
   });
 
   for (const form of FORM_DEFINITIONS) {
@@ -715,7 +717,26 @@ async function seedNoSignalHandover() {
   }
 }
 
+/**
+ * Production: the configuration only, into an empty database — no people, no
+ * sites, no demonstration accounts (26 September 2026). Refuses a database
+ * that already has anyone in it. Then scripts/setup-first-admin.ts makes the
+ * first Managing Director. `npm run setup:config`
+ */
+async function configurationOnly() {
+  // The migrations add a few rows of their own (the Control Room phone, two
+  // document types); forms mean the configuration is in already.
+  const people = await db.person.count();
+  const loaded = await db.formDefinition.count();
+  if (people || loaded) throw new Error(`This database is not empty (${people} people, ${loaded} forms). The configuration-only seed is for a new, empty production database.`);
+  await seedConfiguration();
+  await seedAdminConfiguration(db);
+  console.log(`Configuration loaded: ${await db.documentType.count()} document types, ${await db.formDefinition.count()} forms, ${await db.setting.count()} settings. No demonstration data. Next: npm run setup:first-admin`);
+}
+
 async function main() {
+  if (process.argv.includes("--configuration-only")) return configurationOnly();
+  if (process.env.NODE_ENV === "production") throw new Error("The demonstration seed deletes everything and invents people. It does not run in production — use npm run setup:config.");
   console.log(`Seeding. ${personName("p1")} and friends.`);
   await reset();
   await seedConfiguration();

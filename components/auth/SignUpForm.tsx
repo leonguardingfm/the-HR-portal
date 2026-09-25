@@ -117,7 +117,7 @@ export function SignUpForm({
           ))}
         </select>
         {f.department ? (
-          <p className="mt-1 text-[11px]" style={{ color: "var(--status-critical)" }}>
+          <p className="mt-1 text-[11px]" style={{ color: "var(--critical-text)" }}>
             {f.department}
           </p>
         ) : chosen ? (

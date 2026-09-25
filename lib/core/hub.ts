@@ -151,6 +151,23 @@ export const SLA_DEFAULTS: SlaPolicy = {
 
 /** Office hours for the mailboxes that keep them: Monday to Friday, 09:00–17:00 UK time. */
 export const OFFICE_HOURS = { start: "09:00", end: "17:00", weekdays: [0, 1, 2, 3, 4] };
+
+/**
+ * Bank holidays in England and Wales (gov.uk), when the office-hours clocks
+ * stop as they do at weekends. Management can add closure days in the hub's
+ * settings; those are merged in by setClosedDays.
+ */
+export const UK_BANK_HOLIDAYS = [
+  "2026-01-01", "2026-04-03", "2026-04-06", "2026-05-04", "2026-05-25", "2026-08-31", "2026-12-25", "2026-12-28",
+  "2027-01-01", "2027-03-26", "2027-03-29", "2027-05-03", "2027-05-31", "2027-08-30", "2027-12-27", "2027-12-28",
+  "2028-01-03", "2028-04-14", "2028-04-17", "2028-05-01", "2028-05-29", "2028-08-28", "2028-12-25", "2028-12-26",
+];
+let CLOSED_DAYS = new Set(UK_BANK_HOLIDAYS);
+/** Extra days the office is closed, from the hub's settings, on top of the bank holidays. */
+export function setClosedDays(extra: string[]) {
+  CLOSED_DAYS = new Set([...UK_BANK_HOLIDAYS, ...extra.filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d))]);
+}
+const officeDay = (d: string) => OFFICE_HOURS.weekdays.includes(weekday(d)) && !CLOSED_DAYS.has(d);
 const minutesOf = (hhmm: string) => Number(hhmm.slice(0, 2)) * 60 + Number(hhmm.slice(3, 5));
 export const officeDayMinutes = () => minutesOf(OFFICE_HOURS.end) - minutesOf(OFFICE_HOURS.start);
 
@@ -178,7 +195,7 @@ export function addClockMinutes(start: Date, minutes: number, officeHours: boole
     const d = ukDate(t);
     const open = ukInstant(d, OFFICE_HOURS.start);
     const close = ukInstant(d, OFFICE_HOURS.end);
-    if (!OFFICE_HOURS.weekdays.includes(weekday(d)) || t >= close) {
+    if (!officeDay(d) || t >= close) {
       t = ukInstant(addDays(d, 1), OFFICE_HOURS.start);
       continue;
     }
@@ -189,6 +206,26 @@ export function addClockMinutes(start: Date, minutes: number, officeHours: boole
     t = ukInstant(addDays(d, 1), OFFICE_HOURS.start);
   }
   return t;
+}
+
+/**
+ * How long something took on the clock that applies: round the clock for the
+ * Control Room, office time only for HR and Accounts — so an email that came in
+ * at 20:00 and was answered at 09:10 took ten minutes, not thirteen hours.
+ */
+export function clockMinutesBetween(from: Date, to: Date, officeHours: boolean): number {
+  if (to <= from) return 0;
+  if (!officeHours) return (to.getTime() - from.getTime()) / 60_000;
+  let total = 0;
+  let d = ukDate(from);
+  const last = ukDate(to);
+  for (let guard = 0; guard < 800 && d <= last; guard++, d = addDays(d, 1)) {
+    if (!officeDay(d)) continue;
+    const open = Math.max(ukInstant(d, OFFICE_HOURS.start).getTime(), from.getTime());
+    const close = Math.min(ukInstant(d, OFFICE_HOURS.end).getTime(), to.getTime());
+    if (close > open) total += (close - open) / 60_000;
+  }
+  return total;
 }
 
 export function addSpan(start: Date, s: Span, officeHours: boolean): Date {

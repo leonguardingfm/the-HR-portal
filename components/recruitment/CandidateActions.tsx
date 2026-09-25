@@ -11,7 +11,7 @@ function Result({ state }: { state: ActionResult | null }) {
     <p
       role={state.ok ? "status" : "alert"}
       className="mt-2 text-[12px] leading-snug"
-      style={{ color: state.ok ? "var(--status-good)" : "var(--status-critical)" }}
+      style={{ color: state.ok ? "var(--good-text)" : "var(--critical-text)" }}
     >
       {state.message}
     </p>
@@ -173,7 +173,7 @@ export function WithdrawForm({ candidacyId, denied }: { candidacyId: string; den
           type="submit"
           disabled={pending}
           className={quiet}
-          style={{ borderColor: "var(--status-critical)", color: "var(--status-critical)", background: "var(--surface-1)" }}
+          style={{ borderColor: "var(--status-critical)", color: "var(--critical-text)", background: "var(--surface-1)" }}
         >
           {pending ? "Withdrawing…" : "Withdraw"}
         </button>

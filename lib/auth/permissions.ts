@@ -91,7 +91,8 @@ export type ActionId =
   // --- Accounts and security (26 September 2026) ---------------------------
   | "role.grant"
   | "account.reset"
-  | "security.policy";
+  | "security.policy"
+  | "system.golive";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -264,6 +265,7 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "role.grant": { roles: ["top_management"], owner: "the Managing Director", what: "Giving someone a role, or taking one away" },
   "account.reset": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager or the Managing Director", what: "Resetting someone's password or two-factor" },
   "security.policy": { roles: ["top_management"], owner: "the Managing Director", what: "Deciding who must use two-factor sign-in" },
+  "system.golive": { roles: ["top_management"], owner: "the Managing Director", what: "Working through the go-live checklist, and switching off demonstration accounts" },
 };
 
 export function canDo(role: Role | null | undefined, action: ActionId): boolean {

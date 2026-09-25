@@ -8,6 +8,9 @@
  *   - every update period while a task is open, a request for an update —
  *     missing one is a breach too; a task on hold waits for its follow-up;
  *   - two breaches on one task, and the Managing Director is told;
+ *   - one person with three or more breaches in twelve hours, across any
+ *     tasks, and the Managing Director is told — once a day per person
+ *     (26 September 2026);
  *   - an owner whose shift has ended with work still open: the supervisor is
  *     told it needs handing over.
  *
@@ -17,11 +20,14 @@
 
 import { CLOSED, IN_HAND, MANAGER_ROLE, SUPERVISOR_ROLES, WAITING, departmentLabel, nextUpdateDue, spanWords, taskRef, warnAt, type Clock, type HubDepartment, type HubPriority, type HubStatus } from "@/lib/core/hub";
 import type { Role } from "@/lib/types";
+import { ukDate } from "@/lib/core/rota";
 import { db } from "./client";
 import { notify, officeHoursFor, slaPolicy } from "./hub";
 
 /** An owner not seen for this long, with no open session, has gone off shift. */
 const OFF_SHIFT_MINUTES = 20;
+/** One person, this many breaches, within this many hours: the Managing Director is told. */
+export const PERSON_BREACHES = { count: 3, hours: 12 };
 
 type Notice = { level: "info" | "warning" | "critical"; text: string; toUserId?: string | null; toRole?: Role; department?: HubDepartment };
 
@@ -134,7 +140,54 @@ export async function sweepHub(now = new Date()) {
     }
   }
 
+  if (breaches) await escalatePeople(now);
+
   // A critical alarm stops once somebody has it.
   await db.workItem.updateMany({ where: { state: "open", hubTaskId: { in: live.filter((t) => t.status !== "unassigned").map((t) => t.id) } }, data: { state: "done", doneAt: now } });
   return { warnings, breaches, handovers };
+}
+
+/**
+ * A pattern, not one bad task: someone who has missed three or more clocks in
+ * twelve hours. The Managing Director is told once a day per person; their
+ * department's manager hears that management knows, without the other
+ * departments' figures.
+ */
+export async function escalatePeople(now = new Date()) {
+  const since = new Date(now.getTime() - PERSON_BREACHES.hours * 3_600_000);
+  const rows = await db.hubSlaEvent.findMany({
+    where: { kind: "breach", at: { gte: since }, ownerUserId: { not: null } },
+    select: { ownerUserId: true, task: { select: { department: true, mailbox: { select: { mode: true } } } } },
+  });
+  const counts = new Map<string, { n: number; dept: HubDepartment }>();
+  for (const r of rows) {
+    if (r.task.mailbox?.mode === "shadow") continue;
+    const c = counts.get(r.ownerUserId!) ?? { n: 0, dept: r.task.department as HubDepartment };
+    c.n += 1;
+    counts.set(r.ownerUserId!, c);
+  }
+  const over = [...counts].filter(([, c]) => c.n >= PERSON_BREACHES.count);
+  if (!over.length) return 0;
+  // Today's, so each person is raised once a UK day however often the sweep runs.
+  const today = ukDate(now);
+  const already = new Set(
+    (await db.event.findMany({ where: { type: "hub.person_breaches", at: { gte: new Date(now.getTime() - 26 * 3_600_000) } }, select: { at: true, payload: true } }))
+      .filter((e) => ukDate(e.at) === today)
+      .map((e) => (e.payload as { userId?: string } | null)?.userId),
+  );
+  const names = new Map((await db.user.findMany({ where: { id: { in: over.map(([id]) => id) } }, select: { id: true, displayName: true } })).map((u) => [u.id, u.displayName]));
+  let raised = 0;
+  for (const [userId, c] of over) {
+    if (already.has(userId)) continue;
+    const who = names.get(userId) ?? "Someone";
+    await db.$transaction(async (tx) => {
+      await notify(tx, { level: "warning", text: `${who} (${departmentLabel(c.dept)}) has missed ${c.n} SLA clocks in the last ${PERSON_BREACHES.hours} hours`, toRole: "top_management" });
+      await notify(tx, { level: "warning", text: `${who} has missed ${c.n} SLA clocks in ${PERSON_BREACHES.hours} hours — the Managing Director has been told`, toRole: MANAGER_ROLE[c.dept] as Role });
+      await tx.event.create({
+        data: { type: "hub.person_breaches", actorSystem: "hub-sweep", department: c.dept, detail: `${who} missed ${c.n} SLA clocks in ${PERSON_BREACHES.hours} hours — raised with the Managing Director.`, payload: { userId, breaches: c.n, since: since.toISOString() } },
+      });
+    });
+    raised++;
+  }
+  return raised;
 }

@@ -100,7 +100,7 @@ export function ApplicationForm({ token, company, role, years, today, expires, i
   if (sent) {
     return (
       <main className="mx-auto max-w-lg px-5 py-16 text-center">
-        <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--series-1)" }}>
+        <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--accent-text)" }}>
           {company}
         </p>
         <h1 className="mt-2 text-[24px] font-semibold">Thank you — it has been sent</h1>
@@ -114,7 +114,7 @@ export function ApplicationForm({ token, company, role, years, today, expires, i
   return (
     <main className="mx-auto max-w-xl px-4 pt-6 pb-24">
       <div ref={top} className="scroll-mt-4">
-        <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--series-1)" }}>
+        <p className="text-[13px] font-semibold tracking-wide uppercase" style={{ color: "var(--accent-text)" }}>
           {company}
         </p>
         <h1 className="text-[22px] font-semibold tracking-tight">Your application</h1>
@@ -158,7 +158,7 @@ export function ApplicationForm({ token, company, role, years, today, expires, i
       </section>
 
       {notice && (
-        <p role={notice.ok ? "status" : "alert"} className="mt-4 rounded-lg px-3 py-2.5 text-[15px]" style={{ background: notice.ok ? "var(--wash-good)" : "var(--wash-critical)", color: notice.ok ? undefined : "var(--status-critical)" }}>
+        <p role={notice.ok ? "status" : "alert"} className="mt-4 rounded-lg px-3 py-2.5 text-[15px]" style={{ background: notice.ok ? "var(--wash-good)" : "var(--wash-critical)", color: notice.ok ? undefined : "var(--critical-text)" }}>
           {notice.message}
         </p>
       )}
@@ -227,7 +227,7 @@ function Gaps({ gaps, label, onFill }: { gaps: { from: number; to: number }[]; l
       {gaps.map((g) => (
         <div key={g.from} className="flex flex-wrap items-center justify-between gap-2 text-[14px]">
           <span>{describe(g)}</span>
-          <button type="button" onClick={() => onFill(g)} className="h-9 rounded-md border px-3 text-[14px] font-medium" style={{ borderColor: "var(--series-1)", color: "var(--series-1)" }}>
+          <button type="button" onClick={() => onFill(g)} className="h-9 rounded-md border px-3 text-[14px] font-medium" style={{ borderColor: "var(--series-1)", color: "var(--accent-text)" }}>
             Fill this gap
           </button>
         </div>
@@ -257,7 +257,7 @@ function Addresses({ draft, set, today }: { draft: ApplicationDraft; set: SetFn;
             <Input label="Moved out" type="date" value={l.to} onChange={(v) => up(i, "to", v)} />
           </div>
           {lines.length > 1 && (
-            <button type="button" onClick={() => set("addresses", lines.filter((_, j) => j !== i))} className="text-[14px] underline" style={{ color: "var(--status-critical)" }}>
+            <button type="button" onClick={() => set("addresses", lines.filter((_, j) => j !== i))} className="text-[14px] underline" style={{ color: "var(--critical-text)" }}>
               Remove this address
             </button>
           )}
@@ -332,7 +332,7 @@ function History({ draft, set, today, years }: { draft: ApplicationDraft; set: S
             )}
             {!l.current && l.kind === "employment" && <Input label="Why did you leave?" value={l.reasonForLeaving} onChange={(v) => up(i, { reasonForLeaving: v })} />}
             {lines.length > 1 && (
-              <button type="button" onClick={() => set("history", lines.filter((_, j) => j !== i))} className="text-[14px] underline" style={{ color: "var(--status-critical)" }}>
+              <button type="button" onClick={() => set("history", lines.filter((_, j) => j !== i))} className="text-[14px] underline" style={{ color: "var(--critical-text)" }}>
                 Remove this entry
               </button>
             )}
@@ -411,7 +411,7 @@ function DocumentSlot({ token, spec, have, onResult }: { token: string; spec: (t
       <p className="text-[15px] font-semibold">
         {have.length ? "✓ " : ""}
         {spec.label}
-        {spec.required && !have.length && <span style={{ color: "var(--status-critical)" }}> · needed</span>}
+        {spec.required && !have.length && <span style={{ color: "var(--critical-text)" }}> · needed</span>}
       </p>
       <p className="text-[13px]" style={{ color: "var(--text-muted)" }}>
         {spec.hint}
@@ -451,9 +451,9 @@ function Remove({ token, u, onResult }: { token: string; u: Upload; onResult: (r
     <form {...rm.form} className="flex items-center justify-between gap-2 text-[14px]">
       <span className="min-w-0 truncate">📎 {u.fileName}</span>
       {u.checked ? (
-        <span style={{ color: "var(--status-good)" }}>Checked</span>
+        <span style={{ color: "var(--good-text)" }}>Checked</span>
       ) : (
-        <button type="submit" disabled={rm.pending} className="underline" style={{ color: "var(--status-critical)" }}>
+        <button type="submit" disabled={rm.pending} className="underline" style={{ color: "var(--critical-text)" }}>
           Remove
         </button>
       )}
@@ -494,7 +494,7 @@ function Declaration({ token, draft, uploads, onSent, onResult }: { token: strin
         Type your full name to sign
         <input name="signedName" autoComplete="off" placeholder={a.fullName} className={field} style={fieldStyle} />
       </label>
-      <button type="submit" disabled={send.pending} className={big} style={{ background: "var(--status-good)" }}>
+      <button type="submit" disabled={send.pending} className={big} style={{ background: "var(--button-good)" }}>
         {send.pending ? "Sending…" : "Sign and send my application"}
       </button>
     </form>

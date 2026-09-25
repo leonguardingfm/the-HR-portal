@@ -24,7 +24,7 @@ export function StageSlaChart({
           <BarRow
             key={d.stage}
             label={d.stage}
-            segments={[{ value: d.actual, color: "var(--series-1)", name: "Median days" }]}
+            segments={[{ value: d.actual, color: "var(--accent-text)", name: "Median days" }]}
             maxValue={max}
             tipLabel={d.actual.toFixed(1)}
             marker={{ fraction: d.sla / max, label: `Service level ${d.sla} days` }}

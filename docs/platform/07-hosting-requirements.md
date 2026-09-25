@@ -87,8 +87,9 @@ notifications.
 ## 7. Monitoring
 
 - An uptime check on the portal every minute, alerting the named contacts if it is down for 3 minutes.
-- An alert if the background checks stop (the portal will provide a health address that says when
-  they last ran).
+- An alert if the background checks stop: `GET /api/health` answers **200** when the database is
+  reachable and the checks ran in the last two minutes, and **503** otherwise. It needs no sign-in
+  and carries no personal data, so the uptime monitor can call it directly.
 - Database CPU, storage and connection alerts; file storage capacity alerts.
 - Application logs kept 90 days. Logs must not contain passwords, tokens or document contents.
 
@@ -99,6 +100,15 @@ notifications.
 - Releases are deployed from the `main` branch after sign-off; database changes are applied with
   `npx prisma migrate deploy` as part of the release. A short maintenance window (under 10 minutes)
   out of hours is acceptable.
+- Every change is checked automatically before it can be released (types, permissions, colour
+  contrast, the database's own rules, a production build, and the portal driven in a browser).
+- **Production starts from an empty database — never a copy of staging or development:**
+  1. `npx prisma migrate deploy` — the tables and the database's own rules;
+  2. `npm run setup:config` — the document types, forms and settings, and nothing invented;
+  3. `npm run setup:first-admin -- --name "…" --username … --email …` — the Managing Director's
+     account, with a temporary password shown once; two-factor sign-in is then required for managers;
+  4. the Managing Director signs in and works through **System → Go-live checklist** until it says
+     *Ready to go live*. The demonstration seed refuses to run on a production server.
 
 ## 9. What we need back from the host
 

@@ -156,7 +156,7 @@ export function OfficerCell({ r, now }: { r: LiveRow; now: Date }) {
         )}
       </p>
       {r.phone && (
-        <a href={`tel:${r.phone.replace(/\s/g, "")}`} className="tnum text-[12px] tabular-nums underline-offset-2 hover:underline" style={{ color: "var(--series-1)" }}>
+        <a href={`tel:${r.phone.replace(/\s/g, "")}`} className="tnum text-[12px] tabular-nums underline-offset-2 hover:underline" style={{ color: "var(--accent-text)" }}>
           {r.phone}
         </a>
       )}
@@ -177,7 +177,7 @@ export function Pill({ severity, label }: { severity: Severity; label: string })
 
 /** A list section with a count, and a line saying what is in it. */
 export function Section({ title, count, meaning, tone, children }: { title: string; count: number; meaning: string; tone?: Severity; children: ReactNode }) {
-  const ink = tone === "critical" ? "var(--status-critical)" : tone === "serious" ? "var(--status-serious)" : tone === "good" ? "var(--status-good)" : "var(--text-primary)";
+  const ink = tone === "critical" ? "var(--critical-text)" : tone === "serious" ? "var(--serious-text)" : tone === "good" ? "var(--good-text)" : "var(--text-primary)";
   return (
     <section className="rounded-lg border" style={{ borderColor: tone === "critical" && count ? "var(--status-critical)" : "var(--hairline)", background: "var(--surface-1)" }}>
       <header className="flex flex-wrap items-baseline justify-between gap-2 border-b px-4 py-3" style={{ borderColor: "var(--hairline)" }}>
@@ -302,10 +302,20 @@ export function OnTheirBehalf({ hasPortal, children }: { hasPortal: boolean; chi
   );
 }
 
+/** Made with no signal on the officer's phone, and reached Control later (26 September 2026). */
+export function SentLate({ at, sentLateAt }: { at: string; sentLateAt?: string | null }) {
+  if (!sentLateAt) return null;
+  return (
+    <span title={`Made at ${formatTime(new Date(at))} with no signal; reached Control at ${formatTime(new Date(sentLateAt))}`} className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={{ background: "var(--wash-warning)", color: "var(--text-primary)" }}>
+      📵 No signal · sent {formatTime(new Date(sentLateAt))}
+    </span>
+  );
+}
+
 /** Who did it: the officer themselves, or Control on their behalf. */
 export function ByWhom({ byOfficer }: { byOfficer?: boolean }) {
   return (
-    <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={byOfficer ? { background: "var(--wash-good)", color: "var(--status-good)" } : { background: "var(--wash-neutral)", color: "var(--text-secondary)" }}>
+    <span className="rounded px-1.5 py-0.5 text-[10px] font-semibold uppercase" style={byOfficer ? { background: "var(--wash-good)", color: "var(--good-text)" } : { background: "var(--wash-neutral)", color: "var(--text-secondary)" }}>
       {byOfficer ? "By the officer" : "By Control"}
     </span>
   );
@@ -346,7 +356,7 @@ export function WhoElseToRing({ r }: { r: LiveRow }) {
       {r.post.phone && (
         <>
           Post phone{" "}
-          <a href={`tel:${r.post.phone.replace(/[^\d+]/g, "")}`} className="font-medium underline" style={{ color: "var(--series-1)" }}>
+          <a href={`tel:${r.post.phone.replace(/[^\d+]/g, "")}`} className="font-medium underline" style={{ color: "var(--accent-text)" }}>
             {r.post.phone}
           </a>
         </>
@@ -355,7 +365,7 @@ export function WhoElseToRing({ r }: { r: LiveRow }) {
       {r.site.contactPhone && (
         <>
           {r.site.contactName ?? "On-site contact"}{" "}
-          <a href={`tel:${r.site.contactPhone.replace(/[^\d+]/g, "")}`} className="font-medium underline" style={{ color: "var(--series-1)" }}>
+          <a href={`tel:${r.site.contactPhone.replace(/[^\d+]/g, "")}`} className="font-medium underline" style={{ color: "var(--accent-text)" }}>
             {r.site.contactPhone}
           </a>
         </>

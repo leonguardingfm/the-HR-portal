@@ -64,7 +64,7 @@ export default async function VerifyProofPage({ params }: { params: Promise<{ co
             {rows.map(([k, v, sev]) => (
               <div key={k} className="grid grid-cols-[11rem_1fr] gap-3 py-2" style={{ borderColor: "var(--hairline)" }}>
                 <dt style={{ color: "var(--text-secondary)" }}>{k}</dt>
-                <dd className="min-w-0 break-words" style={{ color: sev === "warning" ? "var(--status-serious)" : undefined }}>
+                <dd className="min-w-0 break-words" style={{ color: sev === "warning" ? "var(--serious-text)" : undefined }}>
                   {v}
                 </dd>
               </div>

@@ -25,7 +25,7 @@ function Result({ state }: { state: ActionResult | null }) {
     <p
       role={state.ok ? "status" : "alert"}
       className="mt-1.5 text-[11px] leading-snug"
-      style={{ color: state.ok ? "var(--status-good)" : "var(--status-critical)" }}
+      style={{ color: state.ok ? "var(--good-text)" : "var(--critical-text)" }}
     >
       {state.message}
     </p>

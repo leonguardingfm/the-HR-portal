@@ -30,7 +30,7 @@ function Action({ label, title, subtitle, action, children, submit, danger = fal
   const f = useFormAction(action, { resetOnSuccess: false });
   return (
     <>
-      <button type="button" onClick={() => setOpen(true)} className="text-[12px] underline underline-offset-2" style={{ color: danger ? "var(--status-critical)" : "var(--series-1)" }}>
+      <button type="button" onClick={() => setOpen(true)} className="text-[12px] underline underline-offset-2" style={{ color: danger ? "var(--critical-text)" : "var(--accent-text)" }}>
         {label}
       </button>
       {open && (
@@ -117,7 +117,7 @@ export function PeopleRoles({ rows, meId, can, policy }: { rows: PersonRow[]; me
                       {u.screening ? (
                         <>
                           <span>{u.screening.own ? "Screened" : "Not screened"} · {u.screening.nda ? "NDA on file" : "No NDA"} · training {u.screening.training ? new Date(u.screening.training).toLocaleDateString("en-GB") : "none"}</span>
-                          {u.screening.blocked && <p style={{ color: "var(--status-critical)" }}>{u.screening.blocked}</p>}
+                          {u.screening.blocked && <p style={{ color: "var(--critical-text)" }}>{u.screening.blocked}</p>}
                         </>
                       ) : (
                         <span style={{ color: "var(--text-muted)" }}>Not a screening role</span>

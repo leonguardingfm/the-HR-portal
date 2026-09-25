@@ -29,7 +29,7 @@ const SESSION_END = "/signin/ended";
  * Open to anyone signed in, whatever their role — officers included. The pulse
  * answers only about the person asking, so there is nothing to fence.
  */
-const ANY_SIGNED_IN = new Set(["/api/pulse"]);
+const ANY_SIGNED_IN = new Set(["/api/pulse", "/api/me/queue"]);
 /**
  * The links emailed to candidates and referees. Open to anyone holding one,
  * signed in or not: the link itself is the key, checked by the page and by

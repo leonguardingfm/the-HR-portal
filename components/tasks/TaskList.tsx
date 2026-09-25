@@ -152,12 +152,12 @@ function TaskItem({ r, onResult }: { r: TaskRow; onResult: (x: ActionResult) => 
           {!r.alarm && ` · due ${formatDate(r.dueAt)}`}
           {" · "}
           {r.owner ? (
-            <strong style={{ color: r.ownerIsMe ? "var(--series-1)" : "var(--text-primary)" }}>
+            <strong style={{ color: r.ownerIsMe ? "var(--accent-text)" : "var(--text-primary)" }}>
               {r.ownerIsMe ? "You have it" : `${r.owner} has it`}
               {r.takenAt ? ` since ${formatTime(r.takenAt)}` : ""}
             </strong>
           ) : r.pooled ? (
-            <span style={{ color: r.alarm ? "var(--status-critical)" : undefined }}>nobody has taken it yet</span>
+            <span style={{ color: r.alarm ? "var(--critical-text)" : undefined }}>nobody has taken it yet</span>
           ) : (
             "unassigned"
           )}
@@ -178,7 +178,7 @@ function TaskItem({ r, onResult }: { r: TaskRow; onResult: (x: ActionResult) => 
               className={`${field} min-w-[16rem] flex-1`}
               style={inputStyle}
             />
-            <button type="submit" disabled={busy} className="h-9 rounded-md px-3 text-[12px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--status-good)" }}>
+            <button type="submit" disabled={busy} className="h-9 rounded-md px-3 text-[12px] font-semibold text-white disabled:opacity-60" style={{ background: "var(--button-good)" }}>
               {finish.pending ? "Closing…" : "Mark done"}
             </button>
             <button type="button" onClick={() => setClosing(false)} className="text-[12px] underline" style={{ color: "var(--text-secondary)" }}>
@@ -214,7 +214,7 @@ function TaskItem({ r, onResult }: { r: TaskRow; onResult: (x: ActionResult) => 
           </form>
         )}
         {r.canFinish && !closing && (
-          <button type="button" onClick={() => setClosing(true)} disabled={busy} className="inline-flex h-7 items-center rounded-md border px-2.5 text-[12px] font-medium disabled:opacity-60" style={{ borderColor: "var(--status-good)", color: "var(--status-good)" }}>
+          <button type="button" onClick={() => setClosing(true)} disabled={busy} className="inline-flex h-7 items-center rounded-md border px-2.5 text-[12px] font-medium disabled:opacity-60" style={{ borderColor: "var(--status-good)", color: "var(--good-text)" }}>
             Done
           </button>
         )}

@@ -37,7 +37,7 @@ export function FunnelChart({
           <BarRow
             key={d.stage}
             label={d.stage}
-            segments={[{ value: d.count, color: "var(--series-1)", name: d.stage }]}
+            segments={[{ value: d.count, color: "var(--accent-text)", name: d.stage }]}
             maxValue={max}
             tipLabel={String(d.count)}
             tooltip={

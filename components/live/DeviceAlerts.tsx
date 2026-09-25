@@ -106,7 +106,7 @@ export function DeviceAlertsInline({ vapidKey }: { vapidKey: string | null }) {
     <span className="inline-flex flex-wrap items-center gap-2 text-[12px]">
       {d.state === "on" ? (
         <>
-          <span style={{ color: "var(--status-good)" }}>● Desktop alerts on</span>
+          <span style={{ color: "var(--good-text)" }}>● Desktop alerts on</span>
           <button type="button" onClick={d.test} disabled={d.busy} className={button} style={{ borderColor: "var(--hairline)" }}>
             Test
           </button>
@@ -119,7 +119,7 @@ export function DeviceAlertsInline({ vapidKey }: { vapidKey: string | null }) {
         </button>
       )}
       {d.result && (
-        <span role="status" style={{ color: d.result.ok ? "var(--status-good)" : "var(--status-critical)" }}>
+        <span role="status" style={{ color: d.result.ok ? "var(--good-text)" : "var(--critical-text)" }}>
           {d.result.message}
         </span>
       )}
@@ -134,7 +134,7 @@ export function DeviceAlertsCard({ vapidKey }: { vapidKey: string | null }) {
   if (d.state === "on") {
     return (
       <section className="flex flex-wrap items-center justify-between gap-2 rounded-lg border px-4 py-2.5 text-[13px]" style={{ borderColor: "var(--hairline)" }}>
-        <span style={{ color: "var(--status-good)" }}>● Alerts are on for this phone</span>
+        <span style={{ color: "var(--good-text)" }}>● Alerts are on for this phone</span>
         <span className="flex gap-2">
           <button type="button" onClick={d.test} disabled={d.busy} className={button} style={{ borderColor: "var(--hairline)" }}>
             Send a test
@@ -144,7 +144,7 @@ export function DeviceAlertsCard({ vapidKey }: { vapidKey: string | null }) {
           </button>
         </span>
         {d.result && (
-          <p role="status" className="w-full text-[12px]" style={{ color: d.result.ok ? "var(--status-good)" : "var(--status-critical)" }}>
+          <p role="status" className="w-full text-[12px]" style={{ color: d.result.ok ? "var(--good-text)" : "var(--critical-text)" }}>
             {d.result.message}
           </p>
         )}
@@ -162,7 +162,7 @@ export function DeviceAlertsCard({ vapidKey }: { vapidKey: string | null }) {
           On an iPhone: tap <strong>Share</strong> <span aria-hidden>⎋</span>, then <strong>Add to Home Screen</strong>. Open the portal from the new icon and turn alerts on there.
         </p>
       ) : d.state === "blocked" ? (
-        <p className="text-[13px]" style={{ color: "var(--status-critical)" }}>
+        <p className="text-[13px]" style={{ color: "var(--critical-text)" }}>
           Alerts are blocked for this site. Open your browser&apos;s settings, allow notifications for the portal, then come back.
         </p>
       ) : (
@@ -171,7 +171,7 @@ export function DeviceAlertsCard({ vapidKey }: { vapidKey: string | null }) {
         </button>
       )}
       {d.result && (
-        <p role="status" className="text-[13px]" style={{ color: d.result.ok ? "var(--status-good)" : "var(--status-critical)" }}>
+        <p role="status" className="text-[13px]" style={{ color: d.result.ok ? "var(--good-text)" : "var(--critical-text)" }}>
           {d.result.message}
         </p>
       )}

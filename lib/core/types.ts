@@ -172,6 +172,8 @@ export interface BookOn {
   locationVerified: boolean;
   /** The officer booked on themselves, in their portal, rather than Control for them. */
   byOfficer?: boolean;
+  /** Made with no signal and sent later: when it reached Control. */
+  sentLateAt?: string | null;
 }
 
 export interface CheckCall {
@@ -184,6 +186,8 @@ export interface CheckCall {
   note: string | null;
   /** Made by the officer in their portal, rather than taken by Control. */
   byOfficer?: boolean;
+  /** Made with no signal and sent later: when it reached Control. */
+  sentLateAt?: string | null;
 }
 
 /**
