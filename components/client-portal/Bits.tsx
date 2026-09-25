@@ -39,12 +39,23 @@ export function Empty({ children }: { children: ReactNode }) {
   );
 }
 
-/** A client login not yet linked to its organisation — or one whose client has ended. */
+/** A client login not linked to an organisation — or one whose organisation does not have the portal. */
 export function NotLinked() {
   return (
-    <Card title="Your login is not linked to your organisation yet">
+    <Card title="The client portal is not available for your login">
       <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
-        Once your Leon Guarding account manager links it, you will see your sites, who is on duty, your shift record, incidents and your requests here.
+        Your organisation&apos;s portal is not switched on. To find out about it — your sites, your shift record, incidents and requests in one place — speak to your Leon Guarding account manager.
+      </p>
+    </Card>
+  );
+}
+
+/** A paid extra this client does not have. Said plainly, once. */
+export function NotInService({ title, what }: { title: string; what: string }) {
+  return (
+    <Card title={title}>
+      <p className="text-[13px]" style={{ color: "var(--text-secondary)" }}>
+        {what} is not part of your organisation&apos;s service at the moment. If you would like it, speak to your Leon Guarding account manager.
       </p>
     </Card>
   );

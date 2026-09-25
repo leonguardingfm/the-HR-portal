@@ -100,6 +100,20 @@ export default async function siteIssues(browser) {
   await go(grace, "/client-portal/site-issues");
   check("the client sees it fixed and checked", /Fixed — checked by our officer/.test(await text(grace.locator("main"))));
 
+  // --- A client who does not pay for site issue reports: Control sees it, the client never does ---
+  const riversideSite = sql(`select s.id from "Site" s join "Client" c on c.id = s."clientId" where c.name = 'Riverside Estates' limit 1`);
+  const someone = sql(`select "personId" from "User" where username = 'kieran.doyle'`);
+  const unpaid = `Gate hinge loose ${stamp}`;
+  sql(`insert into "SiteIssue"(id,"siteId","reportedByPersonId",kind,urgency,description) values ('e2e-${stamp}','${riversideSite}','${someone}','fence_or_gate','soon','${unpaid}')`);
+  await go(d, "/duty/site-issues");
+  const row3 = d.locator("li", { hasText: unpaid });
+  await row3.getByRole("button", { name: "Review" }).click();
+  const drawer3 = d.getByRole("dialog");
+  check("at a client who does not pay for it, Control cannot share it", await drawer3.getByLabel("Share with the client").isDisabled());
+  await drawer3.getByRole("button", { name: "Keep internal" }).click();
+  await drawer3.waitFor({ state: "detached" });
+  check("…and records it internally, saying the client was rung", sql(`select status || '|' || "internalReason" from "SiteIssue" where id = 'e2e-${stamp}'`).startsWith("kept_internal|Not in their portal service"));
+
   check("site issues: no errors in the page", officer.errors.length === 0 && grace.errors.length === 0 && d.errors.length === 0, [...officer.errors, ...grace.errors, ...d.errors].join(" | "));
   for (const p of [officer, grace, d]) await p.context().close();
 }

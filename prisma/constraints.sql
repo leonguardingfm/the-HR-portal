@@ -1360,3 +1360,11 @@ ALTER TABLE "WorkItem"
     "assignmentId", "documentId", "formResponseId", "adminItemId",
     "coverNeedId", "openShiftId", "incidentId", "hubTaskId", "siteIssueId"
   ) = 1);
+
+-- ---------------------------------------------------------------------------
+-- §29. Paid extras (26 September 2026): live view and site issue reports only
+-- for a client who has the portal itself.
+-- ---------------------------------------------------------------------------
+ALTER TABLE "Client"
+  ADD CONSTRAINT client_extras_need_portal
+  CHECK ("portalSince" IS NOT NULL OR ("liveSince" IS NULL AND "siteIssuesSince" IS NULL));

@@ -18,10 +18,10 @@ import type { Role } from "@/lib/types";
  * The heading of the group you are in starts open; the rest are closed, which
  * is what makes the whole list reachable in one thumb's reach.
  */
-export function MobileNav({ role }: { role: Role }) {
+export function MobileNav({ role, hidden = [] }: { role: Role; hidden?: string[] }) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
-  const groups = navGroupsForRole(role);
+  const groups = navGroupsForRole(role, hidden);
   const [openMenu, setOpenMenu] = useState(false);
 
   const current =

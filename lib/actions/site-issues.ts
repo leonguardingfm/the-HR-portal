@@ -140,10 +140,12 @@ export async function checkSiteIssue(issueId: string, _prev: ActionResult | null
 export async function reviewSiteIssue(issueId: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const { session, error } = await guard("site_issue.review");
   if (error || !session) return error!;
-  const i = await db.siteIssue.findUnique({ where: { id: String(issueId) }, select: { id: true, number: true, status: true, site: { select: { name: true, client: { select: { name: true } } } }, photos: { select: { id: true } } } });
+  const i = await db.siteIssue.findUnique({ where: { id: String(issueId) }, select: { id: true, number: true, status: true, site: { select: { name: true, client: { select: { name: true, siteIssuesSince: true } } } }, photos: { select: { id: true } } } });
   if (!i || i.status !== "reported") return refused("That has been reviewed already.");
   const now = new Date();
   const share = text(formData, "decision") === "share";
+  // Only a client who pays for site issue reports sees them in their portal; the rest are told by phone.
+  if (share && !i.site.client.siteIssuesSince) return refused(`${i.site.client.name} does not have site issue reports in their portal. Ring them, and keep it internal saying so.`);
   if (share) {
     const clientText = text(formData, "clientText").slice(0, 2000);
     if (clientText.length < 5) return refused("Write what the client should read.");
@@ -196,6 +198,7 @@ export async function markSiteIssueFixed(issueId: string, _prev: ActionResult | 
   if (error || !session) return error!;
   const scope = await portalScope(session);
   if (!scope) return refused("Your login is not linked to your organisation yet.");
+  if (!scope.siteIssues) return refused("Site issue reports are not part of your organisation's service.");
   const i = await db.siteIssue.findUnique({ where: { id: String(issueId) }, select: { id: true, number: true, status: true, siteId: true, site: { select: { name: true } } } });
   // Another client's issue, or one not shared, is the same as none at all.
   if (!i || !scope.siteIds.includes(i.siteId) || !["open", "client_fixed", "resolved"].includes(i.status)) return refused("That issue was not found.");

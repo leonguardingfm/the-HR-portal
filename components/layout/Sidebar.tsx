@@ -27,10 +27,10 @@ import type { Role } from "@/lib/types";
 
 const STORAGE_PREFIX = "leon.nav.open.";
 
-export function Sidebar({ role, userId }: { role: Role; userId: string }) {
+export function Sidebar({ role, userId, hidden = [] }: { role: Role; userId: string; hidden?: string[] }) {
   const pathname = usePathname();
   const search = useSearchParams().toString();
-  const groups = navGroupsForRole(role);
+  const groups = navGroupsForRole(role, hidden);
 
   // Start from the defaults so the server and the first client render agree.
   // The stored preference is applied in an effect, which is also why a browser

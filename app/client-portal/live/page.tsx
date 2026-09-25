@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Empty, Muted, NotLinked, Pill, ukTime } from "@/components/client-portal/Bits";
+import { Empty, Muted, NotInService, NotLinked, Pill, ukTime } from "@/components/client-portal/Bits";
 import { clientScope } from "@/lib/auth/client-scope";
 import { portalLive } from "@/lib/db/client-portal";
 
@@ -14,6 +14,7 @@ export const dynamic = "force-dynamic";
 export default async function ClientLivePage() {
   const scope = await clientScope();
   if (!scope) return <NotLinked />;
+  if (!scope.live) return <NotInService title="On duty now" what="Live view — seeing officers arrive and make their check calls as it happens —" />;
   const live = await portalLive(scope);
   const sites = scope.sites.filter((s) => live.some((l) => l.siteId === s.id));
   return (

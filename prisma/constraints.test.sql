@@ -999,3 +999,16 @@ SELECT expect_failure('the photo deleted',
   $$DELETE FROM "SiteIssuePhoto" WHERE id = 'sp1'$$);
 SELECT expect_success('an alert about a site issue has one subject',
   $$INSERT INTO "WorkItem"(id,title,"siteIssueId","ownerRole","dueAt","slaDays") VALUES ('w28','Urgent site issue: fire exit','si1','control',now(),0)$$);
+
+-- ---------------------------------------------------------------------------
+-- 29. Paid extras
+-- ---------------------------------------------------------------------------
+
+SELECT expect_failure('live view without the portal',
+  $$UPDATE "Client" SET "liveSince" = now() WHERE id = 'c27'$$);
+SELECT expect_success('the portal, then live view',
+  $$UPDATE "Client" SET "portalSince" = now(), "liveSince" = now() WHERE id = 'c27'$$);
+SELECT expect_failure('the portal switched off, leaving live view on',
+  $$UPDATE "Client" SET "portalSince" = NULL WHERE id = 'c27'$$);
+SELECT expect_success('the portal and its extras switched off together',
+  $$UPDATE "Client" SET "portalSince" = NULL, "liveSince" = NULL, "siteIssuesSince" = NULL WHERE id = 'c27'$$);

@@ -633,15 +633,17 @@ export const NAV: NavItem[] = [
   },
 ];
 
-export function navForRole(role: Role): NavItem[] {
-  return NAV.filter((item) => item.roles.includes(role));
+export function navForRole(role: Role, hidden: string[] = []): NavItem[] {
+  return NAV.filter((item) => item.roles.includes(role) && !hidden.includes(item.href));
 }
 
 /** Grouped, in the fixed group order, skipping groups this role cannot see. */
 export function navGroupsForRole(
   role: Role,
+  /** Pages this person's organisation has not paid for (client portal extras). */
+  hidden: string[] = [],
 ): { group: NavGroup; spec: NavGroupSpec; items: NavItem[] }[] {
-  const items = navForRole(role);
+  const items = navForRole(role, hidden);
   return NAV_GROUPS.map((group) => ({
     group,
     spec: navGroupSpec(group),

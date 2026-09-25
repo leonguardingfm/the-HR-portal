@@ -67,8 +67,8 @@ const CONTROL_ACTIONS: ActionId[] = ["check_call.record", "contact_attempt.log",
 const EXPECTED: Record<string, ActionId[]> = {
   control: [...CONTROL_ACTIONS, "hub.work", "site_issue.review", ...STAFF_BASELINE],
   // Everything Control does, plus leading the shift on the hub.
-  shift_supervisor: [...CONTROL_ACTIONS, "hub.work", "hub.supervise", "hub.test", "client.portal", "site_issue.review", ...STAFF_BASELINE],
-  operations_manager: [...CONTROL_ACTIONS, "hub.work", "hub.supervise", "hub.test", "hub.templates", "client.portal", "site_issue.review", ...STAFF_BASELINE],
+  shift_supervisor: [...CONTROL_ACTIONS, "hub.work", "hub.supervise", "hub.test", "client.portal", "site_issue.review", "client.services", ...STAFF_BASELINE],
+  operations_manager: [...CONTROL_ACTIONS, "hub.work", "hub.supervise", "hub.test", "hub.templates", "client.portal", "site_issue.review", "client.services", ...STAFF_BASELINE],
   recruitment: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "stock.move", "candidate.invite", "candidacy.edit", "interview.book", "employee.edit", "hub.work", ...STAFF_BASELINE],
   recruitment_manager: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "admin_item.approve", "admin_item.reject", "holiday.decide", "authority_matter.respond", "candidate.invite", "candidacy.edit", "interview.book", "employee.edit", "employee.payroll", "employee.leaver", "hub.work", "hub.supervise", "hub.templates", ...STAFF_BASELINE],
   admin_officer: ["admin_item.start", "admin_item.review", "admin_item.complete", "payment.record", "asset.maintain", "stock.move", "accreditation.evidence", "employee.edit", "hub.work", ...STAFF_BASELINE],
@@ -78,7 +78,7 @@ const EXPECTED: Record<string, ActionId[]> = {
   finance_officer: ["admin_item.approve", "admin_item.reject", "payment.record", "employee.payroll", "hub.work", ...STAFF_BASELINE],
   vetting_admin: ["document.verify", "document.renew", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "hub.work", ...STAFF_BASELINE],
   vetting_controller: ["document.verify", "document.renew", "disposal.run", "accreditation.evidence", "screening.assign", "screening.review", "screening.sweep", "hub.work", ...STAFF_BASELINE],
-  top_management: ["disposal.run", "admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "holiday.decide", "accreditation.evidence", "authority_matter.respond", "threshold.change", "role.delegate", "role.revoke_delegation", "account.review", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "screening.exception.decide", "screening.sweep", "employee.leaver", "hub.test", "hub.templates", "hub.settings", "role.grant", "account.reset", "security.policy", "system.golive", ...STAFF_BASELINE],
+  top_management: ["disposal.run", "admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "holiday.decide", "accreditation.evidence", "authority_matter.respond", "threshold.change", "role.delegate", "role.revoke_delegation", "account.review", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "screening.exception.decide", "screening.sweep", "employee.leaver", "hub.test", "hub.templates", "hub.settings", "role.grant", "account.reset", "security.policy", "system.golive", "client.services", ...STAFF_BASELINE],
   auditor: [],
   // Sales and Client hold nothing: they read, and the route guard keeps the
   // client out of every internal screen.

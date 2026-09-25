@@ -8,7 +8,8 @@
  * Makes two client contacts on the demonstration password: one for Meridian
  * Logistics seeing all its sites, and one for Riverside Estates — so the two
  * can be compared, and neither can see the other. Meridian's contract names
- * officers with their SIA numbers; Riverside's names nobody.
+ * officers with their SIA numbers and pays for every extra; Riverside's names
+ * nobody and has the portal alone.
  */
 
 import { DEV_SEED_PASSWORD } from "../lib/accounts";
@@ -16,8 +17,8 @@ import { hashPassword } from "../lib/auth/password";
 import { db } from "../lib/db/client";
 
 const CONTACTS = [
-  { client: "Meridian Logistics", name: "Grace Whitfield", username: "grace.meridian", identity: "name_and_sia" as const },
-  { client: "Riverside Estates", name: "Tom Ashby", username: "tom.riverside", identity: "none" as const },
+  { client: "Meridian Logistics", name: "Grace Whitfield", username: "grace.meridian", identity: "name_and_sia" as const, live: true, siteIssues: true },
+  { client: "Riverside Estates", name: "Tom Ashby", username: "tom.riverside", identity: "none" as const, live: false, siteIssues: false },
 ];
 
 async function main() {
@@ -28,7 +29,9 @@ async function main() {
   for (const c of CONTACTS) {
     const client = await db.client.findUnique({ where: { name: c.client } });
     if (!client) throw new Error(`No client "${c.client}" — run npm run db:seed first.`);
-    await db.client.update({ where: { id: client.id }, data: { officerIdentity: c.identity } });
+    // Meridian pays for every extra; Riverside for the portal alone.
+    const now = new Date();
+    await db.client.update({ where: { id: client.id }, data: { officerIdentity: c.identity, portalSince: client.portalSince ?? now, liveSince: c.live ? (client.liveSince ?? now) : null, siteIssuesSince: c.siteIssues ? (client.siteIssuesSince ?? now) : null } });
     const existing = await db.user.findUnique({ where: { username: c.username } });
     if (existing) {
       await db.user.update({ where: { id: existing.id }, data: { passwordHash: hash, active: true, status: "active", mustChangePassword: false, failedSignIns: 0, lockedUntil: null } });

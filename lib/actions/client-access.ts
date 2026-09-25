@@ -42,6 +42,49 @@ async function ownSites(clientId: string, formData: FormData): Promise<string[] 
 /** A contact of this client, or null. */
 const contactOf = (userId: string) => db.user.findFirst({ where: { id: String(userId), clientId: { not: null } }, select: { id: true, displayName: true, username: true, clientId: true, personId: true, active: true, client: { select: { name: true } } } });
 
+/** The paid extras, in the words used on screen and in the record. */
+const SERVICES = [
+  { field: "portalSince", form: "portal", label: "the client portal" },
+  { field: "liveSince", form: "live", label: "live view" },
+  { field: "siteIssuesSince", form: "siteIssues", label: "site issue reports" },
+] as const;
+
+/**
+ * Switch a client's paid extras on or off (26 September 2026) — only for
+ * clients who pay for them. Each is on from the day it is switched on; live
+ * view and site issue reports need the portal itself. Switching the portal
+ * off stops every login at that client seeing anything, at once.
+ */
+export async function setClientServices(clientId: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
+  const { session, error } = await guard("client.services");
+  if (error || !session) return error!;
+  const c = await db.client.findUnique({ where: { id: String(clientId) }, select: { id: true, name: true, portalSince: true, liveSince: true, siteIssuesSince: true } });
+  if (!c) return refused("That client no longer exists.");
+  const want = Object.fromEntries(SERVICES.map((s) => [s.field, formData.get(s.form) === "on"])) as Record<(typeof SERVICES)[number]["field"], boolean>;
+  if (!want.portalSince && (want.liveSince || want.siteIssuesSince)) return refused("Live view and site issue reports come with the client portal — switch that on too.");
+  const now = new Date();
+  const data: Record<string, Date | null> = {};
+  const changes: string[] = [];
+  for (const s of SERVICES) {
+    const on = !!c[s.field];
+    if (want[s.field] && !on) {
+      data[s.field] = now;
+      changes.push(`${s.label} on`);
+    } else if (!want[s.field] && on) {
+      data[s.field] = null;
+      changes.push(`${s.label} off`);
+    }
+  }
+  if (!changes.length) return ok("No change.");
+  const note = String(formData.get("note") ?? "").trim().slice(0, 300);
+  await db.$transaction([
+    db.client.update({ where: { id: c.id }, data }),
+    db.event.create({ data: { type: "client.services_changed", actorUserId: session.userId, actorRole: session.activeRole, department: "account_management", detail: `${session.name} changed ${c.name}'s paid extras: ${changes.join(", ")}${note ? ` — ${note}` : ""}.` } }),
+  ]);
+  refresh(c.id);
+  return ok(`Saved: ${changes.join(", ")}.`);
+}
+
 const OFFICER_IDENTITY = { none: "no officer names", name: "officers' names", name_and_sia: "officers' names and SIA licence numbers" } as const;
 
 /** What the client's contract lets them see of the officers on their sites. */
@@ -65,8 +108,9 @@ export async function setOfficerIdentity(clientId: string, _prev: ActionResult |
 export async function addPortalContact(clientId: string, _prev: ActionResult | null, formData: FormData): Promise<ActionResult> {
   const { session, error } = await guard("client.portal");
   if (error || !session) return error!;
-  const c = await db.client.findUnique({ where: { id: String(clientId) }, select: { id: true, name: true, active: true } });
+  const c = await db.client.findUnique({ where: { id: String(clientId) }, select: { id: true, name: true, active: true, portalSince: true } });
   if (!c || !c.active) return refused("That client is not active.");
+  if (!c.portalSince) return refused(`${c.name} does not have the client portal. It is a paid extra — switch it on once it is agreed.`);
   const name = text(formData, "name").slice(0, 120);
   const email = text(formData, "email").toLowerCase().slice(0, 200);
   const username = (text(formData, "username") || email.split("@")[0]).toLowerCase();

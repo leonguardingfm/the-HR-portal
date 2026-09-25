@@ -25,7 +25,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   }
   if (!allowed && role === "client") {
     const scope = await portalScope(session);
-    allowed = !!scope && photo.shared && scope.siteIds.includes(photo.issue.siteId) && ["open", "client_fixed", "resolved"].includes(photo.issue.status);
+    allowed = !!scope && scope.siteIssues && photo.shared && scope.siteIds.includes(photo.issue.siteId) && ["open", "client_fixed", "resolved"].includes(photo.issue.status);
   }
   if (!allowed) return none;
   const bytes = await getObject(photo.storageKey);

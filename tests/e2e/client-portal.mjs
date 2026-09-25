@@ -120,8 +120,14 @@ export default async function clientPortal(browser) {
   await d.context().close();
   await grace.context().close();
 
-  // --- Tom at Riverside: not Meridian's, and no officer names -----------------------------
+  // --- Tom at Riverside: not Meridian's, no officer names, and only what Riverside pays for ------
   const tom = await signIn(browser, "tom.riverside");
+  const tomMenu = await text(tom.locator("aside"));
+  check("Riverside pays for the portal alone: no live view or site issues in the menu", !/On duty now/.test(tomMenu) && !/Needs attention/.test(tomMenu) && /Coming up/.test(tomMenu), tomMenu);
+  await go(tom, "/client-portal/live");
+  check("…and the live view by its address says it is not part of their service", /not part of your organisation.s service/.test(await text(tom.locator("main"))));
+  await go(tom, "/client-portal");
+  check("…their overview shows the week ahead instead", /Shifts in the next 7 days/.test(await text(tom.locator("main"))));
   const other = await go(tom, `/client-portal/requests/${taskId}`);
   check("another client opening Meridian's request gets 'not found'", other.status() === 404, `${other.status()}`);
   await go(tom, "/client-portal/rota");
@@ -129,6 +135,23 @@ export default async function clientPortal(browser) {
   check("Riverside sees only Riverside", !/Meridian/.test(tomRota), tomRota.slice(0, 200));
   check("…and no officer names, as its contract says", !/SIA \d/.test(tomRota));
   await tom.context().close();
+
+  // --- The portal is a paid extra: switched off, the client sees nothing ------------------------
+  const riverside = sql(`select id from "Client" where name = 'Riverside Estates'`);
+  const md = await signIn(browser, "vivien", { role: /Higher Management/, landing: `/clients/${riverside}/portal` });
+  await md.getByLabel(/^Client portal/).uncheck();
+  await md.getByRole("button", { name: "Save" }).first().click();
+  await md.waitForTimeout(1200);
+  check("the Managing Director switches Riverside's portal off", sql(`select "portalSince" is null from "Client" where id = '${riverside}'`) === "t");
+  const tom2 = await signIn(browser, "tom.riverside");
+  check("…and Riverside's login sees nothing", /not available for your login/.test(await text(tom2.locator("main"))));
+  await go(tom2, "/client-portal/rota");
+  check("…not even by address", /not available for your login/.test(await text(tom2.locator("main"))));
+  await tom2.context().close();
+  await go(md, `/clients/${riverside}/portal`);
+  check("…and no logins can be added while it is off", !(await md.getByRole("button", { name: "+ Add a contact" }).isVisible().catch(() => false)));
+  await md.context().close();
+  execSync("npm run -s demo:client", { stdio: "ignore" });
 
   // --- Access removed: they cannot sign in -------------------------------------------------
   const staff2 = await signIn(browser, "olivia", { landing: `/clients/${meridian}/portal` });

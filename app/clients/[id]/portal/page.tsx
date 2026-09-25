@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound } from "next/navigation";
-import { AddContactForm, ContactTools, IdentityForm } from "@/components/clients/PortalAccessForms";
+import { AddContactForm, ContactTools, IdentityForm, ServicesForm } from "@/components/clients/PortalAccessForms";
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
 import { canDo } from "@/lib/auth/permissions";
@@ -29,6 +29,9 @@ export default async function ClientPortalAccessPage({ params }: { params: Promi
       name: true,
       active: true,
       officerIdentity: true,
+      portalSince: true,
+      liveSince: true,
+      siteIssuesSince: true,
       sites: { where: { active: true }, orderBy: { name: "asc" }, select: { id: true, name: true } },
       portalUsers: {
         orderBy: [{ active: "desc" }, { displayName: "asc" }],
@@ -59,7 +62,12 @@ export default async function ClientPortalAccessPage({ params }: { params: Promi
         description={`${active.length} active login${active.length === 1 ? "" : "s"}. They see only ${client.name}'s own sites — never another client's — and nothing internal.${may ? "" : " Only the Operations Manager or a Shift Supervisor can change these."}`}
       />
       <div className="grid gap-5 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]">
-        <Card title="Logins" subtitle="Each is checked every six months: are they still at the client, and should they still see this?" action={may && client.active ? <AddContactForm clientId={client.id} sites={pickable} /> : undefined}>
+        <Card title="Logins" subtitle="Each is checked every six months: are they still at the client, and should they still see this?" action={may && client.active && client.portalSince ? <AddContactForm clientId={client.id} sites={pickable} /> : undefined}>
+          {!client.portalSince && (
+            <p className="mb-3 rounded-md px-3 py-2 text-[13px]" style={{ background: "var(--wash-warning)" }}>
+              {client.name} does not have the client portal — it is a paid extra. Switch it on under <strong>Paid extras</strong> once it is agreed; until then nobody here can add logins, and any existing ones see nothing.
+            </p>
+          )}
           {active.length === 0 ? (
             <p className="py-6 text-center text-[13px]" style={{ color: "var(--text-secondary)" }}>
               Nobody at {client.name} has a login yet.
@@ -95,9 +103,14 @@ export default async function ClientPortalAccessPage({ params }: { params: Promi
             </p>
           )}
         </Card>
-        <Card title="What they see of our officers" subtitle="Only what the contract requires (decision E17). It applies to everyone at this client.">
-          <IdentityForm clientId={client.id} value={client.officerIdentity} disabled={!may} />
-        </Card>
+        <div className="space-y-5">
+          <Card title="Paid extras" subtitle="Only for clients who pay for them. Every change is recorded with the date and who made it.">
+            <ServicesForm clientId={client.id} since={{ portal: client.portalSince?.toISOString() ?? null, live: client.liveSince?.toISOString() ?? null, siteIssues: client.siteIssuesSince?.toISOString() ?? null }} disabled={!canDo(session.activeRole, "client.services")} />
+          </Card>
+          <Card title="What they see of our officers" subtitle="Only what the contract requires (decision E17). It applies to everyone at this client.">
+            <IdentityForm clientId={client.id} value={client.officerIdentity} disabled={!may} />
+          </Card>
+        </div>
       </div>
     </div>
   );

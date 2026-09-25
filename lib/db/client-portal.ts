@@ -35,6 +35,9 @@ export interface PortalScope {
   siteIds: string[];
   /** Whether this contact sees every one of the client's sites, or a chosen few. */
   allSites: boolean;
+  /** Paid extras (26 September 2026). */
+  live: boolean;
+  siteIssues: boolean;
 }
 
 /**
@@ -58,9 +61,10 @@ export async function portalScope(session: { userId: string; activeRole: Role })
   if (session.activeRole !== "client") return null;
   const u = await db.user.findUnique({
     where: { id: session.userId },
-    select: { displayName: true, active: true, status: true, clientId: true, client: { select: { id: true, name: true, active: true, officerIdentity: true } }, portalSites: { select: { siteId: true } } },
+    select: { displayName: true, active: true, status: true, clientId: true, client: { select: { id: true, name: true, active: true, officerIdentity: true, portalSince: true, liveSince: true, siteIssuesSince: true } }, portalSites: { select: { siteId: true } } },
   });
-  if (!u || !u.active || u.status !== "active" || !u.clientId || !u.client || !u.client.active) return null;
+  // No portal unless the client pays for it: a login without it sees nothing.
+  if (!u || !u.active || u.status !== "active" || !u.clientId || !u.client || !u.client.active || !u.client.portalSince) return null;
   const chosen = u.portalSites.map((s) => s.siteId);
   // Only sites we cover — and of those, the ones chosen for this contact, if any were.
   const covered = await coveredSiteIds(u.clientId);
@@ -70,7 +74,7 @@ export async function portalScope(session: { userId: string; activeRole: Role })
     orderBy: { name: "asc" },
     select: { id: true, name: true, address: true },
   });
-  return { userId: session.userId, name: u.displayName, clientId: u.client.id, clientName: u.client.name, identity: u.client.officerIdentity, sites, siteIds: sites.map((s) => s.id), allSites: chosen.length === 0 };
+  return { userId: session.userId, name: u.displayName, clientId: u.client.id, clientName: u.client.name, identity: u.client.officerIdentity, sites, siteIds: sites.map((s) => s.id), allSites: chosen.length === 0, live: !!u.client.liveSince, siteIssues: !!u.client.siteIssuesSince };
 }
 
 // ---------------------------------------------------------------------------

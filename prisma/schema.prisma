@@ -391,6 +391,13 @@ model Client {
   /// the contract requires (E17, 26 September 2026).
   officerIdentity OfficerIdentity @default(none)
 
+  /// Paid extras (26 September 2026): each is on from this date, or off when
+  /// empty. Only clients who pay for them get them. Live view and site issue
+  /// reports need the portal itself.
+  portalSince     DateTime? @db.Timestamptz(3)
+  liveSince       DateTime? @db.Timestamptz(3)
+  siteIssuesSince DateTime? @db.Timestamptz(3)
+
   sites        Site[]
   portalUsers  User[]
   requirements Requirement[]

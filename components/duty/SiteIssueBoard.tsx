@@ -40,7 +40,8 @@ function Photos({ ids, size = "h-20 w-20" }: { ids: string[]; size?: string }) {
 }
 
 function Review({ i, onClose }: { i: StaffSiteIssue; onClose: () => void }) {
-  const [decision, setDecision] = useState<"share" | "internal">("share");
+  // A client who does not pay for site issue reports is told by phone, not in the portal.
+  const [decision, setDecision] = useState<"share" | "internal">(i.clientSees ? "share" : "internal");
   const f = useClosing(reviewSiteIssue.bind(null, i.id), onClose);
   return (
     <Drawer title={`Review ${i.ref}`} subtitle={`${i.client} · ${i.site}. Nothing reaches the client until you share it, and they see only your words and the photos you tick.`} urgent={i.urgency === "urgent"} onClose={onClose}>
@@ -56,9 +57,14 @@ function Review({ i, onClose }: { i: StaffSiteIssue; onClose: () => void }) {
         </p>
       </section>
       <form {...f.form} className="space-y-3">
+        {!i.clientSees && (
+          <p className="rounded-md px-3 py-2 text-[13px]" style={{ background: "var(--wash-warning)" }}>
+            {i.client} does not pay for site issue reports, so nothing goes into their portal. Ring them if they need to know, and record it here.
+          </p>
+        )}
         <fieldset className="flex gap-4 text-[13px]">
-          <label className="flex items-center gap-1.5">
-            <input type="radio" name="decision" value="share" checked={decision === "share"} onChange={() => setDecision("share")} className="h-4 w-4" /> Share with the client
+          <label className="flex items-center gap-1.5" style={{ opacity: i.clientSees ? 1 : 0.5 }}>
+            <input type="radio" name="decision" value="share" checked={decision === "share"} disabled={!i.clientSees} onChange={() => setDecision("share")} className="h-4 w-4" /> Share with the client
           </label>
           <label className="flex items-center gap-1.5">
             <input type="radio" name="decision" value="internal" checked={decision === "internal"} onChange={() => setDecision("internal")} className="h-4 w-4" /> Keep internal
@@ -90,7 +96,7 @@ function Review({ i, onClose }: { i: StaffSiteIssue; onClose: () => void }) {
         ) : (
           <label className="block text-[12px] font-medium">
             Why the client should not see it
-            <input name="reason" required minLength={3} placeholder="e.g. our own equipment; already fixed on the night" className={`${input} mt-1`} style={inputStyle} />
+            <input name="reason" required minLength={3} defaultValue={i.clientSees ? "" : "Not in their portal service — told the site manager by phone"} placeholder="e.g. our own equipment; already fixed on the night" className={`${input} mt-1`} style={inputStyle} />
           </label>
         )}
         <button type="submit" disabled={f.pending} className={primary} style={{ background: decision === "share" ? "var(--series-1)" : "var(--text-secondary)" }}>

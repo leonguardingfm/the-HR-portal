@@ -96,7 +96,8 @@ export type ActionId =
   | "client.request"
   | "client.portal"
   | "client.site_issue"
-  | "site_issue.review";
+  | "site_issue.review"
+  | "client.services";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -272,6 +273,8 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "client.request": { roles: ["client"], owner: "the client's own contacts", what: "Sending a request from the client portal" },
   // Control Room managers only (26 September 2026).
   "client.portal": { roles: ["operations_manager", "shift_supervisor"], owner: "the Operations Manager or a Shift Supervisor", what: "Giving a client's contacts portal logins, and taking them away" },
+  // Paid extras are a commercial decision, tied to the contract and its fee (26 September 2026).
+  "client.services": { roles: ["top_management", "operations_manager", "shift_supervisor"], owner: "the Managing Director or the Control Room's managers", what: "Switching a client's paid extras on or off — the portal, live view and site issue reports" },
   "client.site_issue": { roles: ["client"], owner: "the client's own contacts", what: "Saying an issue at your site has been fixed" },
   "site_issue.review": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "the Control Room", what: "Reviewing what officers report wrong at a site, and deciding what the client sees" },
   "system.golive": { roles: ["top_management"], owner: "the Managing Director", what: "Working through the go-live checklist, and switching off demonstration accounts" },

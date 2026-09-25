@@ -831,6 +831,23 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
   ninety days or the next sixty). A contact can be given any number of them; none ticked means all
   of them — including any site we start covering later.
 
+### E41 — The portal and its extras are paid for — **answered, and built**
+> **"We will only offer this to the clients who will pay us extra fees for it. If they are not willing
+> we will not provide them with extra services."** · Paid extras: the client portal itself, live view,
+> and site issue reports (the monthly report comes with the portal). · A client without site issue
+> reports: officers still report to Control only. · Switched by the Managing Director and the
+> Control Room's managers. *(26 September 2026.)*
+
+- Each client has three switches on its *Portal access* page — **Client portal**, **Live view**,
+  **Site issue reports** — each on from the day it is switched on, with an optional note (for the
+  agreed fee), and every change recorded. The two extras need the portal; the database refuses one
+  without it (§29).
+- **No portal:** no logins can be added, and any existing login sees only "not available". **No live
+  view:** "On duty now" leaves the client's menu, and their overview shows the week ahead from the
+  rota instead. **No site issue reports:** "Needs attention" leaves the menu; officers still report
+  what they find, Control sees it and can ring the client, and nothing reaches the portal — Control
+  cannot share it, and records it internally.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

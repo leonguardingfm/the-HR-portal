@@ -12,7 +12,7 @@ import { db } from "./client";
 export const siteIssueRef = (n: number) => `SI-${n}`;
 
 const staffInclude = {
-  site: { select: { name: true, client: { select: { name: true } } } },
+  site: { select: { name: true, client: { select: { name: true, siteIssuesSince: true } } } },
   post: { select: { name: true } },
   reportedBy: { select: { fullName: true } },
   photos: { select: { id: true, shared: true }, orderBy: { createdAt: "asc" as const } },
@@ -35,6 +35,8 @@ export async function staffSiteIssues(now = new Date()) {
     kind: r.kind,
     urgency: r.urgency,
     client: r.site.client.name,
+    /** Whether this client pays for site issue reports in their portal. */
+    clientSees: !!r.site.client.siteIssuesSince,
     site: r.site.name,
     post: r.post?.name ?? null,
     location: r.location,
@@ -75,6 +77,7 @@ export async function checksForOfficer(personId: string, now = new Date()) {
 
 /** What a client sees: approved issues at their own sites — open, waiting for a check, and those fixed in the last ninety days. */
 export async function clientSiteIssues(scope: PortalScope, now = new Date()) {
+  if (!scope.siteIssues) return [];
   const since = new Date(now.getTime() - 90 * 86_400_000);
   const rows = await db.siteIssue.findMany({
     where: { siteId: { in: scope.siteIds }, OR: [{ status: { in: ["open", "client_fixed"] } }, { status: "resolved", resolvedAt: { gte: since } }] },

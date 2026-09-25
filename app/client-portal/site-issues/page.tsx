@@ -1,6 +1,6 @@
 import { Card } from "@/components/ui/Card";
 import { PageHeader } from "@/components/ui/PageHeader";
-import { Empty, Muted, NotLinked, Pill, ukDay, ukTime } from "@/components/client-portal/Bits";
+import { Empty, Muted, NotInService, NotLinked, Pill, ukDay, ukTime } from "@/components/client-portal/Bits";
 import { FixedButton } from "@/components/client-portal/FixedButton";
 import { clientScope } from "@/lib/auth/client-scope";
 import { CLIENT_STAGE, kindIcon, kindLabel, urgencyLabel } from "@/lib/core/site-issues";
@@ -16,6 +16,7 @@ export const dynamic = "force-dynamic";
 export default async function ClientSiteIssuesPage() {
   const scope = await clientScope();
   if (!scope) return <NotLinked />;
+  if (!scope.siteIssues) return <NotInService title="Needs attention" what="Site issue reports — photos and details of damage, leaks and other problems our officers find at your sites —" />;
   const rows = await clientSiteIssues(scope);
   const open = rows.filter((r) => r.status === "open");
   const waiting = rows.filter((r) => r.status === "client_fixed");
