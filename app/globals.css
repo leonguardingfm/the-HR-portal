@@ -379,6 +379,24 @@ html:has(.auth-shell) body {
 :root[data-theme="dark"] .brand-on-light { display: none; }
 :root[data-theme="dark"] .brand-on-dark { display: block; }
 
+/* Picking shifts on the rota (26 September 2026): a shift's box appears when
+   it is hovered, focused or picked; once anything is picked, every box shows,
+   so picking more needs no hovering. Where there is no hover — a phone, a
+   tablet — the boxes always show. */
+.mark-box {
+  opacity: 0;
+  transition: opacity 120ms ease;
+}
+.mark-host:hover .mark-box,
+.mark-box:focus-visible,
+.mark-box:checked,
+[data-marking="on"] .mark-box {
+  opacity: 1;
+}
+@media (hover: none) {
+  .mark-box { opacity: 1; }
+}
+
 /* Keyboard focus is always visible, in every theme (26 September 2026). Only
    for the keyboard: a mouse click does not leave a ring behind. */
 :where(a, button, input, select, textarea, summary, [tabindex]:not([tabindex="-1"]), [role="button"], [role="menuitem"], [role="menuitemradio"]):focus-visible {

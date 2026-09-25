@@ -114,7 +114,7 @@ interface Mark {
 }
 
 /** The mark box itself: always on the calendar, never opening the shift behind it. */
-function MarkBox({ mark, className = "" }: { mark: Mark; className?: string }) {
+function MarkBox({ mark, className = "", always = false }: { mark: Mark; className?: string; always?: boolean }) {
   return (
     <input
       type="checkbox"
@@ -126,7 +126,7 @@ function MarkBox({ mark, className = "" }: { mark: Mark; className?: string }) {
       }}
       aria-label={mark.label}
       title="Mark it — hold Shift to mark every shift between this and the last one you marked on this post"
-      className={`h-4 w-4 cursor-pointer print:hidden ${className}`}
+      className={`h-4 w-4 cursor-pointer print:hidden ${always ? "" : "mark-box"} ${className}`}
       style={{ accentColor: "var(--series-1)" }}
     />
   );
@@ -155,7 +155,7 @@ function Chip({
 }) {
   if (mark) {
     return (
-      <div className="relative">
+      <div className="mark-host relative">
         <Chip state={state} title={title} line1={line1} line2={line2} note={note} onClick={onClick} selected={mark.on} />
         <MarkBox mark={mark} className="absolute top-1 right-1" />
       </div>
@@ -773,6 +773,7 @@ export function WeekGrid({
       {/* isolate: the frozen rows' layering stays inside this frame, so the whole frame
           scrolls under the portal's top bar instead of its key and day row passing over it. */}
       <div
+        data-marking={tickedCount > 0 ? "on" : undefined}
         className="relative isolate max-h-[calc(100dvh-6rem)] overflow-auto rounded-md print:max-h-none print:overflow-visible"
         style={{
           ["--key-h" as string]: `${keyHeight}px`,
@@ -1024,7 +1025,7 @@ function DayHeads({ days, today, first, onSelectDay, dayMarked }: { days: string
           <th
             key={d}
             scope="col"
-            className="sticky z-20 px-1.5 pt-1 pb-2 text-left text-[12px] font-semibold print:static"
+            className="mark-host sticky z-20 px-1.5 pt-1 pb-2 text-left text-[12px] font-semibold print:static"
             style={{
               top: "var(--key-h)",
               color: d === today ? "var(--accent-text)" : d < today ? "var(--text-muted)" : "var(--text-secondary)",
@@ -1150,7 +1151,7 @@ function GapCell({ gap, plan, underway, marking }: { gap: Gap; plan: Planning; u
       style={{ borderColor: ticked ? "var(--series-1)" : refused ? "var(--status-critical)" : "var(--status-warning)", background: "var(--wash-warning)", outline: ticked ? "2px solid var(--series-1)" : undefined, outlineOffset: 1 }}
     >
       <label className="flex items-center gap-1 text-[10px] font-medium">
-        <MarkBox mark={{ on: ticked, label: `Mark the open shift on ${gap.post.name}, ${dayLabel(gap.date)}`, onToggle: (range) => marking.mark(selGap(gap.key), gap.post.id, gap.date, range) }} className="h-3.5 w-3.5" />
+        <MarkBox mark={{ on: ticked, label: `Mark the open shift on ${gap.post.name}, ${dayLabel(gap.date)}`, onToggle: (range) => marking.mark(selGap(gap.key), gap.post.id, gap.date, range) }} className="h-3.5 w-3.5" always />
         <span className="tnum tabular-nums" style={{ color: underway ? "var(--critical-text)" : "var(--text-secondary)" }}>
           {underway ? "Now" : `${gap.start}–${gap.end}`}
         </span>
@@ -1225,7 +1226,7 @@ function SiteGroup({
         const rowOn = rowKeys.length > 0 && rowKeys.every((k) => marking.has(k));
         return (
           <tr key={p.id} className="border-t align-top" style={{ borderColor: "var(--hairline)" }}>
-            <th scope="row" className={`${pinned} py-2 pr-3 text-left font-normal`} style={{ background: "var(--surface-1)" }}>
+            <th scope="row" className={`${pinned} mark-host py-2 pr-3 text-left font-normal`} style={{ background: "var(--surface-1)" }}>
               <p className="flex items-center gap-1.5 text-[13px] font-semibold">
                 {rowKeys.length > 0 && <MarkBox mark={{ on: rowOn, label: `Mark every shift on ${p.name}, ${p.siteName}`, onToggle: () => marking.toggleMany(rowKeys) }} />}
                 {p.name}

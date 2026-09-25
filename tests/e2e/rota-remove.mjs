@@ -39,8 +39,20 @@ export default async function rotaRemove(browser) {
   const row = d.locator("tbody tr").filter({ has: d.locator('th[scope="row"]', { hasText: "Day patrol" }) }).filter({ hasText: "Meridian" }).first();
   const box = (date) => row.locator("td").nth(col(date)).getByRole("checkbox").first();
 
+  // --- Boxes appear on hover; once one is picked, they all show --------------------------------
+  const opacity = (loc) => loc.evaluate((el) => getComputedStyle(el).opacity);
+  await d.mouse.move(5, 5);
+  await d.waitForTimeout(200);
+  check("a shift's box is hidden until it is hovered", (await opacity(box(plus(base, 10)))) === "0");
+  await row.locator("td").nth(col(plus(base, 10))).locator(".mark-host").first().hover();
+  await d.waitForTimeout(200);
+  check("…hovering the shift shows its box", (await opacity(box(plus(base, 10)))) === "1");
+
   // --- The last ten days: a click, then Shift and a click --------------------------------------
   await box(plus(base, 10)).click();
+  await d.mouse.move(5, 5);
+  await d.waitForTimeout(200);
+  check("once one is picked, every box shows without hovering", (await opacity(box(plus(base, 15)))) === "1");
   await box(plus(base, 19)).click({ modifiers: ["Shift"] });
   const marked = d.getByRole("region", { name: "Marked shifts" });
   const summary = await text(marked);
