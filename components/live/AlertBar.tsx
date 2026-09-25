@@ -47,6 +47,7 @@ function writeAck(ids: Set<string>) {
 }
 
 const LABELS: Partial<Record<ReturnType<typeof alertKind>, [string, string]>> = {
+  hub_critical: ["critical email with no owner", "critical emails with no owner"],
   uncovered: ["uncovered shift", "uncovered shifts"],
   missed: ["missed check call", "missed check calls"],
   no_book_on: ["not booked on", "not booked on"],

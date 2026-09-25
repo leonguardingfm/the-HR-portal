@@ -18,7 +18,8 @@
     "test:permissions": "tsx scripts/test-permissions.ts",
     "sweep:clocks": "tsx --env-file-if-exists=.env scripts/sweep-screening-clocks.ts",
     "sweep:duty": "tsx --env-file-if-exists=.env scripts/sweep-duty.ts",
-    "demo:duty": "tsx --env-file-if-exists=.env scripts/demo-duty.ts"
+    "demo:duty": "tsx --env-file-if-exists=.env scripts/demo-duty.ts",
+    "demo:hub": "tsx --env-file-if-exists=.env scripts/demo-hub.ts"
   },
   "dependencies": {
     "@prisma/client": "^6.19.3",

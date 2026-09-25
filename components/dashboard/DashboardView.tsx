@@ -42,7 +42,7 @@ export function DashboardView({
   name: string;
   userId: string;
 }) {
-  const operational = role === "control" || role === "operations_manager";
+  const operational = role === "control" || role === "shift_supervisor" || role === "operations_manager";
   const oversight = role === "top_management" || role === "auditor";
   const vetting = role === "vetting_admin" || role === "vetting_controller" || role === "recruitment_manager";
   // Who is working on what is for management, not the teams themselves (25 September 2026).

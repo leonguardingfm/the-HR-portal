@@ -3,6 +3,7 @@
 import { useRouter } from "next/navigation";
 import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from "react";
 import type { Pulse, PulseAlert } from "@/lib/db/pulse";
+import type { HubNoticeView } from "@/lib/db/hub-queries";
 import { unlockAlarm } from "./alarm";
 
 /**
@@ -20,6 +21,8 @@ import { unlockAlarm } from "./alarm";
 
 interface LiveState {
   alerts: PulseAlert[];
+  /** The Performance hub's notifications, newest first. */
+  notices: HubNoticeView[];
   /** When the screen last had fresh data. */
   updatedAt: Date | null;
   /** The pulse could not be reached — the screen may be out of date. */
@@ -30,7 +33,7 @@ interface LiveState {
   poke: () => void;
 }
 
-const LiveContext = createContext<LiveState>({ alerts: [], updatedAt: null, stale: false, watches: false, officer: false, poke: () => {} });
+const LiveContext = createContext<LiveState>({ alerts: [], notices: [], updatedAt: null, stale: false, watches: false, officer: false, poke: () => {} });
 
 export const useLive = () => useContext(LiveContext);
 
@@ -46,9 +49,10 @@ function typing(): boolean {
   return tag === "TEXTAREA" || tag === "SELECT" || (tag === "INPUT" && !["button", "submit", "checkbox", "radio"].includes((el as HTMLInputElement).type)) || el.isContentEditable;
 }
 
-export function LiveProvider({ initial, watches, officer, children }: { initial: Pulse; watches: boolean; officer: boolean; children: ReactNode }) {
+export function LiveProvider({ initial, watches, officer, hub = false, children }: { initial: Pulse; watches: boolean; officer: boolean; hub?: boolean; children: ReactNode }) {
   const router = useRouter();
   const [alerts, setAlerts] = useState<PulseAlert[]>(initial.alerts);
+  const [notices, setNotices] = useState<HubNoticeView[]>(initial.notices ?? []);
   const [updatedAt, setUpdatedAt] = useState<Date | null>(null);
   const [stale, setStale] = useState(false);
   const version = useRef(initial.v);
@@ -81,6 +85,7 @@ export function LiveProvider({ initial, watches, officer, children }: { initial:
       const p = (await res.json()) as Pulse;
       setStale(false);
       setAlerts(p.alerts);
+      setNotices(p.notices ?? []);
       if (p.v !== version.current) {
         version.current = p.v;
         refresh();
@@ -98,7 +103,8 @@ export function LiveProvider({ initial, watches, officer, children }: { initial:
 
   useEffect(() => {
     setUpdatedAt(new Date());
-    const every = watches ? EVERY_MS.watcher : officer ? EVERY_MS.officer : EVERY_MS.other;
+    // The hub's clocks count minutes, so anyone working a mailbox is asked as often as Control.
+    const every = watches || hub ? EVERY_MS.watcher : officer ? EVERY_MS.officer : EVERY_MS.other;
     const id = setInterval(() => {
       // A phone in a pocket is not polled; it is told by a push instead.
       if (!watches && document.visibilityState !== "visible") return;
@@ -121,7 +127,7 @@ export function LiveProvider({ initial, watches, officer, children }: { initial:
       window.removeEventListener("keydown", onUnlock);
       window.removeEventListener("online", onVisible);
     };
-  }, [poll, refresh, watches, officer]);
+  }, [poll, refresh, watches, officer, hub]);
 
   // The service worker: alerts to this device, and a nudge to poll the moment
   // a push arrives while the portal is open.
@@ -134,6 +140,6 @@ export function LiveProvider({ initial, watches, officer, children }: { initial:
   }, [poll]);
 
   return (
-    <LiveContext.Provider value={{ alerts, updatedAt, stale, watches, officer, poke: () => void poll() }}>{children}</LiveContext.Provider>
+    <LiveContext.Provider value={{ alerts, notices, updatedAt, stale, watches, officer, poke: () => void poll() }}>{children}</LiveContext.Provider>
   );
 }

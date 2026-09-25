@@ -1,6 +1,7 @@
 "use client";
 
 import { usePathname } from "next/navigation";
+import type { ReactNode } from "react";
 import { changeRole, signOut } from "@/app/signin/actions";
 import { ROLE_LABELS } from "@/lib/labels";
 import type { Role } from "@/lib/types";
@@ -16,10 +17,13 @@ export function Topbar({
   name,
   activeRole,
   roles,
+  bell = null,
 }: {
   name: string;
   activeRole: Role;
   roles: Role[];
+  /** The Performance hub's notifications, for those who get them. */
+  bell?: ReactNode;
 }) {
   const pathname = usePathname();
   const item = navItemForPath(pathname === "" ? "/" : pathname);
@@ -34,6 +38,7 @@ export function Topbar({
       </p>
 
       <div className="flex min-w-0 items-center gap-2">
+        {bell}
         <span className="hidden truncate text-[12px] font-medium sm:inline">{name}</span>
 
         <form action={changeRole} className="flex min-w-0 items-center gap-1.5">

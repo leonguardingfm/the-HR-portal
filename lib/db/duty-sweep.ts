@@ -408,7 +408,7 @@ export async function deliverAlerts(now = new Date()): Promise<number> {
     where: { state: "open", slaDays: 0, createdAt: { gt: new Date(now.getTime() - 24 * 3_600_000) } },
     select: {
       id: true, title: true, slaDays: true, ownerRole: true, ownerUserId: true,
-      personId: true, assignmentId: true, coverNeedId: true, openShiftId: true, incidentId: true,
+      personId: true, assignmentId: true, coverNeedId: true, openShiftId: true, incidentId: true, hubTaskId: true,
       coverNeed: { select: { startsAt: true, postId: true } },
       openShift: { select: { startsAt: true, postId: true } },
       deliveries: { select: { at: true } },
@@ -436,7 +436,7 @@ export async function deliverAlerts(now = new Date()): Promise<number> {
       tag: `alert-${w.id}`,
       urgent: ALERT_KIND_SPECS[alertKind(w.title)].severity === "critical",
     };
-    const targets = officer ? [w.ownerUserId!] : (control ??= await usersHolding(["control", "operations_manager"]));
+    const targets = officer ? [w.ownerUserId!] : (control ??= await usersHolding(["control", "shift_supervisor", "operations_manager"]));
     const r = await pushToUsers(targets, message, w.id);
     pushed += r.delivered;
   }

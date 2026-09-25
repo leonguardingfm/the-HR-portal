@@ -648,6 +648,55 @@ deleted — made inactive, and not while shifts are still ahead. Sales and manag
 - **"Who is working on what"** is a management view: on the dashboard for managers only, and on the
   Department board — never for officers (25 September 2026).
 
+### E35 — The Performance hub, phase 1 — **answered, and built**
+> **The proposal approved with these answers (Control, 25 September 2026):** a task has exactly one
+> owner, and when a shift ends with it open it is handed over to the next person · Low = 8 hours to
+> accept, one working day to act, an update every working day · HR and Accounts clocks run in office
+> hours, Control's round the clock · "Overdue" is a flag on the status, not a status · a **Shift
+> Supervisor** role is alerted at 3 minutes · **only the Managing Director** sees performance across
+> people · the Control Room person sends replies (no second approval) · WhatsApp and phone logged by
+> hand · hosting requirements written ([document 07](07-hosting-requirements.md)).
+
+- **Performance hub** in the Control Room menu (and in HR's and Admin's, each opening on its own
+  mailbox):
+  - the look of the agreed screenshot, improved: a live clock, an attention line with the reasons,
+    four tiles, tabs with counts, filters and search, rows ordered by urgency with a ticking SLA
+    clock, one-click Accept, and cards on a phone;
+  - notifications in the top-right corner that never block typing, with a bell and a sound switch.
+- **Each task:**
+  - the email kept exactly as it came;
+  - the sorting and why, with Confirm and Correct ("Other" needs a few words; a priority change
+    needs a reason; the original is kept);
+  - the three clocks: accept, action and update;
+  - record action or response, with evidence;
+  - on hold, needing all four: why, on whom, the next follow-up and the last follow-up;
+  - escalate, next action, hand over or reassign, and close with an outcome (unsuccessful, dropped,
+    cancelled or late needs the reason and the corrective action);
+  - a pencil beside every correctable time. Recorded times are corrected by the Shift Supervisor or
+    the department's manager, with a reason.
+- **The clocks** run in the background every 10 seconds:
+  - warnings at two thirds, breaches at the deadline, the supervisor told;
+  - an update requested every period while open;
+  - two breaches on one task, and the Managing Director is told;
+  - an owner gone off shift with work open, and the supervisor is told to hand it over.
+  - A **critical** email sounds the Control Room alarm and reaches the relevant manager, and stops
+    when someone accepts it.
+- **Sorting:**
+  - Claude reads the email once an `ANTHROPIC_API_KEY` is set; until then the portal's rules sort
+    it and mark doubtful ones for checking.
+  - Emergency words always raise an email to Critical until a person lowers it.
+  - Clients, sites and officers are matched to our records, never invented.
+- **Test inbox:** three test mailboxes, 20 sample emails and "Send test email". `npm run demo:hub`
+  fills it; `sam.supervisor` is the demonstration Shift Supervisor.
+- **The database enforces all of it (constraints §24):**
+  - one owner, exactly;
+  - waiting and closing complete;
+  - the original email, notes, ownership history, corrections and SLA record can never be edited
+    or deleted.
+- **Next phases:** Outlook connection (needs the Microsoft 365 app registration), replies through
+  Outlook, the daily HR and Control checklists, the Managing Director's performance portal with
+  reports and CSV, then privacy notices.
+
 ## Still open from the HR scope
 
 Three items remain in [`docs/proposal/07`](../proposal/07-open-questions.md), and **none of them

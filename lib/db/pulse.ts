@@ -13,8 +13,10 @@
 
 import { alertKind, alertSeverity, isAlarm, openHref, ALERT_KIND_SPECS } from "@/lib/core/alerts";
 import { mondayOf, ukDate } from "@/lib/core/rota";
+import { departmentsOf } from "@/lib/core/hub";
 import type { Role, Severity } from "@/lib/types";
 import { db } from "./client";
+import { getHubNotices, type HubNoticeView } from "./hub-queries";
 
 export interface PulseAlert {
   id: string;
@@ -31,16 +33,21 @@ export interface PulseAlert {
 export interface Pulse {
   v: string;
   alerts: PulseAlert[];
+  /** The Performance hub's notifications for this person — for the top-right corner. */
+  notices: HubNoticeView[];
 }
 
+/** Everyone who works a hub mailbox, and the Managing Director, gets its notifications. */
+export const hearsHub = (role: Role) => departmentsOf(role).length > 0 && role !== "auditor";
+
 /** The roles that watch the operation live, and hear its alarms. */
-export const WATCHES_LIVE: Role[] = ["control", "operations_manager"];
+export const WATCHES_LIVE: Role[] = ["control", "shift_supervisor", "operations_manager"];
 
 export async function getPulse(session: { userId: string; personId: string; activeRole: Role }): Promise<Pulse> {
   const officer = session.activeRole === "officer";
   const watches = WATCHES_LIVE.includes(session.activeRole);
 
-  const [latest, items] = await Promise.all([
+  const [latest, items, notices] = await Promise.all([
     officer ? latestForOfficer(session.personId) : db.event.findFirst({ orderBy: { at: "desc" }, select: { id: true, at: true } }),
     officer || watches
       ? db.workItem.findMany({
@@ -49,13 +56,14 @@ export async function getPulse(session: { userId: string; personId: string; acti
           take: 60,
           select: {
             id: true, title: true, slaDays: true, createdAt: true, ownerRole: true, ownerUserId: true,
-            personId: true, assignmentId: true, coverNeedId: true, openShiftId: true, incidentId: true,
+            personId: true, assignmentId: true, coverNeedId: true, openShiftId: true, incidentId: true, hubTaskId: true,
             owner: { select: { displayName: true } },
             coverNeed: { select: { startsAt: true, postId: true } },
             openShift: { select: { startsAt: true, postId: true } },
           },
         })
       : Promise.resolve([]),
+    hearsHub(session.activeRole) ? getHubNotices(session) : Promise.resolve([]),
   ]);
 
   const alerts = items
@@ -78,7 +86,7 @@ export async function getPulse(session: { userId: string; personId: string; acti
   // The version: the latest write that concerns this person, and the alerts
   // themselves — so taking or closing one moves it too.
   const v = `${latest ? `${latest.id}.${latest.at.getTime()}` : "0"}|${alerts.map((a) => `${a.id}${a.takenBy ? "*" : ""}`).join(",")}`;
-  return { v, alerts };
+  return { v, alerts, notices };
 }
 
 async function latestForOfficer(personId: string) {

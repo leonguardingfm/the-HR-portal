@@ -1,6 +1,6 @@
 -- Proof that the constraints in constraints.sql actually reject the bad case.
 --
--- Two hundred and twenty-two assertions. Each one names a rule the platform claims to
+-- Two hundred and fifty-six assertions. Each one names a rule the platform claims to
 -- enforce, and each one tries to break it: the ones marked "allowed, as it
 -- should be" matter just as much, because a constraint that rejects everything
 -- is not a constraint, it is an outage.
@@ -809,3 +809,81 @@ SELECT expect_failure('employment ended with no leaving date',
   $$UPDATE "Employment" SET state = 'ended', "lastWorkingDay" = '2026-12-31', "leaverReason" = 'resigned' WHERE id = 'e1'$$);
 SELECT expect_success('a leaver, with the last day, the reason and the date it ended',
   $$UPDATE "Employment" SET state = 'ended', "lastWorkingDay" = '2026-12-31', "leaverReason" = 'resigned', "endedAt" = '2027-01-01' WHERE id = 'e1'$$);
+
+-- ---------------------------------------------------------------------------
+-- 24. The Performance hub
+-- ---------------------------------------------------------------------------
+
+INSERT INTO "Mailbox"(id,address,"displayName",department) VALUES ('mb1','control@test.example','Control (test)','control');
+SELECT expect_success('an email becomes an unassigned task',
+  $$INSERT INTO "HubTask"(id,source,"mailboxId",department,subject,"receivedAt",category,priority,"ackDueAt","actionDueAt","updatedAt")
+    VALUES ('ht1','outlook','mb1','control','Cover for Friday',now(),'cover_request','high',now() + interval '3 minutes',now() + interval '15 minutes',now())$$);
+SELECT expect_failure('unassigned, with an owner',
+  $$UPDATE "HubTask" SET "ownerUserId" = 'u3', "acceptedAt" = now() WHERE id = 'ht1'$$);
+SELECT expect_failure('in progress, with nobody owning it',
+  $$UPDATE "HubTask" SET status = 'in_progress' WHERE id = 'ht1'$$);
+SELECT expect_failure('owned, with no time it was accepted',
+  $$UPDATE "HubTask" SET status = 'accepted', "ownerUserId" = 'u3' WHERE id = 'ht1'$$);
+SELECT expect_success('accepted by somebody, at a time',
+  $$UPDATE "HubTask" SET status = 'accepted', "ownerUserId" = 'u3', "acceptedAt" = now() WHERE id = 'ht1'$$);
+SELECT expect_failure('on hold without saying who it waits on',
+  $$UPDATE "HubTask" SET status = 'awaiting_client', "waitingReason" = 'Need times', "followUpAt" = now() + interval '1 hour', "followUpEvidence" = 'Emailed' WHERE id = 'ht1'$$);
+SELECT expect_success('on hold, with the reason, who, when and the last follow-up',
+  $$UPDATE "HubTask" SET status = 'awaiting_client', "waitingReason" = 'Need times', "waitingFor" = 'Priya, Northgate', "followUpAt" = now() + interval '1 hour', "followUpEvidence" = 'Emailed' WHERE id = 'ht1'$$);
+SELECT expect_failure('escalated without saying why',
+  $$UPDATE "HubTask" SET status = 'escalated' WHERE id = 'ht1'$$);
+SELECT expect_failure('completed with no outcome',
+  $$UPDATE "HubTask" SET status = 'completed', "completedAt" = now() WHERE id = 'ht1'$$);
+SELECT expect_failure('an outcome on a task still open',
+  $$UPDATE "HubTask" SET status = 'in_progress', outcome = 'successful', "completedAt" = now() WHERE id = 'ht1'$$);
+SELECT expect_failure('unsuccessful without the reason and the fix',
+  $$UPDATE "HubTask" SET status = 'unsuccessful', outcome = 'unsuccessful', "completedAt" = now() WHERE id = 'ht1'$$);
+SELECT expect_failure('successful but late, without the reason and the fix',
+  $$UPDATE "HubTask" SET status = 'completed', outcome = 'successful', "completedAt" = now(), breaches = 1 WHERE id = 'ht1'$$);
+SELECT expect_success('late, closed with the reason and the fix',
+  $$UPDATE "HubTask" SET status = 'completed', outcome = 'successful', "completedAt" = now(), breaches = 1, "outcomeReason" = 'Desk busy with an incident', "correctiveAction" = 'Supervisor reassigns during incidents' WHERE id = 'ht1'$$);
+SELECT expect_failure('"Other" with nothing to say what',
+  $$INSERT INTO "HubTask"(id,source,department,subject,"receivedAt",category,priority,"ackDueAt","actionDueAt","updatedAt")
+    VALUES ('ht2','phone','control','A call',now(),'other','medium',now(),now(),now())$$);
+SELECT expect_success('"Other", saying what',
+  $$INSERT INTO "HubTask"(id,source,department,subject,"receivedAt",category,priority,"categoryNote","ackDueAt","actionDueAt","updatedAt")
+    VALUES ('ht3','phone','control','A call',now(),'other','medium','Lost property',now(),now(),now())$$);
+SELECT expect_failure('a priority change with no reason',
+  $$INSERT INTO "HubChange"(id,"taskId",field,"fromValue","toValue","byUserId") VALUES ('hc1','ht3','priority','medium','high','u3')$$);
+SELECT expect_success('a priority change, with why',
+  $$INSERT INTO "HubChange"(id,"taskId",field,"fromValue","toValue",reason,"byUserId") VALUES ('hc2','ht3','priority','medium','high','Client chasing','u3')$$);
+SELECT expect_failure('a correction rewritten afterwards',
+  $$UPDATE "HubChange" SET reason = 'Something else' WHERE id = 'hc2'$$);
+SELECT expect_failure('a handover with no note',
+  $$INSERT INTO "HubOwnership"(id,"taskId",kind,"fromUserId","toUserId","byUserId") VALUES ('ho1','ht3','handover','u3','u1','u3')$$);
+SELECT expect_success('a handover, with the note',
+  $$INSERT INTO "HubOwnership"(id,"taskId",kind,"fromUserId","toUserId","byUserId",reason) VALUES ('ho2','ht3','handover','u3','u1','u3','End of shift: waiting on the client')$$);
+SELECT expect_failure('the ownership history deleted',
+  $$DELETE FROM "HubOwnership" WHERE id = 'ho2'$$);
+SELECT expect_success('the original email kept',
+  $$INSERT INTO "InboundEmail"(id,"mailboxId","taskId","receivedAt","fromAddress","toAddresses","ccAddresses",subject,"bodyText")
+    VALUES ('ie1','mb1','ht1',now(),'priya@example.com','{control@test.example}','{}','Cover for Friday','Could you arrange an officer?')$$);
+SELECT expect_failure('the original email edited',
+  $$UPDATE "InboundEmail" SET "bodyText" = 'Something else' WHERE id = 'ie1'$$);
+SELECT expect_failure('the original email deleted',
+  $$DELETE FROM "InboundEmail" WHERE id = 'ie1'$$);
+SELECT expect_success('a note',
+  $$INSERT INTO "HubNote"(id,"taskId",kind,text,"byUserId") VALUES ('hn1','ht3','action','Rang the client','u3')$$);
+SELECT expect_failure('a note rewritten in place',
+  $$UPDATE "HubNote" SET text = 'Did not ring' WHERE id = 'hn1'$$);
+SELECT expect_success('a note corrected by a new version',
+  $$INSERT INTO "HubNote"(id,"taskId",kind,text,"byUserId","replacesId") VALUES ('hn2','ht3','action','Rang the client at 09:10','u3','hn1')$$);
+SELECT expect_success('an SLA breach recorded',
+  $$INSERT INTO "HubSlaEvent"(id,"taskId",clock,kind,"dueAt") VALUES ('hs1','ht3','accept','breach','2026-10-01 09:03+01')$$);
+SELECT expect_failure('the same breach recorded twice',
+  $$INSERT INTO "HubSlaEvent"(id,"taskId",clock,kind,"dueAt") VALUES ('hs2','ht3','accept','breach','2026-10-01 09:03+01')$$);
+SELECT expect_failure('a breach wiped',
+  $$DELETE FROM "HubSlaEvent" WHERE id = 'hs1'$$);
+SELECT expect_success('evidence added',
+  $$INSERT INTO "HubFile"(id,"taskId","fileName","mimeType","sizeBytes",sha256,"storageKey","uploadedById") VALUES ('hf1','ht3','call.pdf','application/pdf',10,'h','k','u3')$$);
+SELECT expect_failure('evidence removed without saying why',
+  $$UPDATE "HubFile" SET "removedAt" = now(), "removedById" = 'u3' WHERE id = 'hf1'$$);
+SELECT expect_failure('a notification to nobody',
+  $$INSERT INTO "HubNotice"(id,level,text) VALUES ('hx1','info','Hello')$$);
+SELECT expect_success('a critical email alarm for Control',
+  $$INSERT INTO "WorkItem"(id,title,"hubTaskId","ownerRole","dueAt","slaDays") VALUES ('w24a','Critical email: fire','ht3','control',now(),0)$$);

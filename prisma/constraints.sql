@@ -1111,3 +1111,101 @@ ALTER TABLE "Employment"
 ALTER TABLE "Employment"
   ADD CONSTRAINT employment_ended_when
   CHECK ("state" <> 'ended' OR "endedAt" IS NOT NULL);
+
+-- ---------------------------------------------------------------------------
+-- 24. The Performance hub  [Control, 25 September 2026]
+-- ---------------------------------------------------------------------------
+
+-- 24a. A work item still has exactly one subject — now including a hub task.
+ALTER TABLE "WorkItem" DROP CONSTRAINT work_item_one_subject;
+ALTER TABLE "WorkItem"
+  ADD CONSTRAINT work_item_one_subject
+  CHECK (num_nonnulls(
+    "personId", "screeningFileId", "requirementId",
+    "assignmentId", "documentId", "formResponseId", "adminItemId",
+    "coverNeedId", "openShiftId", "incidentId", "hubTaskId"
+  ) = 1);
+
+-- 24b. One owner, clearly: unassigned has none, work in hand has one, and an
+-- owner was accepted at a known time.
+ALTER TABLE "HubTask"
+  ADD CONSTRAINT hub_task_unassigned_has_no_owner
+  CHECK ("status" <> 'unassigned' OR "ownerUserId" IS NULL);
+ALTER TABLE "HubTask"
+  ADD CONSTRAINT hub_task_in_hand_has_owner
+  CHECK ("status" NOT IN ('accepted', 'in_progress', 'awaiting_information', 'awaiting_client', 'awaiting_officer', 'escalated') OR "ownerUserId" IS NOT NULL);
+ALTER TABLE "HubTask"
+  ADD CONSTRAINT hub_task_owner_accepted_when
+  CHECK ("ownerUserId" IS NULL OR "acceptedAt" IS NOT NULL);
+
+-- 24c. Waiting says why, on whom, when it is followed up, and what was done last.
+ALTER TABLE "HubTask"
+  ADD CONSTRAINT hub_task_waiting_whole
+  CHECK ("status" NOT IN ('awaiting_information', 'awaiting_client', 'awaiting_officer') OR (
+    length(btrim(coalesce("waitingReason", ''))) > 0
+    AND length(btrim(coalesce("waitingFor", ''))) > 0
+    AND "followUpAt" IS NOT NULL
+    AND length(btrim(coalesce("followUpEvidence", ''))) > 0));
+
+-- 24d. Escalated says why.
+ALTER TABLE "HubTask"
+  ADD CONSTRAINT hub_task_escalated_says_why
+  CHECK ("status" <> 'escalated' OR length(btrim(coalesce("escalationNote", ''))) > 0);
+
+-- 24e. Closed exactly when there is an outcome and a time.
+ALTER TABLE "HubTask"
+  ADD CONSTRAINT hub_task_closed_whole
+  CHECK (("status" IN ('completed', 'unsuccessful', 'cancelled')) = ("outcome" IS NOT NULL AND "completedAt" IS NOT NULL));
+
+-- 24f. An unsuccessful, cancelled or dropped outcome — or one that went over
+-- its time — says why and what is being done about it.
+ALTER TABLE "HubTask"
+  ADD CONSTRAINT hub_task_bad_outcome_explained
+  CHECK (
+    "outcome" IS NULL
+    OR ("outcome" NOT IN ('unsuccessful', 'cancelled_by_client', 'cancelled_by_leon', 'dropped_by_leon', 'dropped_by_client') AND "breaches" = 0)
+    OR (length(btrim(coalesce("outcomeReason", ''))) > 0 AND length(btrim(coalesce("correctiveAction", ''))) > 0));
+
+-- 24g. "Other" says what it is.
+ALTER TABLE "HubTask"
+  ADD CONSTRAINT hub_task_other_says_what
+  CHECK ("category" <> 'other' OR length(btrim(coalesce("categoryNote", ''))) > 0);
+
+-- 24h. A priority change says why; a reassignment or handover says why.
+ALTER TABLE "HubChange"
+  ADD CONSTRAINT hub_change_priority_says_why
+  CHECK ("field" <> 'priority' OR length(btrim(coalesce("reason", ''))) > 0);
+ALTER TABLE "HubOwnership"
+  ADD CONSTRAINT hub_ownership_move_says_why
+  CHECK ("kind" = 'accept' OR length(btrim(coalesce("reason", ''))) > 0);
+ALTER TABLE "HubNote"
+  ADD CONSTRAINT hub_note_says_something
+  CHECK (length(btrim("text")) > 0);
+
+-- 24i. The original email, the ownership history, the corrections and the SLA
+-- record are written once and never changed.
+CREATE OR REPLACE FUNCTION reject_hub_record_mutation() RETURNS trigger AS $$
+BEGIN
+  RAISE EXCEPTION 'The % record is kept as written: it cannot be %', TG_TABLE_NAME, TG_OP;
+END;
+$$ LANGUAGE plpgsql;
+CREATE TRIGGER inbound_email_immutable BEFORE UPDATE OR DELETE ON "InboundEmail"
+  FOR EACH ROW EXECUTE FUNCTION reject_hub_record_mutation();
+CREATE TRIGGER hub_ownership_immutable BEFORE UPDATE OR DELETE ON "HubOwnership"
+  FOR EACH ROW EXECUTE FUNCTION reject_hub_record_mutation();
+CREATE TRIGGER hub_change_immutable BEFORE UPDATE OR DELETE ON "HubChange"
+  FOR EACH ROW EXECUTE FUNCTION reject_hub_record_mutation();
+CREATE TRIGGER hub_sla_event_immutable BEFORE UPDATE OR DELETE ON "HubSlaEvent"
+  FOR EACH ROW EXECUTE FUNCTION reject_hub_record_mutation();
+CREATE TRIGGER hub_note_immutable BEFORE UPDATE OR DELETE ON "HubNote"
+  FOR EACH ROW EXECUTE FUNCTION reject_hub_record_mutation();
+
+-- 24j. A removed file says who removed it and why.
+ALTER TABLE "HubFile"
+  ADD CONSTRAINT hub_file_removal_whole
+  CHECK ("removedAt" IS NULL OR ("removedById" IS NOT NULL AND length(btrim(coalesce("removedReason", ''))) > 0));
+
+-- 24k. A notice goes to somebody.
+ALTER TABLE "HubNotice"
+  ADD CONSTRAINT hub_notice_has_audience
+  CHECK (num_nonnulls("toUserId", "toRole", "department") >= 1);

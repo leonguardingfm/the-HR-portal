@@ -37,13 +37,14 @@ export type AlertKind =
   | "officer_licence"
   | "officer_decision"
   | "officer_leave"
+  | "hub_critical"
   | "other";
 
 interface KindSpec {
   /** Titles of this kind start with this. */
   prefix: string;
   /** Where the work is done. Filled in from the subject by openHref. */
-  page: "check-calls" | "book-ons" | "chase-ups" | "rota" | "live" | "officer" | "me";
+  page: "check-calls" | "book-ons" | "chase-ups" | "rota" | "live" | "officer" | "me" | "hub";
   severity: Severity;
   /** Sounds the alarm and pushes to phones. */
   alarm: boolean;
@@ -64,6 +65,8 @@ export const ALERT_KIND_SPECS: Record<AlertKind, KindSpec> = {
   cannot_attend: { prefix: "Officer cannot attend", page: "chase-ups", severity: "critical", alarm: true, selfClosing: false },
   problem: { prefix: "Officer reports a problem", page: "check-calls", severity: "critical", alarm: true, selfClosing: false },
   incident: { prefix: "Incident reported", page: "live", severity: "serious", alarm: true, selfClosing: false },
+  // A critical email on the Performance hub: closes itself when someone accepts it.
+  hub_critical: { prefix: "Critical email", page: "hub", severity: "critical", alarm: true, selfClosing: true },
   away_from_site: { prefix: "Selfie away from the site", page: "book-ons", severity: "serious", alarm: true, selfClosing: false },
   no_photo: { prefix: "No selfie", page: "book-ons", severity: "warning", alarm: true, selfClosing: false },
   chase: { prefix: "Chase-up not confirmed", page: "chase-ups", severity: "serious", alarm: true, selfClosing: true },
@@ -100,6 +103,7 @@ export interface QueueItem {
   coverNeedId?: string | null;
   openShiftId?: string | null;
   incidentId?: string | null;
+  hubTaskId?: string | null;
   ownerRole?: string | null;
 }
 
@@ -130,6 +134,7 @@ export function openHref(
   ctx: { rotaHref?: string | null; personHref?: string | null } = {},
 ): string {
   const spec = ALERT_KIND_SPECS[alertKind(w.title)];
+  if (w.hubTaskId) return `/hub/${w.hubTaskId}`;
   if (w.coverNeedId || w.openShiftId) return ctx.rotaHref ?? "/scheduling";
   if (w.incidentId) return "/live#incidents";
   if (w.assignmentId) {

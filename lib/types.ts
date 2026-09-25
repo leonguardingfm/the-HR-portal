@@ -312,6 +312,7 @@ export interface Task {
  */
 export type Role =
   | "control"
+  | "shift_supervisor"
   | "operations_manager"
   | "recruitment"
   | "recruitment_manager"

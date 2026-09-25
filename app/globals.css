@@ -59,6 +59,11 @@
   --roster-cover-wash:   rgba(122, 90, 248, 0.12);
   --roster-changed:      #0e8f9c;
   --roster-changed-wash: rgba(14, 143, 156, 0.12);
+  /* Leon Guarding's own colours, for the Performance hub's accents. */
+  --brand-navy:      #0b1f3a;
+  --brand-royal:     #1f4fbf;
+  --brand-gold:      #c9a227;
+  --brand-gold-wash: rgba(201, 162, 39, 0.14);
 }
 
 @media (prefers-color-scheme: dark) {
@@ -97,6 +102,10 @@
   --roster-cover-wash:   rgba(157, 135, 250, 0.20);
   --roster-changed:      #2bb6c4;
   --roster-changed-wash: rgba(43, 182, 196, 0.18);
+    --brand-navy:      #1d3d6b;
+    --brand-royal:     #4f7fe8;
+    --brand-gold:      #e0bb45;
+    --brand-gold-wash: rgba(224, 187, 69, 0.16);
   }
 }
 
@@ -135,6 +144,10 @@
   --roster-cover-wash:   rgba(157, 135, 250, 0.20);
   --roster-changed:      #2bb6c4;
   --roster-changed-wash: rgba(43, 182, 196, 0.18);
+  --brand-navy:      #1d3d6b;
+  --brand-royal:     #4f7fe8;
+  --brand-gold:      #e0bb45;
+  --brand-gold-wash: rgba(224, 187, 69, 0.16);
 }
 
 html,

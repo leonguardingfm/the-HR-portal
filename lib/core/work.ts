@@ -9,7 +9,7 @@ import type { Role } from "@/lib/types";
 export type QueueDepartment = "control" | "recruitment" | "vetting" | "administration" | "management";
 
 export const QUEUE_DEPARTMENTS: { id: QueueDepartment; label: string; roles: Role[]; event: "control" | "recruitment" | "vetting" | "administration" }[] = [
-  { id: "control", label: "Control Room", roles: ["control", "operations_manager"], event: "control" },
+  { id: "control", label: "Control Room", roles: ["control", "shift_supervisor", "operations_manager"], event: "control" },
   { id: "recruitment", label: "HR", roles: ["recruitment", "recruitment_manager"], event: "recruitment" },
   { id: "vetting", label: "Vetting", roles: ["vetting_admin", "vetting_controller"], event: "vetting" },
   { id: "administration", label: "Admin", roles: ["admin_officer", "admin_manager", "finance_officer"], event: "administration" },

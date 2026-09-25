@@ -81,7 +81,11 @@ export type ActionId =
   | "interview.book"
   | "employee.edit"
   | "employee.payroll"
-  | "employee.leaver";
+  | "employee.leaver"
+  // --- The Performance hub ------------------------------------------------
+  | "hub.work"
+  | "hub.supervise"
+  | "hub.test";
 
 export interface ActionSpec {
   /** Roles permitted to take it. Everything else is refused. */
@@ -93,7 +97,7 @@ export interface ActionSpec {
 }
 
 const STAFF: Role[] = [
-  "control",
+  "control", "shift_supervisor",
   "operations_manager",
   "recruitment",
   "recruitment_manager",
@@ -117,11 +121,11 @@ const STAFF: Role[] = [
 const ADMIN_TEAM: Role[] = ["admin_officer", "admin_manager"];
 
 export const ACTIONS: Record<ActionId, ActionSpec> = {
-  "check_call.record": { roles: ["control", "operations_manager"], owner: "Control", what: "Recording a check call" },
-  "contact_attempt.log": { roles: ["control", "operations_manager"], owner: "Control", what: "Logging a contact attempt" },
-  "book_on.record": { roles: ["control", "operations_manager"], owner: "Control", what: "Booking an officer on" },
-  "incident.notify_client": { roles: ["control", "operations_manager"], owner: "Control or the Operations Manager", what: "Recording a client notification" },
-  "assignment.publish": { roles: ["control", "operations_manager"], owner: "Control", what: "Publishing a shift to the rota" },
+  "check_call.record": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Recording a check call" },
+  "contact_attempt.log": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Logging a contact attempt" },
+  "book_on.record": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Booking an officer on" },
+  "incident.notify_client": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control or the Operations Manager", what: "Recording a client notification" },
+  "assignment.publish": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Publishing a shift to the rota" },
   "candidacy.advance": { roles: ["recruitment", "recruitment_manager"], owner: "Recruitment", what: "Moving a candidate through the pipeline" },
   "candidacy.withdraw": { roles: ["recruitment", "recruitment_manager"], owner: "Recruitment", what: "Withdrawing a candidate" },
   "candidacy.create": { roles: ["recruitment", "recruitment_manager"], owner: "Recruitment", what: "Creating a candidate record" },
@@ -176,10 +180,10 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "role.revoke_delegation": { roles: ["top_management"], owner: "higher management", what: "Ending a delegation early" },
   // The helpdesk and Control Room are the same desk for this purpose: whoever
   // is on it tells the client the officer has gone in without a signal.
-  "no_signal.notify_client": { roles: ["control", "operations_manager"], owner: "the Control Room or helpdesk", what: "Telling the client the officer is on site with no signal" },
+  "no_signal.notify_client": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "the Control Room or helpdesk", what: "Telling the client the officer is on site with no signal" },
   // Recording what a client has told us. The client does not do this; we do,
   // on their behalf, which is why it is an internal permission.
-  "no_signal.report_loss": { roles: ["control", "operations_manager"], owner: "the Control Room or helpdesk", what: "Recording that the client has lost contact with the officer" },
+  "no_signal.report_loss": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "the Control Room or helpdesk", what: "Recording that the client has lost contact with the officer" },
   // Approving a registration grants a role, and suspending one takes it away,
   // so both are access decisions for the Admin Manager or higher management.
   // --- Screening files [6.1, 7.5.2b] ----------------------------------------
@@ -200,15 +204,15 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "screening.exception.decide": { roles: ["top_management"], owner: "higher management", what: "Deciding a risk acceptance, extension or statutory declaration" },
   // Client requirements are Control's (Track A). HR sees them and sources
   // against them; it does not raise, release or close them.
-  "requirement.raise": { roles: ["control", "operations_manager"], owner: "Control", what: "Raising a client requirement" },
-  "requirement.manage": { roles: ["control", "operations_manager"], owner: "Control", what: "Working a client requirement: the pool check, release to HR, allocation and closing" },
-  "chase_up.record": { roles: ["control", "operations_manager"], owner: "Control", what: "Chasing up an officer before their shift" },
+  "requirement.raise": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Raising a client requirement" },
+  "requirement.manage": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Working a client requirement: the pool check, release to HR, allocation and closing" },
+  "chase_up.record": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Chasing up an officer before their shift" },
   // The officer's own: and only ever for their own shift, which each action checks on top of this.
   "duty.self": { roles: ["officer"], owner: "the officer on the shift", what: "Confirming, booking on and making check calls for your own shift" },
-  "rota.build": { roles: ["control", "operations_manager"], owner: "Control", what: "Building the rota: asking officers, putting shifts on as drafts and naming a post's regular officer" },
-  "rota.change": { roles: ["control", "operations_manager"], owner: "Control", what: "Changing the rota once it is published: an officer off, cover, new hours or a cancelled shift" },
+  "rota.build": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Building the rota: asking officers, putting shifts on as drafts and naming a post's regular officer" },
+  "rota.change": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Changing the rota once it is published: an officer off, cover, new hours or a cancelled shift" },
   // Control's, like the rest of the rota (24 September 2026). Every change is an event naming who made it.
-  "officer.hours": { roles: ["control", "operations_manager"], owner: "Control", what: "Setting an officer's agreed weekly hours" },
+  "officer.hours": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Setting an officer's agreed weekly hours" },
   // Taking a task from the department's pool, or handing it back: so two
   // Control desks can see which of them is on what (25 September 2026).
   "work_item.take": { roles: STAFF, owner: "the department the task belongs to", what: "Taking or handing back a task" },
@@ -216,8 +220,8 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "alerts.subscribe": { roles: [...STAFF, "officer"], owner: "anyone signed in", what: "Turning alerts on for a phone or computer" },
   // Clients, sites and posts are Control's: a post's check-call rule, its
   // signal and its instructions are what the rota and the duty checks run on.
-  "place.manage": { roles: ["control", "operations_manager"], owner: "Control", what: "Adding and changing clients, sites and posts" },
-  "officer.exclude": { roles: ["control", "operations_manager"], owner: "Control", what: "Keeping an officer off a site, or lifting it" },
+  "place.manage": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Adding and changing clients, sites and posts" },
+  "officer.exclude": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control", what: "Keeping an officer off a site, or lifting it" },
   // Step 3 of the ladder: sending a supervisor or the Operations Manager to
   // site, and recording what they found (25 September 2026).
   // HR self-service (25 September 2026). Recruitment sends the candidate their
@@ -231,9 +235,22 @@ export const ACTIONS: Record<ActionId, ActionSpec> = {
   "employee.edit": { roles: ["recruitment", "recruitment_manager", "admin_officer", "admin_manager"], owner: "HR or Admin", what: "Keeping an employee's record up to date" },
   "employee.payroll": { roles: ["recruitment_manager", "admin_manager", "finance_officer"], owner: "the HR Manager, the Admin Manager or the Finance Officer", what: "Seeing or changing pay and the payroll reference" },
   "employee.leaver": { roles: ["recruitment_manager", "admin_manager", "top_management"], owner: "the HR Manager or the Admin Manager", what: "Recording that an employee is leaving" },
-  "welfare.visit": { roles: ["control", "operations_manager"], owner: "Control or the Operations Manager", what: "Sending someone to site and recording what they found" },
+  "welfare.visit": { roles: ["control", "shift_supervisor", "operations_manager"], owner: "Control or the Operations Manager", what: "Sending someone to site and recording what they found" },
   "screening.sweep": { roles: ["vetting_controller", "top_management"], owner: "a Screening Controller or higher management", what: "Running the screening clock check" },
   "account.review": { roles: ["admin_manager", "top_management"], owner: "the Admin Manager", what: "Approving, suspending or reactivating an account" },
+  // The Performance hub (Control, 25 September 2026). Working a mailbox is the
+  // department's; the Managing Director watches performance and works nothing.
+  "hub.work": {
+    roles: ["control", "shift_supervisor", "operations_manager", "recruitment", "recruitment_manager", "vetting_admin", "vetting_controller", "admin_officer", "admin_manager", "finance_officer"],
+    owner: "the department whose mailbox it is",
+    what: "Working an email or task on the Performance hub",
+  },
+  "hub.supervise": {
+    roles: ["shift_supervisor", "operations_manager", "recruitment_manager", "admin_manager"],
+    owner: "the Shift Supervisor or the department's manager",
+    what: "Reassigning hub work, closing an unowned email and correcting a recorded time",
+  },
+  "hub.test": { roles: ["shift_supervisor", "operations_manager", "top_management"], owner: "the Shift Supervisor, the Operations Manager or the Managing Director", what: "Sending a test email into the test inbox" },
 };
 
 export function canDo(role: Role | null | undefined, action: ActionId): boolean {

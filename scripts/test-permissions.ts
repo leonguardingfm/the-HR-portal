@@ -45,6 +45,8 @@ import { clientProblem, postProblem, siteProblem } from "../lib/core/places";
 import { sniffMime, uploadProblem, uploadWarning } from "../lib/core/screening-documents";
 import { analyseHistory, chaseState, dateOf, merge, requestProblem, screeningWindow, verifyProblem, workingDaysBetween, type Period } from "../lib/core/history";
 import { declarationProblem, decisionProblem, extensionProblem, fileStatus, isExpiredOnClock, riskFindingProblem } from "../lib/core/screening-exceptions";
+import { SAMPLE_EMAILS } from "../lib/core/hub-samples";
+import { addClockMinutes, classifyByRules, clocksFor, closeProblem, currentClock, departmentsOf, openingOf, parseSpan, waitingProblem } from "../lib/core/hub";
 import type { ScreeningFile } from "../lib/types";
 import type { Role } from "../lib/types";
 
@@ -60,19 +62,23 @@ const check = (name: string, pass: boolean, detail = "") => {
 // --- 1. the matrix ---------------------------------------------------------
 const STAFF_BASELINE: ActionId[] = ["work_item.complete", "work_item.take", "alerts.subscribe", "reminder.send", "admin_item.raise"];
 
+const CONTROL_ACTIONS: ActionId[] = ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", "place.manage", "officer.exclude", "welfare.visit"];
+
 const EXPECTED: Record<string, ActionId[]> = {
-  control: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", "place.manage", "officer.exclude", "welfare.visit", ...STAFF_BASELINE],
-  operations_manager: ["check_call.record", "contact_attempt.log", "book_on.record", "incident.notify_client", "assignment.publish", "no_signal.notify_client", "no_signal.report_loss", "requirement.raise", "requirement.manage", "chase_up.record", "rota.build", "rota.change", "officer.hours", "place.manage", "officer.exclude", "welfare.visit", ...STAFF_BASELINE],
-  recruitment: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "stock.move", "candidate.invite", "candidacy.edit", "interview.book", "employee.edit", ...STAFF_BASELINE],
-  recruitment_manager: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "admin_item.approve", "admin_item.reject", "holiday.decide", "authority_matter.respond", "candidate.invite", "candidacy.edit", "interview.book", "employee.edit", "employee.payroll", "employee.leaver", ...STAFF_BASELINE],
-  admin_officer: ["admin_item.start", "admin_item.review", "admin_item.complete", "payment.record", "asset.maintain", "stock.move", "accreditation.evidence", "employee.edit", ...STAFF_BASELINE],
-  admin_manager: ["admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "payment.record", "asset.maintain", "holiday.decide", "stock.move", "accreditation.evidence", "authority_matter.respond", "account.review", "employee.edit", "employee.payroll", "employee.leaver", ...STAFF_BASELINE],
+  control: [...CONTROL_ACTIONS, "hub.work", ...STAFF_BASELINE],
+  // Everything Control does, plus leading the shift on the hub.
+  shift_supervisor: [...CONTROL_ACTIONS, "hub.work", "hub.supervise", "hub.test", ...STAFF_BASELINE],
+  operations_manager: [...CONTROL_ACTIONS, "hub.work", "hub.supervise", "hub.test", ...STAFF_BASELINE],
+  recruitment: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "stock.move", "candidate.invite", "candidacy.edit", "interview.book", "employee.edit", "hub.work", ...STAFF_BASELINE],
+  recruitment_manager: ["candidacy.advance", "candidacy.withdraw", "candidacy.create", "onboarding.step", "pin.allocate", "admin_item.approve", "admin_item.reject", "holiday.decide", "authority_matter.respond", "candidate.invite", "candidacy.edit", "interview.book", "employee.edit", "employee.payroll", "employee.leaver", "hub.work", "hub.supervise", ...STAFF_BASELINE],
+  admin_officer: ["admin_item.start", "admin_item.review", "admin_item.complete", "payment.record", "asset.maintain", "stock.move", "accreditation.evidence", "employee.edit", "hub.work", ...STAFF_BASELINE],
+  admin_manager: ["admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "payment.record", "asset.maintain", "holiday.decide", "stock.move", "accreditation.evidence", "authority_matter.respond", "account.review", "employee.edit", "employee.payroll", "employee.leaver", "hub.work", "hub.supervise", ...STAFF_BASELINE],
   // The Finance Officer approves money and records payments. Nothing else:
   // not holidays, not suspensions, not authority matters, not stock.
-  finance_officer: ["admin_item.approve", "admin_item.reject", "payment.record", "employee.payroll", ...STAFF_BASELINE],
-  vetting_admin: ["document.verify", "document.renew", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", ...STAFF_BASELINE],
-  vetting_controller: ["document.verify", "document.renew", "disposal.run", "accreditation.evidence", "screening.assign", "screening.review", "screening.sweep", ...STAFF_BASELINE],
-  top_management: ["disposal.run", "admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "holiday.decide", "accreditation.evidence", "authority_matter.respond", "threshold.change", "role.delegate", "role.revoke_delegation", "account.review", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "screening.exception.decide", "screening.sweep", "employee.leaver", ...STAFF_BASELINE],
+  finance_officer: ["admin_item.approve", "admin_item.reject", "payment.record", "employee.payroll", "hub.work", ...STAFF_BASELINE],
+  vetting_admin: ["document.verify", "document.renew", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "hub.work", ...STAFF_BASELINE],
+  vetting_controller: ["document.verify", "document.renew", "disposal.run", "accreditation.evidence", "screening.assign", "screening.review", "screening.sweep", "hub.work", ...STAFF_BASELINE],
+  top_management: ["disposal.run", "admin_item.assign", "admin_item.start", "admin_item.review", "admin_item.approve", "admin_item.reject", "admin_item.complete", "admin_item.cancel", "holiday.decide", "accreditation.evidence", "authority_matter.respond", "threshold.change", "role.delegate", "role.revoke_delegation", "account.review", "screening.open", "screening.assign", "screening.check", "screening.exception.raise", "screening.exception.decide", "screening.sweep", "employee.leaver", "hub.test", ...STAFF_BASELINE],
   auditor: [],
   // Sales and Client hold nothing: they read, and the route guard keeps the
   // client out of every internal screen.
@@ -995,9 +1001,51 @@ check("a missing figure reads neutral, never good",
   check("a post's rule is one of the three", postProblem({ name: "Gate", pattern: null, screeningPeriodYears: 5, checkCalls: "sometimes", phone: null, instructions: null }) !== null);
 }
 
+// --- 1zz. the Performance hub (25 September 2026) --------------------------
+{
+  // The clocks: Control's run round the clock; HR's stop outside office hours.
+  const fri0830 = new Date("2026-09-25T07:30:00Z"); // 08:30 UK, a Friday
+  const c = clocksFor(fri0830, "high", false);
+  check("a High email: accepted within 3 minutes", c.ackDueAt.getTime() - fri0830.getTime() === 3 * 60_000);
+  check("…warned at 2 minutes", c.ackWarnAt.getTime() - fri0830.getTime() === 2 * 60_000);
+  check("…acted on within 15, warned at 10", c.actionDueAt.getTime() - fri0830.getTime() === 15 * 60_000 && c.actionWarnAt.getTime() - fri0830.getTime() === 10 * 60_000);
+  const hr = clocksFor(fri0830, "medium", true);
+  check("HR's clock does not start before 09:00", hr.ackDueAt.toISOString() === "2026-09-25T08:30:00.000Z", hr.ackDueAt.toISOString());
+  const fri1650 = new Date("2026-09-25T15:50:00Z"); // 16:50 UK
+  check("…and carries over the weekend to Monday", addClockMinutes(fri1650, 30, true).toISOString() === "2026-09-28T08:20:00.000Z", addClockMinutes(fri1650, 30, true).toISOString());
+  const low = clocksFor(fri0830, "low", true);
+  check("Low: accepted within 8 office hours", low.ackDueAt.toISOString() === "2026-09-25T16:00:00.000Z", low.ackDueAt.toISOString());
+  check("settings are written 3m, 4h, 1wd", JSON.stringify([parseSpan("3m"), parseSpan("4h"), parseSpan("1wd"), parseSpan("soon")]) === JSON.stringify([{ minutes: 3 }, { minutes: 240 }, { workingDays: 1 }, null]));
+
+  const base = { status: "unassigned", priority: "high" as const, receivedAt: fri0830, ackDueAt: c.ackDueAt, actionDueAt: c.actionDueAt, updateDueAt: null, followUpAt: null, firstActionAt: null, withinSla: null, breaches: 0 };
+  check("unowned: the accept clock runs", currentClock(base, new Date(fri0830.getTime() + 60_000), false).state === "ok");
+  check("…amber at 2 minutes", currentClock(base, new Date(fri0830.getTime() + 2 * 60_000), false).state === "warning");
+  check("…red at 3", currentClock(base, new Date(fri0830.getTime() + 3 * 60_000), false).state === "breached");
+  check("owned with nothing done: the action clock", currentClock({ ...base, status: "accepted" }, new Date(fri0830.getTime() + 60_000), false).clock === "action");
+  check("on hold: waiting for the follow-up", currentClock({ ...base, status: "awaiting_client", firstActionAt: fri0830, followUpAt: new Date(fri0830.getTime() + 3_600_000) }, new Date(fri0830.getTime() + 60_000), false).state === "waiting");
+
+  const later = new Date(fri0830.getTime() + 3_600_000);
+  check("on hold needs the reason, who, when and the last follow-up", !!waitingProblem({ status: "awaiting_client", reason: "Need times", waitingFor: "", followUpAt: later, evidence: "Emailed" }, fri0830));
+  check("…and the follow-up in the future", !!waitingProblem({ status: "awaiting_client", reason: "Need times", waitingFor: "Priya", followUpAt: fri0830, evidence: "Emailed" }, later));
+  check("…with all four it is fine", waitingProblem({ status: "awaiting_client", reason: "Need times", waitingFor: "Priya", followUpAt: later, evidence: "Emailed" }, fri0830) === null);
+  check("closing unsuccessful needs the reason and the fix", !!closeProblem({ outcome: "unsuccessful", reason: "", corrective: "", breaches: 0 }));
+  check("closing anything late needs them too", !!closeProblem({ outcome: "successful", reason: "", corrective: "", breaches: 1 }));
+  check("closing on time, successfully, needs nothing more", closeProblem({ outcome: "successful", reason: "", corrective: "", breaches: 0 }) === null);
+
+  // Sorting without AI: the test inbox's emails land where a person would put them.
+  const expected: Record<string, [string, string]> = { fire: ["incident", "critical"], safeguarding: ["incident", "critical"], late: ["lateness", "high"], cover: ["cover_request", "high"], cancel: ["shift_cancellation", "high"], noshow: ["lateness", "very_high"], sia: ["rtw_sia_expiry", "medium"], rtw: ["rtw_sia_expiry", "very_high"], payroll: ["hr_matter", "high"], invoice: ["invoice_accounts", "medium"], newsletter: ["other", "low"] };
+  for (const [key, [cat, pri]] of Object.entries(expected)) {
+    const e = SAMPLE_EMAILS.find((x) => x.key === key)!;
+    const r = classifyByRules(e.subject, e.body);
+    check(`rules sort “${e.subject}” as ${cat}, ${pri}`, r.category === cat && r.priority === pri, `${r.category}, ${r.priority}`);
+  }
+  check("the summary is the email's own words, without the greeting", openingOf("Control,\n\nThere is a fire in the loading bay. Call me.") === "There is a fire in the loading bay. Call me.", openingOf("Control,\n\nThere is a fire in the loading bay. Call me."));
+  check("Control sees Control's mailbox; HR sees HR's; the MD sees all", departmentsOf("control").join() === "control" && departmentsOf("recruitment").join() === "recruitment" && departmentsOf("top_management").length === 3 && departmentsOf("officer").length === 0);
+}
+
 // --- 2. every action guards ------------------------------------------------
 let actionCount = 0;
-for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me", "alerts", "work", "places", "officers", "welfare", "candidates", "applicant", "employees", "references"]) {
+for (const file of ["operations", "admin", "delegation", "accounts", "recruitment", "onboarding", "screening", "screening-exceptions", "history", "screening-documents", "requirements", "rota", "duty", "me", "alerts", "work", "places", "officers", "welfare", "candidates", "applicant", "employees", "references", "hub"]) {
   const src = readFileSync(new URL(`../lib/actions/${file}.ts`, import.meta.url), "utf8");
   const exported = [...src.matchAll(/export async function (\w+)\(/g)].map((m) => m[1]);
   check(`${file}.ts has server actions to check`, exported.length > 0, `${exported.length} found`);

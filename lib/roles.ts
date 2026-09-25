@@ -36,6 +36,12 @@ export const ROLE_OPTIONS: RoleOption[] = [
       "Raise requirements, check the officer pool, allocate officers and roster them.",
   },
   {
+    id: "shift_supervisor",
+    label: "Shift Supervisor",
+    description:
+      "Everything Control does, plus leading the shift: alerted when email waits for an owner, reassigning work and correcting recorded times.",
+  },
+  {
     id: "operations_manager",
     label: "Operations Manager",
     description:

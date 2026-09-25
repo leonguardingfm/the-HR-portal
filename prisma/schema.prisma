@@ -104,6 +104,7 @@ model Person {
   volunteered    ShiftVolunteer[]
   training       TrainingRecord[]
   emails         EmailMessage[]
+  hubTasks       HubTask[]
 
   @@index([fullName])
   @@index([lifecycle])
@@ -149,6 +150,9 @@ model PersonIdentityKey {
 /// person and the second signature on a large payment would be worth nothing.
 enum Role {
   control
+  /// Leads a Control Room shift: alerted when an email waits too long for an
+  /// owner, reassigns work, and corrects recorded times (Control, 25 September 2026).
+  shift_supervisor
   operations_manager
   recruitment
   recruitment_manager
@@ -242,6 +246,7 @@ model User {
   delegationsHeld    RoleDelegation[]   @relation("DelegationTo")
   delegationsGranted RoleDelegation[]   @relation("DelegationGrantedBy")
   workItems          WorkItem[]         @relation("WorkItemOwner")
+  hubTasksOwned      HubTask[]          @relation("HubTaskOwner")
   events             Event[]
   pushSubscriptions  PushSubscription[]
 
@@ -360,6 +365,7 @@ model Client {
   requirements Requirement[]
   feedback     FormResponse[]
   documents    DocumentRecord[]
+  hubTasks     HubTask[]
 }
 
 model Site {
@@ -395,6 +401,7 @@ model Site {
   documents     DocumentRecord[]
   formResponses FormResponse[]
   exclusions    SiteExclusion[]
+  hubTasks      HubTask[]
 
   @@unique([clientId, name])
 }
@@ -850,6 +857,8 @@ model WorkItem {
   /// A shift on the rota nobody has been put on.
   openShiftId     String?
   incidentId      String?
+  /// An email or task on the Performance hub — a critical one sounds the alarm.
+  hubTaskId       String?
 
   ownerUserId String?
   ownerRole   Role?
@@ -875,6 +884,7 @@ model WorkItem {
   coverNeed     CoverNeed?          @relation(fields: [coverNeedId], references: [id])
   openShift     OpenShift?          @relation(fields: [openShiftId], references: [id])
   incident      Incident?           @relation(fields: [incidentId], references: [id])
+  hubTask       HubTask?            @relation(fields: [hubTaskId], references: [id])
   deliveries    AlertDelivery[]
 
   @@index([ownerUserId, state, dueAt])
@@ -1001,6 +1011,8 @@ model Event {
   documentId      String?
   siteId          String?
   adminItemId     String?
+  /// The Performance hub task it is about — its audit trail.
+  hubTaskId       String?
 
   detail  String?
   /// Before/after for changes. Read-only; nothing queries into it for a KPI,
@@ -1015,6 +1027,7 @@ model Event {
   @@index([department, at])
   @@index([personId, at])
   @@index([assignmentId, at])
+  @@index([hubTaskId, at])
 }
 
 // ===========================================================================
@@ -3021,4 +3034,388 @@ model AccreditationSubmission {
   accreditation Accreditation @relation(fields: [accreditationId], references: [id], onDelete: Cascade)
 
   @@index([accreditationId, submittedOn])
+}
+
+// ===========================================================================
+// DOMAIN — The Performance hub (Control, 25 September 2026)
+//
+// Every email that reaches a shared mailbox, and every call or message logged
+// by hand, becomes one task with one owner and three clocks: accepted, acted
+// on, kept up to date. The original email is kept exactly as it arrived; every
+// change to the task — owner, category, priority, a corrected time — is kept
+// beside it, so the management view is a query, not a claim.
+// ===========================================================================
+
+enum HubSource {
+  outlook
+  manual
+  phone
+  whatsapp
+  other
+}
+
+enum HubCategory {
+  compliance
+  complaint
+  lateness
+  job_renewal
+  cover_request
+  shift_cancellation
+  incident
+  client_request
+  officer_query
+  hr_matter
+  rtw_sia_expiry
+  invoice_accounts
+  other
+}
+
+enum HubPriority {
+  critical
+  very_high
+  high
+  medium
+  low
+}
+
+/// Overdue is not a status: it is shown on top of one ("In progress · overdue")
+/// and recorded as the SLA result (Control, 25 September 2026).
+enum HubStatus {
+  unassigned
+  accepted
+  in_progress
+  awaiting_information
+  awaiting_client
+  awaiting_officer
+  escalated
+  completed
+  unsuccessful
+  cancelled
+}
+
+enum HubOutcome {
+  successful
+  unsuccessful
+  cancelled_by_client
+  cancelled_by_leon
+  dropped_by_leon
+  dropped_by_client
+  no_action_required
+  duplicate_or_mistake
+}
+
+/// test: the built-in test inbox, nothing real. shadow: a real mailbox read and
+/// sorted, but nobody alerted — to compare the AI with people before going live.
+enum MailboxMode {
+  test
+  shadow
+  live
+}
+
+enum HubOwnershipKind {
+  accept
+  reassign
+  handover
+}
+
+enum HubNoteKind {
+  note
+  action
+  response
+  follow_up
+}
+
+enum HubSlaClock {
+  accept
+  action
+  update
+}
+
+enum HubSlaKind {
+  warning
+  breach
+  escalation
+}
+
+enum HubNoticeLevel {
+  info
+  warning
+  critical
+}
+
+/// A shared mailbox the hub watches.
+model Mailbox {
+  id              String      @id @default(cuid())
+  address         String      @unique
+  displayName     String
+  department      Department
+  mode            MailboxMode @default(test)
+  /// HR and Accounts keep office hours: their clocks stop outside them.
+  officeHoursOnly Boolean     @default(false)
+  /// Whether attachments may be read by the AI.
+  readAttachments Boolean     @default(true)
+  active          Boolean     @default(true)
+  lastSyncAt      DateTime?   @db.Timestamptz(3)
+  lastSyncError   String?
+  lastErrorAt     DateTime?   @db.Timestamptz(3)
+  /// Where the next Outlook sync carries on from.
+  syncState       String?
+  createdAt       DateTime    @default(now()) @db.Timestamptz(3)
+
+  emails InboundEmail[]
+  tasks  HubTask[]
+}
+
+/// An email exactly as it arrived. Never changed once written.
+model InboundEmail {
+  id                String   @id @default(cuid())
+  mailboxId         String
+  taskId            String
+  graphMessageId    String?
+  internetMessageId String?
+  conversationId    String?
+  /// Opens the original in Outlook.
+  webLink           String?
+  receivedAt        DateTime @db.Timestamptz(3)
+  fromName          String?
+  fromAddress       String
+  toAddresses       String[]
+  ccAddresses       String[]
+  subject           String
+  bodyText          String
+  hasAttachments    Boolean  @default(false)
+  createdAt         DateTime @default(now()) @db.Timestamptz(3)
+
+  mailbox     Mailbox           @relation(fields: [mailboxId], references: [id])
+  task        HubTask           @relation(fields: [taskId], references: [id])
+  attachments EmailAttachment[]
+
+  @@unique([mailboxId, graphMessageId])
+  @@index([internetMessageId])
+  @@index([conversationId])
+  @@index([taskId, receivedAt])
+}
+
+model EmailAttachment {
+  id         String  @id @default(cuid())
+  emailId    String
+  name       String
+  mimeType   String
+  sizeBytes  Int
+  storageKey String?
+  sha256     String?
+
+  email InboundEmail @relation(fields: [emailId], references: [id])
+
+  @@index([emailId])
+}
+
+model HubTask {
+  id             String     @id @default(cuid())
+  /// EM-1048 for an email, TK-1049 for anything logged by hand.
+  number         Int        @unique @default(autoincrement())
+  source         HubSource
+  mailboxId      String?
+  conversationId String?
+  department     Department
+  subject        String
+  summary        String?
+  requiredAction String?
+  senderName     String?
+  senderAddress  String?
+  receivedAt     DateTime   @db.Timestamptz(3)
+
+  category     HubCategory
+  /// What "Other" means, in the person's words.
+  categoryNote String?
+  priority     HubPriority
+  /// What the AI (or the rules, without it) first said — kept whatever the
+  /// task is corrected to.
+  aiCategory   HubCategory?
+  aiPriority   HubPriority?
+  aiConfidence Float?
+  aiReasons    String?
+  aiModel      String?
+  needsReview  Boolean      @default(false)
+  reviewedAt   DateTime?    @db.Timestamptz(3)
+  reviewedById String?
+
+  clientId         String?
+  siteId           String?
+  /// The officer it is about, where one is named and matched.
+  personId         String?
+  suggestedOwnerId String?
+
+  status          HubStatus @default(unassigned)
+  ownerUserId     String?
+  acceptedAt      DateTime? @db.Timestamptz(3)
+  firstActionAt   DateTime? @db.Timestamptz(3)
+  firstResponseAt DateTime? @db.Timestamptz(3)
+  lastUpdateAt    DateTime? @db.Timestamptz(3)
+  nextAction      String?
+  nextActionAt    DateTime? @db.Timestamptz(3)
+
+  /// The three clocks. Accept and action run from receipt; update from the
+  /// last action, or to the follow-up time while waiting.
+  ackDueAt    DateTime  @db.Timestamptz(3)
+  actionDueAt DateTime  @db.Timestamptz(3)
+  updateDueAt DateTime? @db.Timestamptz(3)
+
+  waitingReason    String?
+  waitingFor       String?
+  followUpAt       DateTime? @db.Timestamptz(3)
+  followUpEvidence String?
+
+  escalatedAt      DateTime? @db.Timestamptz(3)
+  escalationNote   String?
+  /// The owner's shift ended with this still open and not handed over.
+  handoverNeededAt DateTime? @db.Timestamptz(3)
+
+  completedAt         DateTime?   @db.Timestamptz(3)
+  completedById       String?
+  outcome             HubOutcome?
+  outcomeReason       String?
+  correctiveAction    String?
+  withinSla           Boolean?
+  breaches            Int         @default(0)
+  managementAlertedAt DateTime?   @db.Timestamptz(3)
+
+  relatedTaskId String?
+  /// Made from the test inbox, not a real mailbox.
+  test          Boolean  @default(false)
+  createdById   String?
+  updatedById   String?
+  createdAt     DateTime @default(now()) @db.Timestamptz(3)
+  updatedAt     DateTime @updatedAt @db.Timestamptz(3)
+
+  mailbox   Mailbox?       @relation(fields: [mailboxId], references: [id])
+  owner     User?          @relation("HubTaskOwner", fields: [ownerUserId], references: [id])
+  client    Client?        @relation(fields: [clientId], references: [id])
+  site      Site?          @relation(fields: [siteId], references: [id])
+  person    Person?        @relation(fields: [personId], references: [id])
+  emails    InboundEmail[]
+  ownership HubOwnership[]
+  changes   HubChange[]
+  notes     HubNote[]
+  files     HubFile[]
+  slaEvents HubSlaEvent[]
+  notices   HubNotice[]
+  workItems WorkItem[]
+
+  @@index([status, department])
+  @@index([ownerUserId, status])
+  @@index([conversationId])
+  @@index([receivedAt])
+}
+
+/// Every accept, reassignment and handover. Never changed once written.
+model HubOwnership {
+  id         String           @id @default(cuid())
+  taskId     String
+  kind       HubOwnershipKind
+  fromUserId String?
+  toUserId   String
+  byUserId   String
+  reason     String?
+  at         DateTime         @default(now()) @db.Timestamptz(3)
+
+  task HubTask @relation(fields: [taskId], references: [id])
+
+  @@index([taskId, at])
+  @@index([toUserId, at])
+}
+
+/// Every correction — category, priority, a date or time — with the value
+/// before and after. Never changed once written.
+model HubChange {
+  id        String   @id @default(cuid())
+  taskId    String
+  field     String
+  fromValue String?
+  toValue   String?
+  reason    String?
+  byUserId  String
+  at        DateTime @default(now()) @db.Timestamptz(3)
+
+  task HubTask @relation(fields: [taskId], references: [id])
+
+  @@index([taskId, at])
+  @@index([field, at])
+}
+
+/// A progress note, an action taken, a response made. Editing one writes a new
+/// version that replaces it; the old one stays.
+model HubNote {
+  id         String      @id @default(cuid())
+  taskId     String
+  kind       HubNoteKind
+  text       String
+  byUserId   String
+  at         DateTime    @default(now()) @db.Timestamptz(3)
+  replacesId String?     @unique
+
+  task     HubTask   @relation(fields: [taskId], references: [id])
+  replaces HubNote?  @relation("HubNoteVersion", fields: [replacesId], references: [id])
+  newer    HubNote?  @relation("HubNoteVersion")
+  files    HubFile[]
+
+  @@index([taskId, at])
+}
+
+/// Evidence. Removing it hides it and says who and why; the row stays.
+model HubFile {
+  id            String    @id @default(cuid())
+  taskId        String
+  noteId        String?
+  fileName      String
+  mimeType      String
+  sizeBytes     Int
+  sha256        String
+  storageKey    String
+  uploadedById  String
+  at            DateTime  @default(now()) @db.Timestamptz(3)
+  removedAt     DateTime? @db.Timestamptz(3)
+  removedById   String?
+  removedReason String?
+
+  task HubTask  @relation(fields: [taskId], references: [id])
+  note HubNote? @relation(fields: [noteId], references: [id])
+
+  @@index([taskId])
+}
+
+/// A warning, breach or escalation on one of a task's clocks. One of each per
+/// deadline, so a sweep running twice says it once.
+model HubSlaEvent {
+  id          String      @id @default(cuid())
+  taskId      String
+  clock       HubSlaClock
+  kind        HubSlaKind
+  dueAt       DateTime    @db.Timestamptz(3)
+  at          DateTime    @default(now()) @db.Timestamptz(3)
+  ownerUserId String?
+
+  task HubTask @relation(fields: [taskId], references: [id])
+
+  @@unique([taskId, clock, kind, dueAt])
+  @@index([at])
+  @@index([ownerUserId, at])
+}
+
+/// A notification in the top-right corner: to one person, everyone holding a
+/// role, or everyone working a department's mailbox.
+model HubNotice {
+  id         String         @id @default(cuid())
+  seq        Int            @unique @default(autoincrement())
+  taskId     String?
+  level      HubNoticeLevel
+  text       String
+  toUserId   String?
+  toRole     Role?
+  department Department?
+  at         DateTime       @default(now()) @db.Timestamptz(3)
+
+  task HubTask? @relation(fields: [taskId], references: [id])
+
+  @@index([at])
 }

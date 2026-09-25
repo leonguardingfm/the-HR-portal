@@ -121,6 +121,7 @@ export interface NavItem {
 
 const ALL: Role[] = [
   "control",
+  "shift_supervisor",
   "operations_manager",
   "recruitment",
   "recruitment_manager",
@@ -136,6 +137,7 @@ const ALL: Role[] = [
 /** Anyone whose job is the operational picture. */
 const CONTROL_ROOM: Role[] = [
   "control",
+  "shift_supervisor",
   "operations_manager",
   "recruitment_manager",
   "top_management",
@@ -288,11 +290,11 @@ export const NAV: NavItem[] = [
     built: true,
   },
   {
-    href: "/tasks?department=control",
-    label: "Control Room tasks",
-    purpose: "The one work queue, filtered to Control Room. Not a second list.",
+    href: "/hub",
+    label: "Performance hub",
+    purpose: "Every email to the shared mailboxes, and every call logged, as a task with one owner and a clock: accepted in minutes, acted on, kept up to date.",
     group: "Control Room",
-    roles: CONTROL_ROOM,
+    roles: ["control", "shift_supervisor", "operations_manager", "top_management", "auditor"],
     built: true,
   },
 
@@ -303,6 +305,14 @@ export const NAV: NavItem[] = [
     purpose: "Every candidate from first contact to onboarding: application by email link, interviews, offers. Interviews are a filter here, not a screen of their own.",
     group: "HR",
     roles: HR,
+    built: true,
+  },
+  {
+    href: "/hub",
+    label: "Performance hub",
+    purpose: "The HR mailbox as tasks: each email owned, timed and followed through.",
+    group: "HR",
+    roles: ["recruitment", "recruitment_manager", "vetting_admin", "vetting_controller"],
     built: true,
   },
   {
@@ -324,7 +334,7 @@ export const NAV: NavItem[] = [
     label: "Onboarding",
     purpose: "The post-offer admin checklist: Recruitment Sheet, PIN, Casper, Watch List, Maps, notification.",
     group: "HR",
-    roles: ["recruitment", "recruitment_manager", "top_management", "auditor", "control"],
+    roles: ["recruitment", "recruitment_manager", "top_management", "auditor", "control", "shift_supervisor"],
     built: true,
   },
   {
@@ -339,7 +349,7 @@ export const NAV: NavItem[] = [
     label: "Right to work & SIA",
     purpose: "Every licence, right to work and document with an expiry date, and who it blocks.",
     group: "HR",
-    roles: [...MANAGEMENT, "control", "vetting_admin", "recruitment"],
+    roles: [...MANAGEMENT, "control", "shift_supervisor", "vetting_admin", "recruitment"],
     built: true,
   },
 
@@ -394,6 +404,14 @@ export const NAV: NavItem[] = [
     built: true,
   },
   {
+    href: "/hub",
+    label: "Performance hub",
+    purpose: "The Accounts mailbox as tasks: each email owned, timed and followed through.",
+    group: "Admin",
+    roles: ["admin_officer", "admin_manager", "finance_officer"],
+    built: true,
+  },
+  {
     href: "/admin/requests",
     label: "Requests & approvals",
     purpose: "Everything awaiting a decision, and who it is waiting for. The requester is never the approver.",
@@ -438,7 +456,7 @@ export const NAV: NavItem[] = [
     label: "Uniform & stock",
     purpose: "Stock on hand, allocation to officers, and returns from leavers.",
     group: "Admin",
-    roles: [...ADMIN, "recruitment", "control"],
+    roles: [...ADMIN, "recruitment", "control", "shift_supervisor"],
     built: true,
   },
   {

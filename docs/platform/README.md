@@ -16,6 +16,7 @@ worked out in [`docs/proposal`](../proposal/README.md) and is cross-referenced r
 | [04 — Decisions needed](04-decisions-needed.md) | The new questions this scope creates (E-series), separate from the HR ones (A–D in proposal/07) | You are the one who has to decide |
 | [05 — Control discovery](05-control-discovery.md) | The question list for the session with Control, before any rostering estimate | You are about to sit down with Control |
 | [06 — The Admin department](06-admin-department.md) | The approved structure, workflow, approval ladder, reminders and KPIs — and why a role is a job, not a rank | You are working on anything in Admin, or you want to know who approves what |
+| [07 — Hosting requirements](07-hosting-requirements.md) | What the live host must provide: UK residency, encryption, backups and monthly recovery tests, network, secrets, monitoring | You are choosing or briefing a hosting provider |
 
 ## Who decides
 
